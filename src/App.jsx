@@ -213,6 +213,7 @@ const App = () => {
   const [dailyGoalMinutes, setDailyGoalMinutes] = useState(240); // 4 hours
   const [totalFocusSeconds, setTotalFocusSeconds] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [yesterdayMin, setYesterdayMin] = useState(0);
 
   // Edit Goal State
   const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -233,7 +234,12 @@ const App = () => {
               if (session.timeLeft <= 0) {
                 // Timer finished
                 setActiveSessionId(null);
-                // Play sound logic here if needed
+
+                // Play completion sound
+                if (audioRef.current) {
+                    audioRef.current.currentTime = 0;
+                    audioRef.current.play().catch(e => console.log("Audio play failed:", e));
+                }
                 return { ...session, timeLeft: 0, isCompleted: true };
               }
               return { ...session, timeLeft: session.timeLeft - 1 };
@@ -249,6 +255,21 @@ const App = () => {
 
     return () => clearInterval(interval);
   }, [activeSessionId]);
+
+  // Load data from localStorage
+  useEffect(() => {
+    const setData = async () => {
+      let localStreak = Number(localStorage.getItem('streak'));
+      if (!isNaN(localStreak)){
+        setStreak(localStreak);
+      }
+      let yesMinLocal = Number(localStreak.getItem('yesterdayMins'));
+      if (!isNaN(yesMinLocal)){
+        setYesterdayMin(yesMinLocal);
+      }
+    }
+    setData();
+  }, []);
 
   // Handlers
   const handleTotalFocusReset = () => {
@@ -336,7 +357,11 @@ const App = () => {
       </header>
 
       <main className="max-w-7xl mx-auto p-6 md:p-8">
-        
+        <audio 
+            ref={audioRef} 
+            src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" 
+            preload="auto"
+        />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* LEFT COLUMN: Sessions List */}
@@ -437,7 +462,7 @@ const App = () => {
                 <div className="grid grid-cols-3 divide-x divide-slate-100 w-full mt-8 pt-8 border-t border-slate-50">
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Yesterday</div>
-                        <div className="font-bold text-slate-700 text-lg">3.5h</div>
+                        <div className="font-bold text-slate-700 text-lg">{yesterdayMin/60} h {yesterdayMin % 60} min</div>
                     </div>
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Goal</div>
