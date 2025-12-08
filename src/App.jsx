@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Plus, Trash2, RotateCcw, CheckCircle2, MoreHorizontal, X, Pencil } from 'lucide-react';
+import { Play, Pause, Plus, Trash2, RotateCcw, CheckCircle2, MoreHorizontal, X, Pencil, Clock, Underline } from 'lucide-react';
 
 // --- Components ---
 
@@ -54,13 +54,30 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(session.title);
   const [editDuration, setEditDuration] = useState(session.initialDuration / 60); // in minutes
+  const [editDailyGoal, setEditDailyGoal] = useState(session.dailyGoalMinutes); // in minutes
 
   // Calculate progress for this specific session ring
   const progressPercent = 1 - (session.timeLeft / session.initialDuration);
   const totalMinutes = Math.floor(session.timeLeft / 60);
   const seconds = session.timeLeft % 60;
 
+  // Calculate Daily Goal Progress for this session
+  const goalProgressPercent = session.dailyGoalMinutes > 0 
+    ? Math.min((session.timeSpentToday || 0) / (session.dailyGoalMinutes * 60), 1)
+    : 0;
+
+  // Ring calculations for the outer goal ring
+  const outerRadius = 88; // Slightly larger than the inner 80px (w-40)
+  const outerStroke = 4;
+  const outerNormalizedRadius = outerRadius - outerStroke * 2;
+  const outerCircumference = outerNormalizedRadius * 2 * Math.PI;
+  const outerStrokeDashoffset = outerCircumference - goalProgressPercent * outerCircumference;
+
   const handleSave = () => {
+    // Ensure duration and goal are positive numbers
+    const newDuration = Math.max(1, parseInt(editDuration) || 1);
+    const newGoal = Math.max(0, parseInt(editDailyGoal) || 0);
+
     onUpdate(session.id, { 
       title: editTitle, 
       initialDuration: editDuration * 60, 
@@ -215,6 +232,11 @@ const App = () => {
   const [streak, setStreak] = useState(0);
   const [yesterdayMin, setYesterdayMin] = useState(0);
 
+  // settings/menu state
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [resetTime, setResetTime] = useState("00:00"); // midnight
+  const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
+
   // Edit Goal State
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [editGoalHours, setEditGoalHours] = useState(4);
@@ -259,17 +281,44 @@ const App = () => {
   // Load data from localStorage
   useEffect(() => {
     const setData = async () => {
+      // load streak
       let localStreak = Number(localStorage.getItem('streak'));
       if (!isNaN(localStreak)){
         setStreak(localStreak);
       }
-      let yesMinLocal = Number(localStreak.getItem('yesterdayMins'));
+      // load yesterday's focus time
+      let yesMinLocal = Number(localStorage.getItem('yesterdayMins'));
       if (!isNaN(yesMinLocal)){
         setYesterdayMin(yesMinLocal);
+      }
+      // load the last reset date
+      let localLastResetDate = localStorage.getItem('lastResetDate');
+      if (localLastResetDate !== "" && localLastResetDate !== undefined){
+        setLastResetDate(localLastResetDate);
       }
     }
     setData();
   }, []);
+
+  // Effect for Auto-Reset Logic
+  useEffect(() => {
+    const checkResetTime = setInterval(() => {
+      const now = new Date();
+      // Format current time as HH:MM
+      const currentTimeString = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+      const todayDateString = now.toDateString();
+
+      // If time matches preference AND we haven't reset today yet
+      if (currentTimeString === resetTime && lastResetDate !== todayDateString) {
+        setTotalFocusSeconds(0);
+        setLastResetDate(todayDateString);
+        localStorage.setItem('lastResetDate', todayDateString);
+        console.log("Daily progress auto-reset triggered.");
+      }
+    }, 1000);
+
+    return () => clearInterval(checkResetTime);
+  }, [resetTime, lastResetDate]);
 
   // Handlers
   const handleTotalFocusReset = () => {
@@ -350,9 +399,40 @@ const App = () => {
                 <div className="font-bold text-slate-700">{streak} Days</div>
             </div>
             <div className="h-8 w-px bg-slate-200"></div>
-            <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100 text-slate-500'}`}
+            >
                 <MoreHorizontal size={20} className="text-slate-500" />
             </button>
+
+            {isMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
+              <div className="absolute right-0 top-12 bg-white shadow-xl border border-slate-100 rounded-2xl p-5 w-72 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-bold text-slate-800">Settings</h4>
+                  <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600">
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                      <Clock size={12} /> Auto-Reset Daily Goal
+                    </label>
+                    <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
+                    <input
+                      type="time"
+                      value={resetTime}
+                      onChange={(e) => setResetTime(e.target.value)}
+                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+                )}
         </div>
       </header>
 
