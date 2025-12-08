@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Plus, Trash2, RotateCcw, CheckCircle2, MoreHorizontal, X, Pencil, Clock, Underline } from 'lucide-react';
+import { Play, Pause, Plus, Trash2, RotateCcw, CheckCircle2, MoreHorizontal, X, Pencil, Clock } from 'lucide-react';
 
 // --- Components ---
 
 const ProgressRing = ({ radius, stroke, progress, total }) => {
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (progress / total) * circumference;
+  // Handle case where total is 0 to prevent division by zero, set offset to 0 (full progress)
+  const strokeDashoffset = total > 0 ? circumference - (progress / total) * circumference : 0;
   
   const goalHours = Math.floor(total / 60);
   const goalMinutes = total % 60;
@@ -40,7 +41,7 @@ const ProgressRing = ({ radius, stroke, progress, total }) => {
         />
       </svg>
       <div className="absolute flex flex-col items-center text-slate-700">
-        <span className="text-sm font-medium text-slate-500">Daily Goal</span>
+        {/* <span className="text-sm font-medium text-slate-500">Daily Goal</span> */}
         <span className="text-3xl font-bold">{Math.floor(progress / 60)}h {progress % 60}m</span>
         <span className="text-xs text-slate-400">
           of {goalHours}h {goalMinutes > 0 ? `${goalMinutes}m` : ''} goal
@@ -56,7 +57,7 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
   const [editDuration, setEditDuration] = useState(session.initialDuration / 60); // in minutes
   const [editDailyGoal, setEditDailyGoal] = useState(session.dailyGoalMinutes); // in minutes
 
-  // Calculate progress for this specific session ring
+  // Calculate progress for this specific session ring (Timer Countdown)
   const progressPercent = 1 - (session.timeLeft / session.initialDuration);
   const totalMinutes = Math.floor(session.timeLeft / 60);
   const seconds = session.timeLeft % 60;
@@ -65,10 +66,10 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
   const goalProgressPercent = session.dailyGoalMinutes > 0 
     ? Math.min((session.timeSpentToday || 0) / (session.dailyGoalMinutes * 60), 1)
     : 0;
-
+  
   // Ring calculations for the outer goal ring
-  const outerRadius = 88; // Slightly larger than the inner 80px (w-40)
-  const outerStroke = 4;
+  const outerRadius = 80; // Slightly larger than the inner 80px (w-40)
+  const outerStroke = 2;
   const outerNormalizedRadius = outerRadius - outerStroke * 2;
   const outerCircumference = outerNormalizedRadius * 2 * Math.PI;
   const outerStrokeDashoffset = outerCircumference - goalProgressPercent * outerCircumference;
@@ -80,8 +81,9 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
 
     onUpdate(session.id, { 
       title: editTitle, 
-      initialDuration: editDuration * 60, 
-      timeLeft: editDuration * 60 
+      initialDuration: newDuration * 60, 
+      timeLeft: newDuration * 60,
+      dailyGoalMinutes: newGoal,
     });
     setIsEditing(false);
   };
@@ -103,7 +105,9 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
               className="font-semibold text-lg border-b border-slate-300 focus:outline-none focus:border-emerald-500"
               autoFocus
             />
+            {/* Session Length Input */}
             <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 w-24">Session Length:</span>
               <input 
                 type="number"
                 min="1"
@@ -114,6 +118,20 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
               />
               <span className="text-xs text-slate-400">min</span>
             </div>
+            {/* Daily Goal Input */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 w-24">Daily Goal:</span>
+              <input 
+                type="number"
+                min="0"
+                max="300"
+                value={editDailyGoal}
+                onChange={(e) => setEditDailyGoal(parseInt(e.target.value) || 0)}
+                className="w-16 p-1 border rounded text-center text-sm"
+              />
+              <span className="text-xs text-slate-400">min</span>
+            </div>
+
             <div className="flex gap-2 mt-2">
               <button onClick={handleSave} className="text-xs bg-emerald-500 text-white px-2 py-1 rounded">Save</button>
               <button onClick={() => setIsEditing(false)} className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Cancel</button>
@@ -127,7 +145,12 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
             </div>
             <div className="flex gap-1">
               <button 
-                onClick={() => setIsEditing(true)} 
+                onClick={() => {
+                  setEditTitle(session.title);
+                  setEditDuration(session.initialDuration / 60);
+                  setEditDailyGoal(session.dailyGoalMinutes);
+                  setIsEditing(true);
+                }}
                 className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
               >
                 <Pencil size={14} />
@@ -143,23 +166,57 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
         )}
       </div>
 
-      {/* Timer Display */}
+      {/* Timer Display with Nested Rings */}
       <div className="flex flex-col items-center justify-center my-4 relative">
-         {/* Simple background ring for session */}
-         <div className="w-40 h-40 rounded-full border-4 border-slate-100 flex items-center justify-center relative overflow-hidden">
-            {/* Progress Fill Overlay - simplistic vertical fill or conic gradient could go here, keeping it simple text for now to match style */}
-            <div 
-              className="absolute bottom-0 left-0 right-0 bg-emerald-50 transition-all duration-1000 ease-linear opacity-50"
-              style={{ height: `${progressPercent * 100}%` }}
-            />
-            <div className="z-10 text-center">
-              <div className="text-5xl font-bold text-slate-800 tracking-tighter">
-                {String(totalMinutes).padStart(2, '0')}
-              </div>
-              <div className="text-sm font-medium text-slate-400 uppercase tracking-widest mt-1">
-                {seconds < 10 ? `0${seconds}` : seconds}
-              </div>
+         <div className="relative flex items-center justify-center">
+            
+            {/* Outer Ring: Daily Goal Progress */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: 'scale(1.15)' }}>
+               <svg height={200} width={200} className="-rotate-90">
+                  <circle
+                    stroke="#f1f5f9"
+                    strokeWidth={outerStroke}
+                    fill="transparent"
+                    r={outerNormalizedRadius}
+                    cx={80}
+                    cy={100}
+                  />
+                  <circle
+                    stroke="#3b82f6" // blue-500
+                    strokeWidth={outerStroke}
+                    strokeDasharray={outerCircumference + ' ' + outerCircumference}
+                    style={{ strokeDashoffset: outerStrokeDashoffset, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
+                    strokeLinecap="round"
+                    fill="transparent"
+                    r={outerNormalizedRadius}
+                    cx={80}
+                    cy={100}
+                  />
+               </svg>
             </div>
+
+            {/* Inner Ring: Session Timer (Existing) */}
+            <div className="w-40 h-40 rounded-full border-4 border-slate-100 flex items-center justify-center relative overflow-hidden z-10 bg-white">
+                {/* Progress Fill Overlay */}
+                <div 
+                  className="absolute bottom-0 left-0 right-0 bg-emerald-50 transition-all duration-1000 ease-linear opacity-50"
+                  style={{ height: `${progressPercent * 100}%` }}
+                />
+                <div className="z-10 text-center">
+                  <div className="text-5xl font-bold text-slate-800 tracking-tighter">
+                    {String(totalMinutes).padStart(2, '0')}
+                  </div>
+                  <div className="text-sm font-medium text-slate-400 uppercase tracking-widest mt-1">
+                    {seconds < 10 ? `0${seconds}` : seconds}
+                  </div>
+                </div>
+            </div>
+         </div>
+         
+         {/* Goal Progress Text */}
+         <div className="mt-2 text-xs font-medium text-slate-400 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Daily Goal: {Math.round(goalProgressPercent * 100)}%
          </div>
       </div>
 
@@ -219,30 +276,29 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
 const App = () => {
   // State
   const [sessions, setSessions] = useState([
-    { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false },
-    { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false },
-    { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false },
+    { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, timeSpentToday: 0 },
+    { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, timeSpentToday: 0 }, 
+    { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, timeSpentToday: 0 },
   ]);
   
   const [activeSessionId, setActiveSessionId] = useState(null);
   
   // Global stats state
-  const [dailyGoalMinutes, setDailyGoalMinutes] = useState(240); // 4 hours
   const [totalFocusSeconds, setTotalFocusSeconds] = useState(0);
   const [streak, setStreak] = useState(0);
   const [yesterdayMin, setYesterdayMin] = useState(0);
 
-  // settings/menu state
+  // Settings / Menu State
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [resetTime, setResetTime] = useState("00:00"); // midnight
+  const [resetTime, setResetTime] = useState("00:00"); // Default midnight
   const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
-
-  // Edit Goal State
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [editGoalHours, setEditGoalHours] = useState(4);
 
   // Audio ref for timer end
   const audioRef = useRef(null);
+  
+  // Derived State: Calculate total daily goal from individual session goals
+  const totalDailyGoalMinutes = sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
+
 
   // Timer Effect
   useEffect(() => {
@@ -256,15 +312,21 @@ const App = () => {
               if (session.timeLeft <= 0) {
                 // Timer finished
                 setActiveSessionId(null);
-
+                
                 // Play completion sound
                 if (audioRef.current) {
                     audioRef.current.currentTime = 0;
                     audioRef.current.play().catch(e => console.log("Audio play failed:", e));
                 }
+
                 return { ...session, timeLeft: 0, isCompleted: true };
               }
-              return { ...session, timeLeft: session.timeLeft - 1 };
+              // Decrement timer AND increment daily progress
+              return { 
+                  ...session, 
+                  timeLeft: session.timeLeft - 1,
+                  timeSpentToday: (session.timeSpentToday || 0) + 1 
+              };
             }
             return session;
           });
@@ -320,10 +382,8 @@ const App = () => {
     return () => clearInterval(checkResetTime);
   }, [resetTime, lastResetDate]);
 
+
   // Handlers
-  const handleTotalFocusReset = () => {
-    setTotalFocusSeconds(0);
-  }
   const handleStart = (id) => {
     setActiveSessionId(id);
   };
@@ -359,14 +419,15 @@ const App = () => {
       title: 'New Session',
       initialDuration: 30 * 60,
       timeLeft: 30 * 60,
-      isCompleted: false
+      isCompleted: false,
+      dailyGoalMinutes: 30, // Default goal for new sessions
+      timeSpentToday: 0,
     }]);
   };
 
-  const handleSaveGoal = () => {
-    // Convert hours to minutes
-    setDailyGoalMinutes(editGoalHours * 60);
-    setIsEditingGoal(false);
+  const handleResetDailyProgress = () => {
+    setTotalFocusSeconds(0);
+    setLastResetDate(new Date().toDateString()); // Mark as reset for today
   };
 
   // Derived State for UI
@@ -393,55 +454,62 @@ const App = () => {
            </div>
         </div>
 
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-6 relative">
             <div className="text-right">
                 <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Streak</div>
                 <div className="font-bold text-slate-700">{streak} Days</div>
             </div>
             <div className="h-8 w-px bg-slate-200"></div>
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)}
+            
+            <div className="relative">
+                <button 
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100 text-slate-500'}`}
-            >
-                <MoreHorizontal size={20} className="text-slate-500" />
-            </button>
+                >
+                    <MoreHorizontal size={20} />
+                </button>
 
-            {isMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-              <div className="absolute right-0 top-12 bg-white shadow-xl border border-slate-100 rounded-2xl p-5 w-72 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold text-slate-800">Settings</h4>
-                  <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600">
-                    <X size={16} />
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                      <Clock size={12} /> Auto-Reset Daily Goal
-                    </label>
-                    <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
-                    <input
-                      type="time"
-                      value={resetTime}
-                      onChange={(e) => setResetTime(e.target.value)}
-                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
+                {isMenuOpen && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
+                        <div className="absolute right-0 top-12 bg-white shadow-xl border border-slate-100 rounded-2xl p-5 w-72 z-50 animate-in fade-in zoom-in-95 duration-100">
+                             <div className="flex items-center justify-between mb-4">
+                                <h4 className="font-bold text-slate-800">Settings</h4>
+                                <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                    <X size={16} />
+                                </button>
+                             </div>
+                             
+                             <div className="space-y-4">
+                                <div className="flex flex-col gap-2">
+                                   <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                      <Clock size={12} /> Auto-Reset Daily Goal
+                                   </label>
+                                   <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
+                                   <input 
+                                      type="time" 
+                                      value={resetTime} 
+                                      onChange={(e) => setResetTime(e.target.value)}
+                                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                                   />
+                                </div>
+                             </div>
+                        </div>
+                    </>
                 )}
+            </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto p-6 md:p-8">
+        
+        {/* Hidden Audio Element */}
         <audio 
             ref={audioRef} 
             src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" 
             preload="auto"
         />
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* LEFT COLUMN: Sessions List */}
@@ -488,65 +556,34 @@ const App = () => {
              {/* Progress Card */}
              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
                 <div className="w-full flex justify-between items-center mb-6 h-8">
-                    {isEditingGoal ? (
-                        <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-top-1">
-                            <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Goal (h):</span>
-                            <input 
-                                type="number"
-                                min="0.5"
-                                step="0.5"
-                                max="24"
-                                value={editGoalHours}
-                                onChange={(e) => setEditGoalHours(Number(e.target.value))}
-                                className="w-16 border-b border-emerald-500 focus:outline-none text-center font-bold text-slate-700"
-                                autoFocus
-                            />
-                            <div className="flex gap-1 ml-auto">
-                                <button onClick={handleSaveGoal} className="text-xs bg-emerald-500 text-white px-2 py-1 rounded hover:bg-emerald-600">Save</button>
-                                <button onClick={() => setIsEditingGoal(false)} className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded hover:bg-slate-300">Cancel</button>
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            <h3 className="font-bold text-lg text-slate-800">Daily Progress</h3>
-                            <div className="flex gap-1">
-                              <button 
-                                  onClick={() => {
-                                      setEditGoalHours(dailyGoalMinutes / 60);
-                                      setIsEditingGoal(true);
-                                  }}
-                                  className="p-1 rounded-full hover:bg-slate-100 transition-colors"
-                              >
-                                  <Pencil size={16} className="text-slate-400 hover:text-emerald-600" />
-                              </button>
-                              <button 
-                                  onClick={() => {
-                                      handleTotalFocusReset();
-                                  }}
-                                  className="p-1 rounded-full hover:bg-slate-100 transition-colors"
-                              >
-                                  <RotateCcw size={16} className="text-slate-400 hover:text-emerald-600" />
-                              </button>
-                            </div>
-                        </>
-                    )}
+                   <h3 className="font-bold text-lg text-slate-800">Daily Progress</h3>
+                   <div className="flex gap-1">
+                       <button 
+                           onClick={handleResetDailyProgress}
+                           className="p-1 rounded-full hover:bg-slate-100 transition-colors"
+                           title="Start New Day (Reset Progress)"
+                       >
+                           <RotateCcw size={16} className="text-slate-400 hover:text-emerald-600" />
+                       </button>
+                   </div>
                 </div>
                 
                 <ProgressRing 
                    radius={100} 
                    stroke={12} 
                    progress={Math.floor(totalFocusSeconds / 60)} 
-                   total={dailyGoalMinutes} 
+                   total={totalDailyGoalMinutes} 
                 />
 
                 <div className="grid grid-cols-3 divide-x divide-slate-100 w-full mt-8 pt-8 border-t border-slate-50">
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Yesterday</div>
-                        <div className="font-bold text-slate-700 text-lg">{yesterdayMin/60} h {yesterdayMin % 60} min</div>
+                        <div className="font-bold text-slate-700 text-lg">{yesterdayMin / 60} h {yesterdayMin % 60} min</div>
                     </div>
                     <div className="text-center px-2">
-                        <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Goal</div>
-                        <div className="font-bold text-emerald-600 text-lg">{Math.floor(dailyGoalMinutes / 60)}h</div>
+                        <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Total Goal</div>
+                        {/* Display the calculated total goal from all sessions */}
+                        <div className="font-bold text-emerald-600 text-lg">{Math.floor(totalDailyGoalMinutes / 60)}h {totalDailyGoalMinutes % 60} min</div>
                     </div>
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Streak</div>
