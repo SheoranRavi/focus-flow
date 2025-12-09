@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Play, Pause, Plus, Trash2, RotateCcw, CheckCircle2, MoreHorizontal, X, Pencil, Clock } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
@@ -18,7 +18,6 @@ const App = () => {
   const [activeSessionId, setActiveSessionId] = useState(null);
   
   // Global stats state
-  const [totalFocusSeconds, setTotalFocusSeconds] = useState(0);
   const [streak, setStreak] = useState(0);
   const [yesterdayMin, setYesterdayMin] = useState(0);
 
@@ -69,11 +68,6 @@ const App = () => {
                 }
                 return session;
             });
-            
-            // Side effect: Update total stats if time passed
-            if (delta > 0) {
-                setTotalFocusSeconds(prev => prev + delta);
-            }
 
             // Check completion
             const activeSession = updatedSessions.find(s => s.id === activeSessionId);
@@ -122,8 +116,6 @@ const App = () => {
         } catch (e){
           console.error(`Error parsing local sessions: ${e}`);
         }
-      } else{
-        
       }
     }
     setData();
@@ -140,7 +132,8 @@ const App = () => {
 
       // If time matches preference AND we haven't reset today yet
       if (currentTimeString === resetTime && lastResetDate !== todayDateString) {
-        setTotalFocusSeconds(0);
+        // ToDo: Fix this
+        //setTotalFocusSeconds(0);
         setLastResetDate(todayDateString);
         localStorage.setItem('lastResetDate', todayDateString);
         console.log("Daily progress auto-reset triggered.");
@@ -153,6 +146,10 @@ const App = () => {
   // update sessions in localStorage
   useEffect(() => {
     localStorage.setItem('sessions', JSON.stringify(sessions));
+  }, [sessions]);
+
+  const totalFocusSeconds = useMemo(() => {
+    return sessions.reduce((sum, s) => sum + s.timeSpentToday, 0);
   }, [sessions]);
 
   const handleStart = (id) => {
@@ -219,7 +216,7 @@ const App = () => {
   };
 
   const handleResetDailyProgress = () => {
-    setTotalFocusSeconds(0);
+    setSessions(prev => prev.map(s => ({ ...s, timeSpentToday: 0 })));
     setLastResetDate(new Date().toDateString()); // Mark as reset for today
   };
 
