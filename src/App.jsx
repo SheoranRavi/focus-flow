@@ -6,11 +6,14 @@ import SessionCard from './components/SessionCard/SessionCard';
 // --- Main App Component ---
 const App = () => {
   // State
-  const [sessions, setSessions] = useState([
-    { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, timeSpentToday: 0 },
-    { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, timeSpentToday: 0 }, 
-    { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, timeSpentToday: 0 },
-  ]);
+  const [sessions, setSessions] = useState(() => {
+    const stored = localStorage.getItem('sessions');
+    return stored ? JSON.parse(stored) : [
+        { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, timeSpentToday: 0 },
+        { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, timeSpentToday: 0 }, 
+        { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, timeSpentToday: 0 },
+      ];
+  });
   
   const [activeSessionId, setActiveSessionId] = useState(null);
   
@@ -30,42 +33,62 @@ const App = () => {
   // Derived State: Calculate total daily goal from individual session goals
   const totalDailyGoalMinutes = sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
 
-
   // Timer Effect
   useEffect(() => {
     let interval = null;
 
     if (activeSessionId) {
       interval = setInterval(() => {
+        const now = Date.now();
+        
+        // Use a functional update to modify session state and global stats together
         setSessions(prevSessions => {
-          return prevSessions.map(session => {
-            if (session.id === activeSessionId) {
-              if (session.timeLeft <= 0) {
-                // Timer finished
-                setActiveSessionId(null);
-                
-                // Play completion sound
-                if (audioRef.current) {
+            let delta = 0;
+            const updatedSessions = prevSessions.map(session => {
+                if (session.id === activeSessionId) {
+                    // Safety check: ensure targetTime is set. 
+                    // handleStart should set it.
+                    if (!session.targetTime) return session;
+
+                    // Calculate expected remaining seconds based on target
+                    const secondsLeft = Math.max(0, Math.ceil((session.targetTime - now) / 1000));
+                    
+                    // The difference between what we had in state (timeLeft) and real time (secondsLeft)
+                    // is how much time passed since the last tick (or since tab wake up)
+                    delta = Math.max(0, session.timeLeft - secondsLeft);
+
+                    if (secondsLeft <= 0) {
+                        return { ...session, timeLeft: 0, isCompleted: true, timeSpentToday: (session.timeSpentToday || 0) + delta };
+                    }
+                    
+                    return { 
+                        ...session, 
+                        timeLeft: secondsLeft, 
+                        timeSpentToday: (session.timeSpentToday || 0) + delta 
+                    };
+                }
+                return session;
+            });
+            
+            // Side effect: Update total stats if time passed
+            if (delta > 0) {
+                setTotalFocusSeconds(prev => prev + delta);
+            }
+
+            // Check completion
+            const activeSession = updatedSessions.find(s => s.id === activeSessionId);
+            if (activeSession && activeSession.isCompleted) {
+                 setActiveSessionId(null);
+                 if (audioRef.current) {
                     audioRef.current.currentTime = 0;
                     audioRef.current.play().catch(e => console.log("Audio play failed:", e));
-                }
-
-                return { ...session, timeLeft: 0, isCompleted: true };
-              }
-              // Decrement timer AND increment daily progress
-              return { 
-                  ...session, 
-                  timeLeft: session.timeLeft - 1,
-                  timeSpentToday: (session.timeSpentToday || 0) + 1 
-              };
+                 }
             }
-            return session;
-          });
+
+            return updatedSessions;
         });
 
-        // Increment total focus time
-        setTotalFocusSeconds(prev => prev + 1);
-      }, 1000);
+      }, 1000); // Check every second
     }
 
     return () => clearInterval(interval);
@@ -90,7 +113,21 @@ const App = () => {
         setLastResetDate(localLastResetDate);
       }
     }
+    const loadSessions = async () => {
+      let lSessions = localStorage.getItem('sessions');
+      if (lSessions !== undefined){
+        try{
+          let lSessionsObj = JSON.parse(lSessions);
+          setSessions(lSessionsObj);
+        } catch (e){
+          console.error(`Error parsing local sessions: ${e}`);
+        }
+      } else{
+        
+      }
+    }
     setData();
+    loadSessions();
   }, []);
 
   // Effect for Auto-Reset Logic
@@ -113,9 +150,21 @@ const App = () => {
     return () => clearInterval(checkResetTime);
   }, [resetTime, lastResetDate]);
 
+  // update sessions in localStorage
+  useEffect(() => {
+    localStorage.setItem('sessions', JSON.stringify(sessions));
+  }, [sessions]);
 
-  // Handlers
   const handleStart = (id) => {
+    // When starting, set the target end time based on current time + remaining duration
+    // This ensures accuracy even if the thread sleeps
+    const now = Date.now();
+    setSessions(prev => prev.map(s => {
+        if (s.id === id) {
+            return { ...s, targetTime: now + (s.timeLeft * 1000) };
+        }
+        return s;
+    }));
     setActiveSessionId(id);
   };
 
@@ -138,9 +187,21 @@ const App = () => {
   };
 
   const handleUpdate = (id, newDetails) => {
-    setSessions(prev => prev.map(s => 
-      s.id === id ? { ...s, ...newDetails, isCompleted: false } : s
-    ));
+    setSessions(prev => {
+        return prev.map(s => {
+            if (s.id === id) {
+                const updatedSession = { ...s, ...newDetails, isCompleted: false };
+
+                // If we are updating the currently running session (e.g. changing duration),
+                // we must update the targetTime to reflect the new duration immediately
+                if (id === activeSessionId) {
+                    updatedSession.targetTime = Date.now() + (updatedSession.timeLeft * 1000);
+                }
+                return updatedSession;
+            }
+            return s;
+        });
+    });
   };
 
   const handleAddSession = () => {
@@ -154,6 +215,7 @@ const App = () => {
       dailyGoalMinutes: 30, // Default goal for new sessions
       timeSpentToday: 0,
     }]);
+    handleAddSession();
   };
 
   const handleResetDailyProgress = () => {
