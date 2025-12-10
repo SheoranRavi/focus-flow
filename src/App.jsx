@@ -8,7 +8,17 @@ const App = () => {
   // State
   const [sessions, setSessions] = useState(() => {
     const stored = localStorage.getItem('sessions');
-    return stored ? JSON.parse(stored) : [
+    if (stored){
+      try {
+            const parsedData = JSON.parse(stored);
+            if (Array.isArray(parsedData)) {
+                return parsedData;
+            }
+        } catch (e) {
+            console.error("Error parsing sessions from localStorage:", e);
+        }
+    }
+    return [
         { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, timeSpentToday: 0 },
         { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, timeSpentToday: 0 }, 
         { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, timeSpentToday: 0 },
@@ -107,19 +117,7 @@ const App = () => {
         setLastResetDate(localLastResetDate);
       }
     }
-    const loadSessions = async () => {
-      let lSessions = localStorage.getItem('sessions');
-      if (lSessions !== undefined){
-        try{
-          let lSessionsObj = JSON.parse(lSessions);
-          setSessions(lSessionsObj);
-        } catch (e){
-          console.error(`Error parsing local sessions: ${e}`);
-        }
-      }
-    }
     setData();
-    loadSessions();
   }, []);
 
   // Effect for Auto-Reset Logic
