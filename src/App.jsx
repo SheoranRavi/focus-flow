@@ -147,7 +147,8 @@ const App = () => {
   }, [sessions]);
 
   const totalFocusSeconds = useMemo(() => {
-    return sessions.reduce((sum, s) => sum + s.timeSpentToday, 0);
+    // do not count a session time towards daily goal once session goal is achieved
+    return sessions.reduce((sum, s) => sum + Math.min(s.timeSpentToday, s.dailyGoalMinutes * 60), 0);
   }, [sessions]);
 
   const handleStart = (id) => {
