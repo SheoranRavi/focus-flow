@@ -1,0 +1,20 @@
+- Track the goals by `name` instead of id
+  - generate the analytics using this name
+  - If the name changes (during edit), classify it as a new Goal
+    - Do we change the id in that case?
+- Add a drag and drop functionality to re-arrange the goals
+  - OR, just have the active one sit at the top
+- Add the spotify integration
+
+
+## Backend requirements
+- Compute analytics
+  - Time spent per task per unit of time (day, week, month)
+- Store data
+
+## Questions
+- At what interval should you call the API
+  - Data is safely stored in the local storage, but multiple device sync would be an issue if not synced regularly
+    - If doing multiple device sync thingy, then need to track state in the backend, which timer is running
+    - Don't have to have something always running, just need to update in the DB, so something like serverless functions also works
+    
