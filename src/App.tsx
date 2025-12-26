@@ -214,7 +214,6 @@ const App: React.FC = () => {
       dailyGoalMinutes: 30, // Default goal for new sessions
       timeSpentToday: 0,
     }]);
-    handleAddSession();
   };
 
   const handleResetDailyProgress = () => {
