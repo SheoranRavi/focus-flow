@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Play, Pause, Plus, Trash2, RotateCcw, CheckCircle2, MoreHorizontal, X, Pencil, Clock } from 'lucide-react';
+import { Play, Pause, Trash2, RotateCcw, CheckCircle2, Pencil } from 'lucide-react';
+import { SessionCardProps } from '@/types';
 
-const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, onReset }) => {
+const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, onPause, onDelete, onUpdate, onReset }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(session.title);
   const [editDuration, setEditDuration] = useState(session.initialDuration / 60); // in minutes
@@ -26,8 +27,8 @@ const SessionCard = ({ session, isActive, onStart, onPause, onDelete, onUpdate, 
 
   const handleSave = () => {
     // Ensure duration and goal are positive numbers
-    const newDuration = Math.max(1, parseInt(editDuration) || 1);
-    const newGoal = Math.max(0, parseInt(editDailyGoal) || 0);
+    const newDuration = Math.max(1, parseInt(String(editDuration)) || 1);
+    const newGoal = Math.max(0, parseInt(String(editDailyGoal)) || 0);
 
     onUpdate(session.id, { 
       title: editTitle, 

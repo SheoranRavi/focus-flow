@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Play, Pause, Plus, Trash2, RotateCcw, CheckCircle2, MoreHorizontal, X, Pencil, Clock } from 'lucide-react';
+import { Plus, RotateCcw, CheckCircle2, MoreHorizontal, X, Clock } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
+import { Session } from './types';
 
 // --- Main App Component ---
-const App = () => {
+const App: React.FC = () => {
   // State
-  const [sessions, setSessions] = useState(() => {
+  const [sessions, setSessions] = useState<Session[]>(() => {
     const stored = localStorage.getItem('sessions');
     if (stored){
       try {
@@ -25,7 +26,7 @@ const App = () => {
       ];
   });
   
-  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   
   // Global stats state
   const [streak, setStreak] = useState(0);
@@ -37,14 +38,14 @@ const App = () => {
   const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
 
   // Audio ref for timer end
-  const audioRef = useRef(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   
   // Derived State: Calculate total daily goal from individual session goals
   const totalDailyGoalMinutes = sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
 
   // Timer Effect
   useEffect(() => {
-    let interval = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
     if (activeSessionId) {
       interval = setInterval(() => {
@@ -85,7 +86,7 @@ const App = () => {
                  setActiveSessionId(null);
                  if (audioRef.current) {
                     audioRef.current.currentTime = 0;
-                    audioRef.current.play().catch(e => console.log("Audio play failed:", e));
+                    audioRef.current.play().catch((e: Error) => console.log("Audio play failed:", e));
                  }
             }
 
@@ -95,7 +96,9 @@ const App = () => {
       }, 1000); // Check every second
     }
 
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [activeSessionId]);
 
   // Load data from localStorage
@@ -113,7 +116,7 @@ const App = () => {
       }
       // load the last reset date
       let localLastResetDate = localStorage.getItem('lastResetDate');
-      if (localLastResetDate !== "" && localLastResetDate !== undefined){
+      if (localLastResetDate !== "" && localLastResetDate !== null){
         setLastResetDate(localLastResetDate);
       }
     }
@@ -151,7 +154,7 @@ const App = () => {
     return sessions.reduce((sum, s) => sum + Math.min(s.timeSpentToday, s.dailyGoalMinutes * 60), 0);
   }, [sessions]);
 
-  const handleStart = (id) => {
+  const handleStart = (id: number) => {
     // When starting, set the target end time based on current time + remaining duration
     // This ensures accuracy even if the thread sleeps
     const now = Date.now();
@@ -164,25 +167,25 @@ const App = () => {
     setActiveSessionId(id);
   };
 
-  const handlePause = (id) => {
+  const handlePause = (id: number) => {
     if (activeSessionId === id) {
       setActiveSessionId(null);
     }
   };
 
-  const handleReset = (id) => {
+  const handleReset = (id: number) => {
     setSessions(prev => prev.map(s => 
       s.id === id ? { ...s, timeLeft: s.initialDuration, isCompleted: false } : s
     ));
     if (activeSessionId === id) setActiveSessionId(null);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (id: number) => {
     setSessions(prev => prev.filter(s => s.id !== id));
     if (activeSessionId === id) setActiveSessionId(null);
   };
 
-  const handleUpdate = (id, newDetails) => {
+  const handleUpdate = (id: number, newDetails: Partial<Session>) => {
     setSessions(prev => {
         return prev.map(s => {
             if (s.id === id) {

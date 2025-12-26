@@ -1,6 +1,7 @@
 import React from 'react';
+import { ProgressRingProps } from '@/types';
 
-const ProgressRing = ({ radius, stroke, progress, total }) => {
+const ProgressRing: React.FC<ProgressRingProps> = ({ radius, stroke, progress, total }) => {
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   // Handle case where total is 0 to prevent division by zero, set offset to 0 (full progress)
@@ -47,4 +48,5 @@ const ProgressRing = ({ radius, stroke, progress, total }) => {
     </div>
   );
 };
+
 export default ProgressRing;
