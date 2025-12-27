@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Session interface based on README documentation
 export interface Session {
   id: number;
   title: string;
@@ -8,7 +7,7 @@ export interface Session {
   timeLeft: number; // in seconds
   isCompleted: boolean;
   dailyGoalMinutes: number; // adjustable daily goal
-  timeSpentToday: number; // time spent on this task today in seconds
+  focusSeconds: number; // time spent on this task today in seconds
   targetTime?: number; // the target timestamp at which this timer is supposed to complete
 }
 

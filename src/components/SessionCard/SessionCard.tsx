@@ -15,7 +15,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
 
   // Calculate Daily Goal Progress for this session
   const goalProgressPercent = session.dailyGoalMinutes > 0 
-    ? Math.min((session.timeSpentToday || 0) / (session.dailyGoalMinutes * 60), 1)
+    ? Math.min((session.focusSeconds || 0) / (session.dailyGoalMinutes * 60), 1)
     : 0;
   
   // Ring calculations for the outer goal ring

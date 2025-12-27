@@ -5,7 +5,7 @@
 - Add a drag and drop functionality to re-arrange the goals
   - OR, just have the active one sit at the top
 - Add the spotify integration
-
+- Add tooltip to the Daily Progress Reset button : `If reset performed manually, the timer reset will not reset time on the same date`
 
 ## Backend requirements
 - Compute analytics
@@ -17,4 +17,6 @@
   - Data is safely stored in the local storage, but multiple device sync would be an issue if not synced regularly
     - If doing multiple device sync thingy, then need to track state in the backend, which timer is running
     - Don't have to have something always running, just need to update in the DB, so something like serverless functions also works
-    
+- How to geneerate analytics?
+  - Demarcate by Reset time or 12:00 midnight local usertime?
+    - Demarcate by Reset time.

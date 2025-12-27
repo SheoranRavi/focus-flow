@@ -20,9 +20,9 @@ const App: React.FC = () => {
         }
     }
     return [
-        { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, timeSpentToday: 0 },
-        { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, timeSpentToday: 0 }, 
-        { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, timeSpentToday: 0 },
+        { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0 },
+        { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0 }, 
+        { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0 },
       ];
   });
   
@@ -30,7 +30,7 @@ const App: React.FC = () => {
   
   // Global stats state
   const [streak, setStreak] = useState(0);
-  const [yesterdayMin, setYesterdayMin] = useState(0);
+  const [yesterdayMinutes, setYesterdayMinutes] = useState(0);
 
   // Settings / Menu State
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -68,13 +68,13 @@ const App: React.FC = () => {
                     delta = Math.max(0, session.timeLeft - secondsLeft);
 
                     if (secondsLeft <= 0) {
-                        return { ...session, timeLeft: 0, isCompleted: true, timeSpentToday: (session.timeSpentToday || 0) + delta };
+                        return { ...session, timeLeft: 0, isCompleted: true, focusSeconds: (session.focusSeconds || 0) + delta };
                     }
                     
                     return { 
                         ...session, 
                         timeLeft: secondsLeft, 
-                        timeSpentToday: (session.timeSpentToday || 0) + delta 
+                        focusSeconds: (session.focusSeconds || 0) + delta 
                     };
                 }
                 return session;
@@ -112,7 +112,7 @@ const App: React.FC = () => {
       // load yesterday's focus time
       let yesMinLocal = Number(localStorage.getItem('yesterdayMins'));
       if (!isNaN(yesMinLocal)){
-        setYesterdayMin(yesMinLocal);
+        setYesterdayMinutes(yesMinLocal);
       }
       // load the last reset date
       let localLastResetDate = localStorage.getItem('lastResetDate');
@@ -151,7 +151,7 @@ const App: React.FC = () => {
 
   const totalFocusSeconds = useMemo(() => {
     // do not count a session time towards daily goal once session goal is achieved
-    return sessions.reduce((sum, s) => sum + Math.min(s.timeSpentToday, s.dailyGoalMinutes * 60), 0);
+    return sessions.reduce((sum, s) => sum + Math.min(s.focusSeconds, s.dailyGoalMinutes * 60), 0);
   }, [sessions]);
 
   const handleStart = (id: number) => {
@@ -212,12 +212,12 @@ const App: React.FC = () => {
       timeLeft: 30 * 60,
       isCompleted: false,
       dailyGoalMinutes: 30, // Default goal for new sessions
-      timeSpentToday: 0,
+      focusSeconds: 0,
     }]);
   };
 
   const handleResetDailyProgress = () => {
-    setSessions(prev => prev.map(s => ({ ...s, timeSpentToday: 0 })));
+    setSessions(prev => prev.map(s => ({ ...s, focusSeconds: 0 })));
     setLastResetDate(new Date().toDateString()); // Mark as reset for today
   };
 
@@ -369,7 +369,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-3 divide-x divide-slate-100 w-full mt-8 pt-8 border-t border-slate-50">
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Yesterday</div>
-                        <div className="font-bold text-slate-700 text-lg">{yesterdayMin / 60} h {yesterdayMin % 60} min</div>
+                        <div className="font-bold text-slate-700 text-lg">{yesterdayMinutes / 60} h {yesterdayMinutes % 60} min</div>
                     </div>
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Total Goal</div>
