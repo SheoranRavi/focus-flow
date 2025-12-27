@@ -34,8 +34,15 @@ const App: React.FC = () => {
 
   // Settings / Menu State
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [resetTime, setResetTime] = useState("00:00"); // Default midnight
-  const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
+  const [resetTime, setResetTime] = useState(() => {
+    let stored = localStorage.getItem('resetTime');
+    if (stored !== undefined){
+      // ToDo: validate the format
+      return stored;
+    }else{
+      return "00:00";
+    }
+  });
 
   // Audio ref for timer end
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -114,14 +121,14 @@ const App: React.FC = () => {
       if (!isNaN(yesMinLocal)){
         setYesterdayMinutes(yesMinLocal);
       }
-      // load the last reset date
-      let localLastResetDate = localStorage.getItem('lastResetDate');
-      if (localLastResetDate !== "" && localLastResetDate !== null){
-        setLastResetDate(localLastResetDate);
-      }
     }
     setData();
   }, []);
+
+  // handler for resetting the total daily progress
+  const handleResetDailyProgress = () => {
+    setSessions(prev => prev.map(s => ({ ...s, focusSeconds: 0 })));
+  };
 
   // Effect for Auto-Reset Logic
   useEffect(() => {
@@ -129,20 +136,17 @@ const App: React.FC = () => {
       const now = new Date();
       // Format current time as HH:MM
       const currentTimeString = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-      const todayDateString = now.toDateString();
 
       // If time matches preference AND we haven't reset today yet
-      if (currentTimeString === resetTime && lastResetDate !== todayDateString) {
+      if (currentTimeString === resetTime) {
         // ToDo: Fix this
-        //setTotalFocusSeconds(0);
-        setLastResetDate(todayDateString);
-        localStorage.setItem('lastResetDate', todayDateString);
+        handleResetDailyProgress();
         console.log("Daily progress auto-reset triggered.");
       }
     }, 1000);
 
     return () => clearInterval(checkResetTime);
-  }, [resetTime, lastResetDate]);
+  }, [resetTime]);
 
   // update sessions in localStorage
   useEffect(() => {
@@ -203,6 +207,11 @@ const App: React.FC = () => {
     });
   };
 
+  const handleSetResetTime = (newTime: string) => {
+    setResetTime(newTime);
+    localStorage.setItem("resetTime", newTime);
+  }
+
   const handleAddSession = () => {
     const newId = Math.max(...sessions.map(s => s.id), 0) + 1;
     setSessions([...sessions, {
@@ -214,11 +223,6 @@ const App: React.FC = () => {
       dailyGoalMinutes: 30, // Default goal for new sessions
       focusSeconds: 0,
     }]);
-  };
-
-  const handleResetDailyProgress = () => {
-    setSessions(prev => prev.map(s => ({ ...s, focusSeconds: 0 })));
-    setLastResetDate(new Date().toDateString()); // Mark as reset for today
   };
 
   // Derived State for UI
@@ -280,7 +284,7 @@ const App: React.FC = () => {
                                    <input 
                                       type="time" 
                                       value={resetTime} 
-                                      onChange={(e) => setResetTime(e.target.value)}
+                                      onChange={(e) => handleSetResetTime(e.target.value)}
                                       className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
                                    />
                                 </div>

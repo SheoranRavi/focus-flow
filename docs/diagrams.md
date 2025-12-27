@@ -132,13 +132,8 @@ stateDiagram-v2
 ### Reset State Machine
 ```mermaid
 flowchart TD
-    ResetTime[Reset Time Reahced] --> ResetHappenedToday{Reset Event Happened Today}
-    
-    ResetHappenedToday -- Yes --> Pass[Do Nothing]
-    ResetHappenedToday -- No --> Reset[Reset the Daily Progress]
-    Reset --> UpdateResetTime[Update the reset date]
-    UpdateResetTime --> SetResetHappenedToday[Set the boolean ResetHappenedToday to true]
-
+    ResetTime[Reset Time Reahced] --> Reset[Reset the Daily Progress]
+    Reset --> SetResetHappenedToday[Set the boolean ResetHappenedToday to true]
     ManualReset[Manual Reset Event triggered by user] --> Reset
 
 ```
@@ -157,3 +152,8 @@ flowchart TD
 * lastResetDate
 * totalDailyGoalMinutes
 * totalFocusSeconds
+
+## State that needs to be stored in localStorage
+- resetTime
+- sessions
+- 

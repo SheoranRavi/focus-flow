@@ -5,7 +5,8 @@
 - Add a drag and drop functionality to re-arrange the goals
   - OR, just have the active one sit at the top
 - Add the spotify integration
-- Add tooltip to the Daily Progress Reset button : `If reset performed manually, the timer reset will not reset time on the same date`
+- Add a cache layer
+  - localStorage to start with
 
 ## Backend requirements
 - Compute analytics
