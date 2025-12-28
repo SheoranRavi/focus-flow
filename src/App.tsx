@@ -6,14 +6,15 @@ import SessionCard from './components/SessionCard/SessionCard';
 import { Session } from './types';
 import Button from './components/ui/Button';
 import { useAuth } from './context/AuthContext';
+import { signOut } from 'firebase/auth';
+import { auth } from './firebase';
 
 // --- Main App Component ---
 const App: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuth();
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return user !== null;
-  })
+  const isLoggedIn = !!user;
+
   // State
   const [sessions, setSessions] = useState<Session[]>(() => {
     const stored = localStorage.getItem('sessions');
@@ -233,6 +234,10 @@ const App: React.FC = () => {
     }]);
   };
 
+  const handleLogout = () => {
+    return signOut(auth);
+  }
+
   // Derived State for UI
   const activeSessionTitle = sessions.find(s => s.id === activeSessionId)?.title || "Ready to Focus";
 
@@ -264,7 +269,7 @@ const App: React.FC = () => {
               <Button onClick={() => navigate("/login")} variant="outline">Login</Button>
               <Button onClick={() => navigate("/register")} variant="secondary">Signup</Button>
             </> :
-              <Button variant="ghost">Logout</Button>
+              <Button onClick={handleLogout} variant="ghost">Logout</Button>
           }
           
           <div className="text-right">

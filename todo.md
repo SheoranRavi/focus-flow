@@ -12,6 +12,8 @@
 ## Bugs
 - State of a timer needs to be stored (in localStorage as well)
   - Then read it from there.
+- The reset does not happen if the timer effect doesnt run at the exact time.
+  - So, whether a reset has happened or not needs to be tracked.
 
 ## Backend requirements
 - Compute analytics
