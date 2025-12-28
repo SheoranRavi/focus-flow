@@ -7,6 +7,11 @@
 - Add the spotify integration
 - Add a cache layer
   - localStorage to start with
+- The daily reset should show a notification that the Reset has been triggered
+
+## Bugs
+- State of a timer needs to be stored (in localStorage as well)
+  - Then read it from there.
 
 ## Backend requirements
 - Compute analytics

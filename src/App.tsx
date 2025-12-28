@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, CheckCircle2, MoreHorizontal, X, Clock } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
 import { Session } from './types';
+import Button from './components/ui/Button';
+import { useAuth } from './context/AuthContext';
 
 // --- Main App Component ---
 const App: React.FC = () => {
+  const navigate = useNavigate();
+  const user = useAuth();
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return user !== null;
+  })
   // State
   const [sessions, setSessions] = useState<Session[]>(() => {
     const stored = localStorage.getItem('sessions');
@@ -250,49 +258,57 @@ const App: React.FC = () => {
         </div>
 
         <div className="hidden md:flex items-center gap-6 relative">
-            <div className="text-right">
-                <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Streak</div>
-                <div className="font-bold text-slate-700">{streak} Days</div>
-            </div>
-            <div className="h-8 w-px bg-slate-200"></div>
-            
-            <div className="relative">
-                <button 
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100 text-slate-500'}`}
-                >
-                    <MoreHorizontal size={20} />
-                </button>
-
-                {isMenuOpen && (
-                    <>
-                        <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-                        <div className="absolute right-0 top-12 bg-white shadow-xl border border-slate-100 rounded-2xl p-5 w-72 z-50 animate-in fade-in zoom-in-95 duration-100">
-                             <div className="flex items-center justify-between mb-4">
-                                <h4 className="font-bold text-slate-800">Settings</h4>
-                                <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600">
-                                    <X size={16} />
-                                </button>
-                             </div>
-                             
-                             <div className="space-y-4">
-                                <div className="flex flex-col gap-2">
-                                   <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                                      <Clock size={12} /> Auto-Reset Daily Goal
-                                   </label>
-                                   <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
-                                   <input 
-                                      type="time" 
-                                      value={resetTime} 
-                                      onChange={(e) => handleSetResetTime(e.target.value)}
-                                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
-                                   />
-                                </div>
-                             </div>
-                        </div>
-                    </>
-                )}
-            </div>
+          {
+            !isLoggedIn ?
+            <>
+              <Button onClick={() => navigate("/login")} variant="outline">Login</Button>
+              <Button onClick={() => navigate("/register")} variant="secondary">Signup</Button>
+            </> :
+              <Button variant="ghost">Logout</Button>
+          }
+          
+          <div className="text-right">
+              <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Streak</div>
+              <div className="font-bold text-slate-700">{streak} Days</div>
+          </div>
+          <div className="h-8 w-px bg-slate-200"></div>
+          
+          <div className="relative">
+            <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100 text-slate-500'}`}
+            >
+                <MoreHorizontal size={20} />
+            </button>
+            {isMenuOpen && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
+                    <div className="absolute right-0 top-12 bg-white shadow-xl border border-slate-100 rounded-2xl p-5 w-72 z-50 animate-in fade-in zoom-in-95 duration-100">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="font-bold text-slate-800">Settings</h4>
+                            <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={16} />
+                            </button>
+                          </div>
+                          
+                          <div className="space-y-4">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                  <Clock size={12} /> Auto-Reset Daily Goal
+                                </label>
+                                <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
+                                <input 
+                                  type="time" 
+                                  value={resetTime} 
+                                  onChange={(e) => handleSetResetTime(e.target.value)}
+                                  className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                                />
+                            </div>
+                          </div>
+                    </div>
+                </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -388,7 +404,7 @@ const App: React.FC = () => {
              </div>
 
              {/* Spotify / Music Placeholder */}
-             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer group">
+             {/* <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer group">
                 <div className="flex items-center gap-4">
                    <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center text-white shrink-0">
                       <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
@@ -401,7 +417,7 @@ const App: React.FC = () => {
                 <div className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
                    <Plus size={14} />
                 </div>
-             </div>
+             </div> */}
           </div>
 
         </div>

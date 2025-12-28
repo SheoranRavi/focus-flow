@@ -156,4 +156,15 @@ flowchart TD
 ## State that needs to be stored in localStorage
 - resetTime
 - sessions
-- 
+  - The state of each timer (running, stopped)
+
+## Authentication
+
+#### Authentication dependent features
+- Data storage across devices for a user
+- Analytics
+
+```mermaid
+flowchart TD
+    
+```

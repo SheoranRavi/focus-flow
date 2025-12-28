@@ -28,9 +28,3 @@ export interface SessionCardProps {
   onUpdate: (id: number, newDetails: Partial<Session>) => void;
   onReset: (id: number) => void;
 }
-
-// Button component props
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-}
