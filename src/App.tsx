@@ -234,8 +234,9 @@ const App: React.FC = () => {
     }]);
   };
 
-  const handleLogout = () => {
-    return signOut(auth);
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/login");
   }
 
   // Derived State for UI
