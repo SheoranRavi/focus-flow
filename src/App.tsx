@@ -1,11 +1,20 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, CheckCircle2, MoreHorizontal, X, Clock } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
 import { Session } from './types';
+import Button from './components/ui/Button';
+import { useAuth } from './context/AuthContext';
+import { signOut } from 'firebase/auth';
+import { auth } from './firebase';
 
 // --- Main App Component ---
 const App: React.FC = () => {
+  const navigate = useNavigate();
+  const user = useAuth();
+  const isLoggedIn = !!user;
+
   // State
   const [sessions, setSessions] = useState<Session[]>(() => {
     const stored = localStorage.getItem('sessions');
@@ -20,9 +29,9 @@ const App: React.FC = () => {
         }
     }
     return [
-        { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, timeSpentToday: 0 },
-        { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, timeSpentToday: 0 }, 
-        { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, timeSpentToday: 0 },
+        { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0 },
+        { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0 }, 
+        { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0 },
       ];
   });
   
@@ -30,12 +39,19 @@ const App: React.FC = () => {
   
   // Global stats state
   const [streak, setStreak] = useState(0);
-  const [yesterdayMin, setYesterdayMin] = useState(0);
+  const [yesterdayMinutes, setYesterdayMinutes] = useState(0);
 
   // Settings / Menu State
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [resetTime, setResetTime] = useState("00:00"); // Default midnight
-  const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
+  const [resetTime, setResetTime] = useState(() => {
+    let stored = localStorage.getItem('resetTime');
+    if (stored !== undefined){
+      // ToDo: validate the format
+      return stored;
+    }else{
+      return "00:00";
+    }
+  });
 
   // Audio ref for timer end
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -68,13 +84,13 @@ const App: React.FC = () => {
                     delta = Math.max(0, session.timeLeft - secondsLeft);
 
                     if (secondsLeft <= 0) {
-                        return { ...session, timeLeft: 0, isCompleted: true, timeSpentToday: (session.timeSpentToday || 0) + delta };
+                        return { ...session, timeLeft: 0, isCompleted: true, focusSeconds: (session.focusSeconds || 0) + delta };
                     }
                     
                     return { 
                         ...session, 
                         timeLeft: secondsLeft, 
-                        timeSpentToday: (session.timeSpentToday || 0) + delta 
+                        focusSeconds: (session.focusSeconds || 0) + delta 
                     };
                 }
                 return session;
@@ -112,16 +128,16 @@ const App: React.FC = () => {
       // load yesterday's focus time
       let yesMinLocal = Number(localStorage.getItem('yesterdayMins'));
       if (!isNaN(yesMinLocal)){
-        setYesterdayMin(yesMinLocal);
-      }
-      // load the last reset date
-      let localLastResetDate = localStorage.getItem('lastResetDate');
-      if (localLastResetDate !== "" && localLastResetDate !== null){
-        setLastResetDate(localLastResetDate);
+        setYesterdayMinutes(yesMinLocal);
       }
     }
     setData();
   }, []);
+
+  // handler for resetting the total daily progress
+  const handleResetDailyProgress = () => {
+    setSessions(prev => prev.map(s => ({ ...s, focusSeconds: 0 })));
+  };
 
   // Effect for Auto-Reset Logic
   useEffect(() => {
@@ -129,20 +145,17 @@ const App: React.FC = () => {
       const now = new Date();
       // Format current time as HH:MM
       const currentTimeString = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-      const todayDateString = now.toDateString();
 
       // If time matches preference AND we haven't reset today yet
-      if (currentTimeString === resetTime && lastResetDate !== todayDateString) {
+      if (currentTimeString === resetTime) {
         // ToDo: Fix this
-        //setTotalFocusSeconds(0);
-        setLastResetDate(todayDateString);
-        localStorage.setItem('lastResetDate', todayDateString);
+        handleResetDailyProgress();
         console.log("Daily progress auto-reset triggered.");
       }
     }, 1000);
 
     return () => clearInterval(checkResetTime);
-  }, [resetTime, lastResetDate]);
+  }, [resetTime]);
 
   // update sessions in localStorage
   useEffect(() => {
@@ -151,7 +164,7 @@ const App: React.FC = () => {
 
   const totalFocusSeconds = useMemo(() => {
     // do not count a session time towards daily goal once session goal is achieved
-    return sessions.reduce((sum, s) => sum + Math.min(s.timeSpentToday, s.dailyGoalMinutes * 60), 0);
+    return sessions.reduce((sum, s) => sum + Math.min(s.focusSeconds, s.dailyGoalMinutes * 60), 0);
   }, [sessions]);
 
   const handleStart = (id: number) => {
@@ -203,6 +216,11 @@ const App: React.FC = () => {
     });
   };
 
+  const handleSetResetTime = (newTime: string) => {
+    setResetTime(newTime);
+    localStorage.setItem("resetTime", newTime);
+  }
+
   const handleAddSession = () => {
     const newId = Math.max(...sessions.map(s => s.id), 0) + 1;
     setSessions([...sessions, {
@@ -212,15 +230,13 @@ const App: React.FC = () => {
       timeLeft: 30 * 60,
       isCompleted: false,
       dailyGoalMinutes: 30, // Default goal for new sessions
-      timeSpentToday: 0,
+      focusSeconds: 0,
     }]);
-    handleAddSession();
   };
 
-  const handleResetDailyProgress = () => {
-    setSessions(prev => prev.map(s => ({ ...s, timeSpentToday: 0 })));
-    setLastResetDate(new Date().toDateString()); // Mark as reset for today
-  };
+  const handleLogout = () => {
+    return signOut(auth);
+  }
 
   // Derived State for UI
   const activeSessionTitle = sessions.find(s => s.id === activeSessionId)?.title || "Ready to Focus";
@@ -247,49 +263,57 @@ const App: React.FC = () => {
         </div>
 
         <div className="hidden md:flex items-center gap-6 relative">
-            <div className="text-right">
-                <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Streak</div>
-                <div className="font-bold text-slate-700">{streak} Days</div>
-            </div>
-            <div className="h-8 w-px bg-slate-200"></div>
-            
-            <div className="relative">
-                <button 
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100 text-slate-500'}`}
-                >
-                    <MoreHorizontal size={20} />
-                </button>
-
-                {isMenuOpen && (
-                    <>
-                        <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-                        <div className="absolute right-0 top-12 bg-white shadow-xl border border-slate-100 rounded-2xl p-5 w-72 z-50 animate-in fade-in zoom-in-95 duration-100">
-                             <div className="flex items-center justify-between mb-4">
-                                <h4 className="font-bold text-slate-800">Settings</h4>
-                                <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600">
-                                    <X size={16} />
-                                </button>
-                             </div>
-                             
-                             <div className="space-y-4">
-                                <div className="flex flex-col gap-2">
-                                   <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                                      <Clock size={12} /> Auto-Reset Daily Goal
-                                   </label>
-                                   <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
-                                   <input 
-                                      type="time" 
-                                      value={resetTime} 
-                                      onChange={(e) => setResetTime(e.target.value)}
-                                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
-                                   />
-                                </div>
-                             </div>
-                        </div>
-                    </>
-                )}
-            </div>
+          {
+            !isLoggedIn ?
+            <>
+              <Button onClick={() => navigate("/login")} variant="outline">Login</Button>
+              <Button onClick={() => navigate("/register")} variant="secondary">Signup</Button>
+            </> :
+              <Button onClick={handleLogout} variant="ghost">Logout</Button>
+          }
+          
+          <div className="text-right">
+              <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Streak</div>
+              <div className="font-bold text-slate-700">{streak} Days</div>
+          </div>
+          <div className="h-8 w-px bg-slate-200"></div>
+          
+          <div className="relative">
+            <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100 text-slate-500'}`}
+            >
+                <MoreHorizontal size={20} />
+            </button>
+            {isMenuOpen && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
+                    <div className="absolute right-0 top-12 bg-white shadow-xl border border-slate-100 rounded-2xl p-5 w-72 z-50 animate-in fade-in zoom-in-95 duration-100">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="font-bold text-slate-800">Settings</h4>
+                            <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={16} />
+                            </button>
+                          </div>
+                          
+                          <div className="space-y-4">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                  <Clock size={12} /> Auto-Reset Daily Goal
+                                </label>
+                                <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
+                                <input 
+                                  type="time" 
+                                  value={resetTime} 
+                                  onChange={(e) => handleSetResetTime(e.target.value)}
+                                  className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                                />
+                            </div>
+                          </div>
+                    </div>
+                </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -370,7 +394,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-3 divide-x divide-slate-100 w-full mt-8 pt-8 border-t border-slate-50">
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Yesterday</div>
-                        <div className="font-bold text-slate-700 text-lg">{yesterdayMin / 60} h {yesterdayMin % 60} min</div>
+                        <div className="font-bold text-slate-700 text-lg">{yesterdayMinutes / 60} h {yesterdayMinutes % 60} min</div>
                     </div>
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Total Goal</div>
@@ -385,7 +409,7 @@ const App: React.FC = () => {
              </div>
 
              {/* Spotify / Music Placeholder */}
-             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer group">
+             {/* <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer group">
                 <div className="flex items-center gap-4">
                    <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center text-white shrink-0">
                       <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
@@ -398,7 +422,7 @@ const App: React.FC = () => {
                 <div className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
                    <Plus size={14} />
                 </div>
-             </div>
+             </div> */}
           </div>
 
         </div>

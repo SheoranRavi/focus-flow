@@ -5,7 +5,15 @@
 - Add a drag and drop functionality to re-arrange the goals
   - OR, just have the active one sit at the top
 - Add the spotify integration
+- Add a cache layer
+  - localStorage to start with
+- The daily reset should show a notification that the Reset has been triggered
 
+## Bugs
+- State of a timer needs to be stored (in localStorage as well)
+  - Then read it from there.
+- The reset does not happen if the timer effect doesnt run at the exact time.
+  - So, whether a reset has happened or not needs to be tracked.
 
 ## Backend requirements
 - Compute analytics
@@ -17,4 +25,6 @@
   - Data is safely stored in the local storage, but multiple device sync would be an issue if not synced regularly
     - If doing multiple device sync thingy, then need to track state in the backend, which timer is running
     - Don't have to have something always running, just need to update in the DB, so something like serverless functions also works
-    
+- How to geneerate analytics?
+  - Demarcate by Reset time or 12:00 midnight local usertime?
+    - Demarcate by Reset time.
