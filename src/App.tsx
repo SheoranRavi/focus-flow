@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, CheckCircle2, MoreHorizontal, X, Clock } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
@@ -51,8 +51,27 @@ const App: React.FC = () => {
   });
   
   // Global stats state
-  const [streak, setStreak] = useState(0);
-  const [yesterdayMinutes, setYesterdayMinutes] = useState(0);
+  const [streak, setStreak] = useState(() => {
+    const temp = localStorage.getItem('streak');
+    if (temp !== null){
+      return Number.parseInt(temp);
+    }
+    return 0;
+  });
+  const [yesterdayMinutes, setYesterdayMinutes] = useState(() => {
+    const temp = localStorage.getItem('yesterdayMins');
+    if (temp !== null){
+      return Number.parseInt(temp);
+    }
+    return 0;
+  });
+  const [lastResetDate, setLastResetDate] = useState(() => {
+    const temp = localStorage.getItem('lastResetDate');
+    if (temp !== null){
+      return temp;
+    }
+    return "";
+  });
 
   // Settings / Menu State
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -148,27 +167,44 @@ const App: React.FC = () => {
   }, []);
 
   // handler for resetting the total daily progress
-  const handleResetDailyProgress = () => {
+  const handleResetDailyProgress = useCallback((resetDate: string) => {
+    const yesterdaySeconds = sessions.reduce((sum, s) => sum + s.focusSeconds, 0);
+    setYesterdayMinutes(yesterdaySeconds/60);
     setSessions(prev => prev.map(s => ({ ...s, focusSeconds: 0 })));
-  };
+    setLastResetDate(resetDate);
+    localStorage.setItem('lastResetDate', resetDate);
+    localStorage.setItem('yesterdayMins', (yesterdaySeconds/60).toString());
+    if(yesterdaySeconds/60 >= totalDailyGoalMinutes){
+      localStorage.setItem('streak', (streak+1).toString());
+      setStreak(prevStreak => prevStreak+1);
+    }
+  }, [sessions, totalDailyGoalMinutes, streak]);
 
   // Effect for Auto-Reset Logic
   useEffect(() => {
     const checkResetTime = setInterval(() => {
       const now = new Date();
       // Format current time as HH:MM
-      const currentTimeString = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+      const currentTimeString = now.toLocaleTimeString("en-GB", {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const todayDate = now.toLocaleDateString("en-GB", { 
+        day: '2-digit', 
+        month: '2-digit',
+        year: '2-digit'
+      });
 
-      // If time matches preference AND we haven't reset today yet
-      if (currentTimeString === resetTime) {
+      // If time matches preference
+      if (resetTime !== null && currentTimeString >= resetTime && lastResetDate !== null && todayDate > lastResetDate){
         // ToDo: Fix this
-        handleResetDailyProgress();
+        handleResetDailyProgress(todayDate);
         console.log("Daily progress auto-reset triggered.");
       }
     }, 1000);
 
     return () => clearInterval(checkResetTime);
-  }, [resetTime]);
+  }, [resetTime, lastResetDate, handleResetDailyProgress]);
 
   // update sessions in localStorage
   useEffect(() => {
@@ -250,6 +286,7 @@ const App: React.FC = () => {
       isCompleted: false,
       dailyGoalMinutes: 30, // Default goal for new sessions
       focusSeconds: 0,
+      state: TimerState.PAUSED
     }]);
   };
 
