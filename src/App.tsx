@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, CheckCircle2, MoreHorizontal, X, Clock } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
-import { Session } from './types';
+import { Session, TimerState } from './types';
 import Button from './components/ui/Button';
 import { useAuth } from './context/AuthContext';
 import { signOut } from 'firebase/auth';
@@ -29,13 +29,26 @@ const App: React.FC = () => {
         }
     }
     return [
-        { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0 },
-        { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0 }, 
-        { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0 },
+        { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
+        { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0, state: TimerState.PAUSED }, 
+        { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0, state: TimerState.PAUSED },
       ];
   });
   
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(() => {
+    if(sessions?.length > 0){
+      let runningS = sessions.filter((s) => {
+        if(s.state == TimerState.RUNNING){
+          return s;
+        }
+      });
+      if (runningS.length > 0){
+        return runningS[0].id;
+      }
+      return null;
+    }
+    return null;
+  });
   
   // Global stats state
   const [streak, setStreak] = useState(0);
@@ -173,7 +186,7 @@ const App: React.FC = () => {
     const now = Date.now();
     setSessions(prev => prev.map(s => {
         if (s.id === id) {
-            return { ...s, targetTime: now + (s.timeLeft * 1000) };
+            return { ...s, targetTime: now + (s.timeLeft * 1000), state: TimerState.RUNNING };
         }
         return s;
     }));
@@ -184,11 +197,17 @@ const App: React.FC = () => {
     if (activeSessionId === id) {
       setActiveSessionId(null);
     }
+    setSessions(prev => prev.map(s => {
+        if (s.id === id) {
+            return { ...s, state: TimerState.PAUSED };
+        }
+        return s;
+    }));
   };
 
   const handleReset = (id: number) => {
     setSessions(prev => prev.map(s => 
-      s.id === id ? { ...s, timeLeft: s.initialDuration, isCompleted: false } : s
+      s.id === id ? { ...s, timeLeft: s.initialDuration, isCompleted: false, state: TimerState.PAUSED } : s
     ));
     if (activeSessionId === id) setActiveSessionId(null);
   };

@@ -9,6 +9,7 @@ export interface Session {
   dailyGoalMinutes: number; // adjustable daily goal
   focusSeconds: number; // time spent on this task today in seconds
   targetTime?: number; // the target timestamp at which this timer is supposed to complete
+  state: TimerState;
 }
 
 // Component Props
@@ -27,4 +28,9 @@ export interface SessionCardProps {
   onDelete: (id: number) => void;
   onUpdate: (id: number, newDetails: Partial<Session>) => void;
   onReset: (id: number) => void;
+}
+
+export enum TimerState {
+  PAUSED,
+  RUNNING
 }
