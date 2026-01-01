@@ -11,9 +11,6 @@
 - Maybe allow editing the time (focusSeconds) for tasks.
 
 ## Bugs
-- The reset does not happen if the timer effect doesnt run at the exact time.
-  - So, whether a reset has happened or not needs to be tracked.
-  - Track the lastResetDate like the original logic
 
 ## Backend requirements
 - Compute analytics

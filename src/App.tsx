@@ -78,7 +78,7 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [resetTime, setResetTime] = useState(() => {
     let stored = localStorage.getItem('resetTime');
-    if (stored !== undefined){
+    if (stored !== undefined && stored !== null){
       // ToDo: validate the format
       return stored;
     }else{
