@@ -132,10 +132,16 @@ stateDiagram-v2
 ### Reset State Machine
 ```mermaid
 flowchart TD
-    ResetTime[Reset Time Reahced] --> Reset[Reset the Daily Progress]
-    Reset --> SetResetHappenedToday[Set the boolean ResetHappenedToday to true]
+    CheckTime[Check Time] --> GreaterEqualThanResetTime{>= ResetTime}
+    GreaterEqualThanResetTime -- Yes --> LastResetDate{Last Reset Date}
+    GreaterEqualThanResetTime -- No --> End
+    LastResetDate -- Before Today --> Reset[Reset the Daily Progress]
+    LastResetDate -- Today --> End
+    LastResetDate -- Null String --> SaveDate[Set lastResetDate = today, but don't reset]
     ManualReset[Manual Reset Event triggered by user] --> Reset
-
+    Reset --> SetLastResetDate[Update LastResetDate]
+    Reset --> UpdateYesterdayMin
+    Reset --> UpdateStreak[Update streak if goal met]
 ```
 
 #### Timer states
@@ -166,5 +172,5 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    
+
 ```
