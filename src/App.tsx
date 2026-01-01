@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, act } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, CheckCircle2, MoreHorizontal, X, Clock } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
@@ -61,7 +61,8 @@ const App: React.FC = () => {
   const [yesterdayMinutes, setYesterdayMinutes] = useState(() => {
     const temp = localStorage.getItem('yesterdayMins');
     if (temp !== null){
-      return Number.parseInt(temp);
+      const parsed = Number.parseFloat(temp);
+      return parsed;
     }
     return 0;
   });
@@ -149,55 +150,48 @@ const App: React.FC = () => {
     };
   }, [activeSessionId]);
 
-  // Load data from localStorage
-  useEffect(() => {
-    const setData = async () => {
-      // load streak
-      let localStreak = Number(localStorage.getItem('streak'));
-      if (!isNaN(localStreak)){
-        setStreak(localStreak);
-      }
-      // load yesterday's focus time
-      let yesMinLocal = Number(localStorage.getItem('yesterdayMins'));
-      if (!isNaN(yesMinLocal)){
-        setYesterdayMinutes(yesMinLocal);
-      }
-    }
-    setData();
-  }, []);
-
   // handler for resetting the total daily progress
   const handleResetDailyProgress = useCallback((resetDate: string) => {
+    // the total time spent yesterday
     const yesterdaySeconds = sessions.reduce((sum, s) => sum + s.focusSeconds, 0);
+    // the time that only counts towards the goals
+    const yesterdayGoalSeconds = sessions.reduce((sum, s) => sum + Math.min(s.focusSeconds, s.dailyGoalMinutes * 60), 0);
     setYesterdayMinutes(yesterdaySeconds/60);
     setSessions(prev => prev.map(s => ({ ...s, focusSeconds: 0 })));
     setLastResetDate(resetDate);
     localStorage.setItem('lastResetDate', resetDate);
     localStorage.setItem('yesterdayMins', (yesterdaySeconds/60).toString());
-    if(yesterdaySeconds/60 >= totalDailyGoalMinutes){
+    if(yesterdayGoalSeconds/60 >= totalDailyGoalMinutes){
       localStorage.setItem('streak', (streak+1).toString());
       setStreak(prevStreak => prevStreak+1);
+    } else{
+      localStorage.setItem('streak', '0');
+      setStreak(0);
     }
   }, [sessions, totalDailyGoalMinutes, streak]);
+
+  // helpers
+  const getTodayDateTimeString = () => {
+    const now = new Date();
+    const currentTimeString = now.toLocaleTimeString("en-GB", {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const todayDate = now.toLocaleDateString("en-GB", { 
+      day: '2-digit', 
+      month: '2-digit',
+      year: '2-digit'
+    });
+    return [todayDate, currentTimeString];
+  };
 
   // Effect for Auto-Reset Logic
   useEffect(() => {
     const checkResetTime = setInterval(() => {
-      const now = new Date();
-      // Format current time as HH:MM
-      const currentTimeString = now.toLocaleTimeString("en-GB", {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-      const todayDate = now.toLocaleDateString("en-GB", { 
-        day: '2-digit', 
-        month: '2-digit',
-        year: '2-digit'
-      });
+      const [todayDate, currentTimeString] = getTodayDateTimeString();
 
       // If time matches preference
       if (resetTime !== null && currentTimeString >= resetTime && lastResetDate !== null && todayDate > lastResetDate){
-        // ToDo: Fix this
         handleResetDailyProgress(todayDate);
         console.log("Daily progress auto-reset triggered.");
       }
@@ -217,19 +211,11 @@ const App: React.FC = () => {
   }, [sessions]);
 
   const handleStart = (id: number) => {
-    // When starting, set the target end time based on current time + remaining duration
-    // This ensures accuracy even if the thread sleeps
-    const now = Date.now();
-    setSessions(prev => prev.map(s => {
-        if (s.id === id) {
-            return { ...s, targetTime: now + (s.timeLeft * 1000), state: TimerState.RUNNING };
-        }
-        return s;
-    }));
-    setActiveSessionId(id);
+    handleActiveSessionChange(activeSessionId, id);
   };
 
   const handlePause = (id: number) => {
+    handleActiveSessionChange(id, null);
     if (activeSessionId === id) {
       setActiveSessionId(null);
     }
@@ -240,6 +226,29 @@ const App: React.FC = () => {
         return s;
     }));
   };
+
+  const handleActiveSessionChange = (prevId: number | null, id: number | null) => {
+    setSessions((prevSessions) => {
+      const newSessions = prevSessions.map((s) => {
+        let newSession = s;
+        if (prevId != null && s.id === prevId){
+          // the one being paused
+          newSession.state = TimerState.PAUSED;
+        }
+        if (id != null && s.id === id){
+          // the timer being started
+          // When starting, set the target end time based on current time + remaining duration
+          // This ensures accuracy even if the thread sleeps
+          const now = Date.now();
+          newSession.state = TimerState.RUNNING;
+          newSession.targetTime = now + (s.timeLeft * 1000);
+        }
+        return newSession;
+      });
+      return newSessions;
+    });
+    setActiveSessionId(id);
+  }
 
   const handleReset = (id: number) => {
     setSessions(prev => prev.map(s => 
@@ -432,7 +441,10 @@ const App: React.FC = () => {
                    <h3 className="font-bold text-lg text-slate-800">Daily Progress</h3>
                    <div className="flex gap-1">
                        <button 
-                           onClick={handleResetDailyProgress}
+                           onClick={() => {
+                              const [todayDate, _] = getTodayDateTimeString();
+                              handleResetDailyProgress(todayDate);
+                            }}
                            className="p-1 rounded-full hover:bg-slate-100 transition-colors"
                            title="Start New Day (Reset Progress)"
                        >
@@ -451,7 +463,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-3 divide-x divide-slate-100 w-full mt-8 pt-8 border-t border-slate-50">
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Yesterday</div>
-                        <div className="font-bold text-slate-700 text-lg">{yesterdayMinutes / 60} h {yesterdayMinutes % 60} min</div>
+                        <div className="font-bold text-slate-700 text-lg">{Math.floor(yesterdayMinutes / 60)} h {Math.floor(yesterdayMinutes) % 60} min</div>
                     </div>
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Total Goal</div>
