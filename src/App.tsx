@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, act } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, CheckCircle2, MoreHorizontal, X, Clock } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
@@ -38,7 +38,7 @@ const App: React.FC = () => {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(() => {
     if(sessions?.length > 0){
       let runningS = sessions.filter((s) => {
-        if(s.state == TimerState.RUNNING){
+        if(s.state === TimerState.RUNNING){
           return s;
         }
       });
@@ -231,11 +231,11 @@ const App: React.FC = () => {
     setSessions((prevSessions) => {
       const newSessions = prevSessions.map((s) => {
         let newSession = s;
-        if (prevId != null && s.id === prevId){
+        if (prevId !== null && s.id === prevId){
           // the one being paused
           newSession.state = TimerState.PAUSED;
         }
-        if (id != null && s.id === id){
+        if (id !== null && s.id === id){
           // the timer being started
           // When starting, set the target end time based on current time + remaining duration
           // This ensures accuracy even if the thread sleeps
