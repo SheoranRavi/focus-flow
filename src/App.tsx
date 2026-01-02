@@ -4,6 +4,8 @@ import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
 import { Session, TimerState } from './types';
 import Navbar from './components/Navbar';
+import { AnimatePresence } from 'framer-motion';
+import {motion} from "motion/react";
 
 
 // --- Main App Component ---
@@ -336,18 +338,33 @@ const App: React.FC = () => {
             {/* Horizontal Scroll Area for Sessions (or Grid on large) */}
             <div className="w-full overflow-x-auto pb-8 -mx-6 px-6 md:mx-0 md:px-0 scrollbar-hide">
               <div className="flex flex-col md:flex-row gap-6 md:flex-wrap">
-                {sessions.map(session => (
-                  <SessionCard 
-                    key={session.id}
-                    session={session}
-                    isActive={activeSessionId === session.id}
-                    onStart={handleStart}
-                    onPause={handlePause}
-                    onDelete={handleDelete}
-                    onUpdate={handleUpdate}
-                    onReset={handleReset}
-                  />
-                ))}
+                <AnimatePresence mode='popLayout'>
+                  {sessions.map(session => (
+                    <motion.div
+                      key={session.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ 
+                        type: "spring", 
+                        stiffness: 300, 
+                        damping: 30 
+                      }}
+                    >
+                      <SessionCard 
+                        key={session.id}
+                        session={session}
+                        isActive={activeSessionId === session.id}
+                        onStart={handleStart}
+                        onPause={handlePause}
+                        onDelete={handleDelete}
+                        onUpdate={handleUpdate}
+                        onReset={handleReset}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
                 
                 {/* Empty State / Add Button Card Placeholder */}
                 {sessions.length === 0 && (
