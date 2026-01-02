@@ -43,7 +43,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
     <div className={`
       relative flex flex-col items-center justify-between p-6 rounded-3xl bg-white shadow-sm border
       transition-all duration-300 w-full md:w-[320px] flex-shrink-0 snap-center
-      ${isActive ? 'border-emerald-400 ring-2 ring-emerald-100 shadow-lg scale-[1.02]' : 'border-slate-100 hover:border-slate-200'}
+      ${isActive ? 'border-emerald-400 ring-2 ring-emerald-100 shadow-lg m-1 scale-[1.02]' : 'border-slate-100 hover:border-slate-200'}
     `}>
       
       {/* Header / Edit Mode */}

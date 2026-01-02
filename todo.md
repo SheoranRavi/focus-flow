@@ -2,18 +2,14 @@
   - generate the analytics using this name
   - If the name changes (during edit), classify it as a new Goal
     - Do we change the id in that case?
-- Add a drag and drop functionality to re-arrange the goals
-  - OR, just have the active one sit at the top
 - Add the spotify integration
 - Add a cache layer
   - localStorage to start with
 - The daily reset should show a notification that the Reset has been triggered
 - Maybe allow editing the time (focusSeconds) for tasks.
+- Add a footer and policy links and all.
 
 ## Bugs
-- The reset does not happen if the timer effect doesnt run at the exact time.
-  - So, whether a reset has happened or not needs to be tracked.
-  - Track the lastResetDate like the original logic
 
 ## Backend requirements
 - Compute analytics
