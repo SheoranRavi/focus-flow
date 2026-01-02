@@ -222,7 +222,8 @@ const App: React.FC = () => {
 
   const handleActiveSessionChange = (prevId: number | null, id: number | null) => {
     setSessions((prevSessions) => {
-      const newSessions = prevSessions.map((s) => {
+      let sessionAtTopIdx = -1;
+      const newSessions = prevSessions.map((s, idx) => {
         let newSession = s;
         if (prevId !== null && s.id === prevId){
           // the one being paused
@@ -235,9 +236,15 @@ const App: React.FC = () => {
           const now = Date.now();
           newSession.state = TimerState.RUNNING;
           newSession.targetTime = now + (s.timeLeft * 1000);
+          sessionAtTopIdx = idx;
         }
         return newSession;
       });
+      if (sessionAtTopIdx !== -1){
+        const topSession = newSessions[sessionAtTopIdx];
+        newSessions.splice(sessionAtTopIdx, 1);
+        newSessions.unshift(topSession);
+      }
       return newSessions;
     });
     setActiveSessionId(id);
