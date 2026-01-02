@@ -2,8 +2,6 @@
   - generate the analytics using this name
   - If the name changes (during edit), classify it as a new Goal
     - Do we change the id in that case?
-- Add a drag and drop functionality to re-arrange the goals
-  - OR, just have the active one sit at the top
 - Add the spotify integration
 - Add a cache layer
   - localStorage to start with
@@ -12,7 +10,6 @@
 - Add a footer and policy links and all.
 
 ## Bugs
-- Login button not visible on mobile.
 
 ## Backend requirements
 - Compute analytics
