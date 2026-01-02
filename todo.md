@@ -9,8 +9,10 @@
   - localStorage to start with
 - The daily reset should show a notification that the Reset has been triggered
 - Maybe allow editing the time (focusSeconds) for tasks.
+- Add a footer and policy links and all.
 
 ## Bugs
+- Login button not visible on mobile.
 
 ## Backend requirements
 - Compute analytics
