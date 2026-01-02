@@ -4,6 +4,7 @@ import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
 import { Session, TimerState } from './types';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import { AnimatePresence } from 'framer-motion';
 import {motion} from "motion/react";
 
@@ -441,6 +442,8 @@ const App: React.FC = () => {
         </div>
 
       </main>
+
+      <Footer />
     </div>
   );
 };
