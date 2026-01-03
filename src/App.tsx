@@ -318,7 +318,7 @@ const App: React.FC = () => {
         {/* Hidden Audio Element */}
         <audio 
             ref={audioRef} 
-            src="/src/assets/piano_notification.mp3"
+            src="/piano_notification.mp3"
             preload="auto"
         />
 
