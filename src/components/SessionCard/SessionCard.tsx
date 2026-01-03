@@ -150,7 +150,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
             <div className="w-40 h-40 rounded-full border-4 border-slate-100 flex items-center justify-center relative overflow-hidden z-10 bg-white">
                 {/* Progress Fill Overlay */}
                 <div 
-                  className="absolute bottom-0 left-0 right-0 bg-emerald-50 transition-all duration-1000 ease-linear opacity-50"
+                  className="absolute bottom-0 left-0 right-0 bg-emerald-200 transition-all duration-1000 ease-linear opacity-50"
                   style={{ height: `${progressPercent * 100}%` }}
                 />
                 <div className="z-10 text-center">
