@@ -350,7 +350,7 @@ const App: React.FC = () => {
                       transition={{ 
                         type: "spring", 
                         stiffness: 300, 
-                        damping: 30 
+                        damping: 30
                       }}
                     >
                       <SessionCard 

@@ -8,6 +8,16 @@
 - The daily reset should show a notification that the Reset has been triggered
 - Maybe allow editing the time (focusSeconds) for tasks.
 - Add option to have a goalless session, one that is used just for tracking time.
+- Enter to save.
+- Dropdown for selecting time.
+- Create short, showing the use of framer-motion to animate the movement of cards.
+
+## Backend
+- Keep a client list of some kind (on every login the client gets added), then send the start, pause, etc. events to all the connected clients.
+
+# Performance
+- Analyze performance of the app.
+  - Load time, how can it be improved.
 
 ## Bugs
 
