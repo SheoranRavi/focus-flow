@@ -34,13 +34,36 @@ Session {
 
 User {
     string id PK
+    string name
+    string email
+    datetime createdat
+    datetime sessionsResetTime
 }
 
 User ||--o{ Session : owns
 
+Event {
+    number id PK
+    string name
+}
 
+TaskDailyTime {
+    number id PK
+    number sessionId FK
+    date date
+    number numMinutesSpent
+    number goalMinutes
+}
+
+Session ||--o{ TaskDailyTime : has
 
 ```
+
+## Computing analytics
+#### Requirements:
+- Time spent on each goal by day
+- 
+
 
 ### Notes
 - targetTimeMs: milliseconds since epoch when this session is supposed to finish (only meaningful when the session is running)
