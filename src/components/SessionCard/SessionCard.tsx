@@ -5,11 +5,11 @@ import { SessionCardProps } from '@/types';
 const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, onPause, onDelete, onUpdate, onReset }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(session.title);
-  const [editDuration, setEditDuration] = useState(session.initialDuration / 60); // in minutes
+  const [editDuration, setEditDuration] = useState(session.sessionDuration / 60); // in minutes
   const [editDailyGoal, setEditDailyGoal] = useState(session.dailyGoalMinutes); // in minutes
 
   // Calculate progress for this specific session ring (Timer Countdown)
-  const progressPercent = 1 - (session.timeLeft / session.initialDuration);
+  const progressPercent = 1 - (session.timeLeft / session.sessionDuration);
   const totalMinutes = Math.floor(session.timeLeft / 60);
   const seconds = session.timeLeft % 60;
 
@@ -32,7 +32,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
 
     onUpdate(session.id, { 
       title: editTitle, 
-      initialDuration: newDuration * 60, 
+      sessionDuration: newDuration * 60, 
       timeLeft: newDuration * 60,
       dailyGoalMinutes: newGoal,
     });
@@ -98,7 +98,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
               <button 
                 onClick={() => {
                   setEditTitle(session.title);
-                  setEditDuration(session.initialDuration / 60);
+                  setEditDuration(session.sessionDuration / 60);
                   setEditDailyGoal(session.dailyGoalMinutes);
                   setIsEditing(true);
                 }}
@@ -190,7 +190,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
                 : 'bg-slate-800 hover:bg-slate-700'
               }`}
           >
-            <Play size={20} fill="currentColor" /> {session.timeLeft === session.initialDuration ? 'Start' : 'Resume'}
+            <Play size={20} fill="currentColor" /> {session.timeLeft === session.sessionDuration ? 'Start' : 'Resume'}
           </button>
         )}
         

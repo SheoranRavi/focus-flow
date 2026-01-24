@@ -7,28 +7,19 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import { AnimatePresence } from 'framer-motion';
 import {motion} from "motion/react";
+import { parseSessionsFromStorage } from './lib/utils';
 
 
 // --- Main App Component ---
 const App: React.FC = () => {
   // State
   const [sessions, setSessions] = useState<Session[]>(() => {
-    const stored = localStorage.getItem('sessions');
-    if (stored){
-      try {
-            const parsedData = JSON.parse(stored);
-            if (Array.isArray(parsedData)) {
-                return parsedData;
-            }
-        } catch (e) {
-            console.error("Error parsing sessions from localStorage:", e);
-        }
-    }
-    return [
-        { id: 1, title: 'Deep Work', initialDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
-        { id: 2, title: 'Reading', initialDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0, state: TimerState.PAUSED }, 
-        { id: 3, title: 'Emails', initialDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0, state: TimerState.PAUSED },
-      ];
+    const fallback: Session[] = [
+      { id: 1, title: 'Deep Work', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
+      { id: 2, title: 'Reading', sessionDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0, state: TimerState.PAUSED },
+      { id: 3, title: 'Emails', sessionDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0, state: TimerState.PAUSED },
+    ];
+    return parseSessionsFromStorage(localStorage.getItem('sessions'), fallback);
   });
   
   const [activeSessionId, setActiveSessionId] = useState<number | null>(() => {
@@ -103,10 +94,10 @@ const App: React.FC = () => {
                 if (session.id === activeSessionId) {
                     // Safety check: ensure targetTime is set. 
                     // handleStart should set it.
-                    if (!session.targetTime) return session;
+                    if (!session.targetTimeMs) return session;
 
                     // Calculate expected remaining seconds based on target
-                    const secondsLeft = Math.max(0, Math.ceil((session.targetTime - now) / 1000));
+                    const secondsLeft = Math.max(0, Math.ceil((session.targetTimeMs - now) / 1000));
                     
                     // The difference between what we had in state (timeLeft) and real time (secondsLeft)
                     // is how much time passed since the last tick (or since tab wake up)
@@ -238,7 +229,7 @@ const App: React.FC = () => {
           // This ensures accuracy even if the thread sleeps
           const now = Date.now();
           newSession.state = TimerState.RUNNING;
-          newSession.targetTime = now + (s.timeLeft * 1000);
+          newSession.targetTimeMs = now + (s.timeLeft * 1000);
           sessionAtTopIdx = idx;
         }
         return newSession;
@@ -255,7 +246,7 @@ const App: React.FC = () => {
 
   const handleReset = (id: number) => {
     setSessions(prev => prev.map(s => 
-      s.id === id ? { ...s, timeLeft: s.initialDuration, isCompleted: false, state: TimerState.PAUSED } : s
+      s.id === id ? { ...s, timeLeft: s.sessionDuration, isCompleted: false, state: TimerState.PAUSED } : s
     ));
     if (activeSessionId === id) setActiveSessionId(null);
   };
@@ -274,7 +265,7 @@ const App: React.FC = () => {
                 // If we are updating the currently running session (e.g. changing duration),
                 // we must update the targetTime to reflect the new duration immediately
                 if (id === activeSessionId) {
-                    updatedSession.targetTime = Date.now() + (updatedSession.timeLeft * 1000);
+                    updatedSession.targetTimeMs = Date.now() + (updatedSession.timeLeft * 1000);
                 }
                 return updatedSession;
             }
@@ -293,7 +284,7 @@ const App: React.FC = () => {
     setSessions([...sessions, {
       id: newId,
       title: 'New Session',
-      initialDuration: 30 * 60,
+      sessionDuration: 30 * 60,
       timeLeft: 30 * 60,
       isCompleted: false,
       dailyGoalMinutes: 30, // Default goal for new sessions
