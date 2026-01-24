@@ -92,6 +92,10 @@ export function parseSessionsFromStorage(stored: string | null, fallback: Sessio
   try {
     const parsed = JSON.parse(stored)
     if (Array.isArray(parsed)) {
+      if (parsed.length === 0) {
+        // Honor explicit empty array
+        return []
+      }
       const migrated = parsed
         .map((item) => migrateLegacySession(item))
         .filter((s): s is Session => Boolean(s))

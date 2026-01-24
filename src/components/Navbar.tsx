@@ -31,7 +31,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
 
   return (
     <>
-      <div className="sticky top-0 z-30 w-full px-3 py-2">
+      <header className="sticky top-0 z-30 w-full px-3 py-2">
         <nav className="max-w-7xl mx-auto bg-white/60 backdrop-blur-lg border border-white/20 rounded-2xl px-4 py-2 flex items-center justify-between shadow-lg shadow-slate-200/50">
           <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-emerald-200 shadow-lg">
@@ -118,7 +118,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
         </button>
       </div>
         </nav>
-      </div>
+      </header>
 
       {/* Mobile Menu Dropdown - Outside navbar for proper backdrop */}
       {isMobileMenuOpen && (

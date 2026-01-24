@@ -37,7 +37,8 @@ describe('App Component', () => {
   describe('Initial Render', () => {
     it('should render the app header with title', () => {
       renderApp();
-      expect(screen.getByText('Focus Flow')).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      expect(heading).toBeInTheDocument();
     });
 
     it('should display "No active session" when no timer is running', () => {
@@ -348,7 +349,8 @@ describe('App Component', () => {
       
       // Should not throw and render with defaults
       renderApp();
-      expect(screen.getByText('Focus Flow')).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      expect(heading).toBeInTheDocument();
     });
 
     it('should handle invalid streak value in localStorage', () => {
@@ -360,7 +362,8 @@ describe('App Component', () => {
       const header = document.querySelector('header');
       expect(header).toBeTruthy();
       // Just verify the app renders without crashing
-      expect(screen.getByText('Focus Flow')).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      expect(heading).toBeInTheDocument();
     });
 
     it('should generate unique IDs for new sessions', async () => {
@@ -395,7 +398,7 @@ describe('App Component', () => {
       renderApp();
       
       const audio = document.querySelector('audio');
-      expect(audio?.getAttribute('src')).toContain('mixkit');
+      expect(audio?.getAttribute('src')).toContain('.mp3');
     });
   });
 

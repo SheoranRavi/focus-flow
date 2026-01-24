@@ -60,6 +60,6 @@ describe('session migration from localStorage', () => {
     ]
     expect(parseSessionsFromStorage(null, fallback)).toEqual(fallback)
     expect(parseSessionsFromStorage('"not-an-array"', fallback)).toEqual(fallback)
-    expect(parseSessionsFromStorage('[]', fallback)).toEqual(fallback)
+    expect(parseSessionsFromStorage('[]', fallback)).toEqual([])
   })
 })
