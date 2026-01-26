@@ -11,6 +11,8 @@
 - Add option to have a goalless session, one that is used just for tracking time.
 - Enter to save.
 - Dropdown for selecting time.
+- The audio does not happen if the tab is suspended (I think). Explore the use of a service worker or something to get around this.
+  - Probably can get it working with the notifications API.
 
 ## Backend
 - Keep a client list of some kind (on every login the client gets added), then send the start, pause, etc. events to all the connected clients.
@@ -20,6 +22,7 @@
   - Load time, how can it be improved.
 
 ## Bugs
+- When only the Goal is changed, the session timer shouldn't reset to initialDuration
 
 ## Backend requirements
 - Compute analytics
