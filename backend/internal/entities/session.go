@@ -1,10 +1,11 @@
 package entities
 
+import "time"
+
 type Session struct {
 	Id               int64
 	Title            string
 	InitialDuration  int
-	TimeLeft         int
 	IsCompleted      bool
 	DailyGoalMinutes int
 	NoGoal           bool
@@ -14,6 +15,7 @@ type Session struct {
 	State            SessionState
 	GroupId          int
 	UserId           string
+	CreatedAt        time.Time
 }
 
 type SessionState int16
