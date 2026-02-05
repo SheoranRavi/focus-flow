@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
+	"github.com/sheoranravi/focus-flow/backend/internal/middleware"
 	"github.com/sheoranravi/focus-flow/backend/internal/service"
 )
 
@@ -34,7 +35,7 @@ func (h *SessionHandler) Create(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (h *SessionHandler) GetAll(rw http.ResponseWriter, req *http.Request) {
-	userId := req.Context().Value("userId").(string)
+	userId := req.Context().Value(middleware.UserIDKey).(string)
 	sessions, err := h.SessionSvc.GetAll(req.Context(), userId)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -60,7 +61,7 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (h *SessionHandler) Delete(rw http.ResponseWriter, req *http.Request) {
-	userId := req.Context().Value("userId").(string)
+	userId := req.Context().Value(middleware.UserIDKey).(string)
 
 	sessionIdStr := req.URL.Query().Get("id")
 	sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)

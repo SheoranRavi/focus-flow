@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS task_daily_time;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS groups;
+DROP TABLE IF EXISTS users;
