@@ -1,28 +1,79 @@
 package service
 
-import "github.com/sheoranravi/focus-flow/backend/internal/entities"
+import (
+	"context"
+	"errors"
+
+	"github.com/sheoranravi/focus-flow/backend/internal/entities"
+	"github.com/sheoranravi/focus-flow/backend/internal/repo"
+)
 
 type SessionService struct {
-	// SessionRepo
-	// EventService
+	repo         repo.SessionRepo
+	eventService EventService
 }
 
-func NewSessionService() *SessionService {
-	return &SessionService{}
+func NewSessionService(repo repo.SessionRepo) *SessionService {
+	return &SessionService{repo: repo}
 }
 
-func (this *SessionService) GetAll() []entities.Session {
-
+func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entities.Session, error) {
+	sessions, err := svc.repo.GetAllForUser(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+	return sessions, err
 }
 
-func (this *SessionService) Add(sessionInput CreateInput) (*entities.Session, error) {
-
+func (svc *SessionService) Add(ctx context.Context, sessionInput CreateInput) (*entities.Session, error) {
+	session := entities.NewSession(sessionInput.UserId,
+		sessionInput.Title,
+		sessionInput.DailyGoalMinutes,
+		sessionInput.InitialDuration,
+		sessionInput.NoGoal,
+		sessionInput.GroupId,
+	)
+	session, err := svc.repo.Create(ctx, session)
+	if err == nil {
+		err = svc.PropagateEvent(ctx, sessionInput.UserId, session.Id, EventNewSession, session)
+	}
+	return session, err
 }
 
-func (this *SessionService) Delete(sessionId int) (*entities.Session, error) {
-
+func (svc *SessionService) Delete(ctx context.Context, sessionId int64, userId string) error {
+	err := svc.repo.Delete(ctx, sessionId, userId)
+	if err == nil {
+		err = svc.PropagateEvent(ctx, userId, sessionId, EventDeleteSession, nil)
+	}
+	return err
 }
 
-func (this *SessionService) Patch(patchInput PatchInput) (*entities.Session, error) {
+// ToDo: when handling start and pause events, need to update the TargetTimeMs
+func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities.PatchInput, t EventType) error {
+	session, err := svc.repo.GetForUser(ctx, patchInput.UserId, patchInput.SessionId)
+	if err != nil {
+		return err
+	}
+	if session == nil {
+		return errors.New("session not found")
+	}
 
+	session.ApplyPatch(patchInput)
+	err = svc.repo.Update(ctx, session)
+	if err == nil {
+		err = svc.PropagateEvent(ctx, patchInput.UserId, patchInput.SessionId, t, session)
+	}
+	return err
+}
+
+// Called to propagate a session event
+func (svc *SessionService) PropagateEvent(ctx context.Context,
+	userId string,
+	sessionId int64,
+	t EventType,
+	s *entities.Session) error {
+	if !t.IsValid() {
+		return errors.New("event type not valid")
+	}
+	return svc.eventService.ReceiveEvent(ctx, userId, sessionId, t, s)
 }

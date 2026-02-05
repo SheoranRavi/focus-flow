@@ -116,3 +116,13 @@ EventType
 - deleteSession
 - addSession
 
+## EventService
+Use SSE instead of WebSocket.
+All the events from client to server will be through http requests.
+```mermaid
+flowchart TD
+  SessionHandler --Event--> SessionService
+  SessionService --Event--> EventService
+  EventService --Processes the event--> EventService
+  EventService --> SseHandler
+```

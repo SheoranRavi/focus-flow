@@ -15,7 +15,7 @@ func NewSessionRepo(db *sql.DB) *SessionRepo {
 	return &SessionRepo{db: db}
 }
 
-func (this *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*entities.Session, error) {
+func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*entities.Session, error) {
 	query := `
 		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, initial_duration, 
 			is_completed, target_time_ms, no_goal, created_at, is_deleted
@@ -24,7 +24,7 @@ func (this *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 		AND is_deleted = 0
 		ORDER BY created_at DESC
 	`
-	rows, err := this.db.QueryContext(ctx, query, userId)
+	rows, err := repo.db.QueryContext(ctx, query, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -56,13 +56,13 @@ func (this *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 	return sessions, rows.Err()
 }
 
-func (this *SessionRepo) Create(ctx context.Context, session *entities.Session) (*entities.Session, error) {
+func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) (*entities.Session, error) {
 	query := `
 		INSERT INTO sessions (user_id, title, daily_goal_minutes, initial_duration, no_goal, group_id created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, now())
 		RETURNING id, created_at
 	`
-	err := this.db.QueryRowContext(
+	err := repo.db.QueryRowContext(
 		ctx,
 		query,
 		session.UserId,
@@ -79,7 +79,7 @@ func (this *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 	return session, nil
 }
 
-func (this *SessionRepo) GetForUser(ctx context.Context, userId string, sessionId int64) (*entities.Session, error) {
+func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionId int64) (*entities.Session, error) {
 	query := `
 		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, initial_duration,
 		       is_completed, target_time_ms, no_goal, created_at, is_deleted
@@ -91,7 +91,7 @@ func (this *SessionRepo) GetForUser(ctx context.Context, userId string, sessionI
 
 	var s entities.Session
 
-	err := this.db.QueryRowContext(ctx, query, sessionId, userId).Scan(
+	err := repo.db.QueryRowContext(ctx, query, sessionId, userId).Scan(
 		&s.Id,
 		&s.UserId,
 		&s.Title,
@@ -118,7 +118,7 @@ func (this *SessionRepo) GetForUser(ctx context.Context, userId string, sessionI
 
 }
 
-func (this *SessionRepo) Delete(ctx context.Context, sessionId int, userId int) error {
+func (repo *SessionRepo) Delete(ctx context.Context, sessionId int64, userId string) error {
 	query := `
 		Update sessions
 		SET is_deleted = 1
@@ -126,7 +126,7 @@ func (this *SessionRepo) Delete(ctx context.Context, sessionId int, userId int) 
 			AND user_id = $2
 			AND is_deleted = 0
 	`
-	res, err := this.db.ExecContext(ctx, query, sessionId, userId)
+	res, err := repo.db.ExecContext(ctx, query, sessionId, userId)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (this *SessionRepo) Delete(ctx context.Context, sessionId int, userId int) 
 	return nil
 }
 
-func (this *SessionRepo) Update(ctx context.Context, s *entities.Session) error {
+func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error {
 	query := `
 		UPDATE sessions
 		SET
@@ -161,7 +161,7 @@ func (this *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
 		  AND user_id = $10
 	`
 
-	_, err := this.db.ExecContext(
+	_, err := repo.db.ExecContext(
 		ctx,
 		query,
 		s.DailyGoalMinutes,
