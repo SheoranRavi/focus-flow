@@ -9,12 +9,12 @@ import (
 )
 
 type SessionService struct {
-	repo         repo.SessionRepo
-	eventService EventService
+	repo     *repo.SessionRepo
+	eventSvc *EventService
 }
 
-func NewSessionService(repo repo.SessionRepo) *SessionService {
-	return &SessionService{repo: repo}
+func NewSessionService(repo *repo.SessionRepo, eventSvc *EventService) *SessionService {
+	return &SessionService{repo: repo, eventSvc: eventSvc}
 }
 
 func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entities.Session, error) {
@@ -75,5 +75,5 @@ func (svc *SessionService) PropagateEvent(ctx context.Context,
 	if !t.IsValid() {
 		return errors.New("event type not valid")
 	}
-	return svc.eventService.ReceiveEvent(ctx, userId, sessionId, t, s)
+	return svc.eventSvc.ReceiveEvent(ctx, userId, sessionId, t, s)
 }

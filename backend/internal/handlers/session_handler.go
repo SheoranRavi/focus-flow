@@ -1,31 +1,78 @@
 package handlers
 
-import "net/http"
+import (
+	"encoding/json"
+	"net/http"
+	"strconv"
+
+	"github.com/sheoranravi/focus-flow/backend/internal/entities"
+	"github.com/sheoranravi/focus-flow/backend/internal/service"
+)
 
 type SessionHandler struct {
-	// SessionService
-	// AuthService
+	SessionSvc *service.SessionService
 }
 
-func NewSessionHandler() *SessionHandler {
-	return &SessionHandler{}
+func NewSessionHandler(svc *service.SessionService) *SessionHandler {
+	return &SessionHandler{SessionSvc: svc}
 }
 
-func (this *SessionHandler) Add(rw http.ResponseWriter, req *http.Request) {
+func (h *SessionHandler) Create(rw http.ResponseWriter, req *http.Request) {
+	var input service.CreateInput
+	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
 
+	session, err := h.SessionSvc.Add(req.Context(), input)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rw.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(rw).Encode(session)
 }
 
-func (this *SessionHandler) GetAll(rw http.ResponseWriter, req *http.Request) {
+func (h *SessionHandler) GetAll(rw http.ResponseWriter, req *http.Request) {
+	userId := req.Context().Value("userId").(string)
+	sessions, err := h.SessionSvc.GetAll(req.Context(), userId)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(rw).Encode(sessions)
 }
 
-func (this *SessionHandler) Start(rw http.ResponseWriter, req *http.Request) {
+func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
+	var input entities.PatchInput
+	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	eventType := service.EventType(req.URL.Query().Get("type"))
+	if err := h.SessionSvc.HandleEvent(req.Context(), &input, eventType); err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	rw.WriteHeader(http.StatusNoContent)
 }
 
-func (this *SessionHandler) Pause(rw http.ResponseWriter, req *http.Request) {
-}
+func (h *SessionHandler) Delete(rw http.ResponseWriter, req *http.Request) {
+	userId := req.Context().Value("userId").(string)
 
-func (this *SessionHandler) Patch(rw http.ResponseWriter, req *http.Request) {
-}
+	sessionIdStr := req.URL.Query().Get("id")
+	sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)
+	if err != nil {
+		http.Error(rw, "invalid session id", http.StatusBadRequest)
+		return
+	}
 
-func (this *SessionHandler) Delete(rw http.ResponseWriter, req *http.Request) {
+	if err := h.SessionSvc.Delete(req.Context(), sessionId, userId); err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	rw.WriteHeader(http.StatusNoContent)
 }

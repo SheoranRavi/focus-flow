@@ -10,5 +10,5 @@ type AnalyticsRepo struct {
 }
 
 func (this *AnalyticsRepo) ComputeAnalytics(ctx context.Context, userId string) []*entities.Session {
-
+	return nil
 }
