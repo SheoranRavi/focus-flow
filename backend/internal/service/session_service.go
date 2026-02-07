@@ -15,7 +15,7 @@ type SessionService struct {
 }
 
 func NewSessionService(repo *repo.SessionRepo, eventSvc *EventService) *SessionService {
-	return &SessionService{repo: repo, eventSvc: eventSvc, userSvc: usrSvc}
+	return &SessionService{repo: repo, eventSvc: eventSvc}
 }
 
 func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entities.Session, error) {
