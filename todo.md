@@ -13,6 +13,7 @@
 - Dropdown for selecting time.
 - The audio does not happen if the tab is suspended (I think). Explore the use of a service worker or something to get around this.
   - Probably can get it working with the notifications API.
+- If there is no internet connection, then batch all the requests?
 
 ## Backend
 - Keep a client list of some kind (on every login the client gets added), then send the start, pause, etc. events to all the connected clients.

@@ -40,10 +40,12 @@ func main() {
 
 	// Initialize repositories
 	sessionRepo := repo.NewSessionRepo(database)
+	userRepo := repo.NewUserRepo(database)
 
 	// Initialize services
 	eventService := &service.EventService{}
-	sessionService := service.NewSessionService(sessionRepo, eventService)
+	userService := service.NewUserService(userRepo)
+	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.FirebaseAuth(firebaseApp)

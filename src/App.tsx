@@ -8,10 +8,14 @@ import Footer from './components/Footer';
 import { AnimatePresence } from 'framer-motion';
 import {motion} from "motion/react";
 import { parseSessionsFromStorage } from './lib/utils';
+import { useAuth } from './context/AuthContext';
+import { api } from './lib/api';
 
 
 // --- Main App Component ---
 const App: React.FC = () => {
+  const user = useAuth();
+  
   // State
   const [sessions, setSessions] = useState<Session[]>(() => {
     const fallback: Session[] = [
@@ -75,6 +79,22 @@ const App: React.FC = () => {
 
   // Audio ref for timer end
   const audioRef = useRef<HTMLAudioElement>(null);
+  
+  // Fetch sessions from API if user is logged in
+  useEffect(() => {
+    if (user) {
+      api.getSessions()
+        .then(fetchedSessions => {
+          if (fetchedSessions.length > 0) {
+            setSessions(fetchedSessions);
+          }
+        })
+        .catch(error => {
+          console.error('Failed to fetch sessions from API:', error);
+          // Keep using localStorage sessions on error
+        });
+    }
+  }, [user]);
   
   // Derived State: Calculate total daily goal from individual session goals
   const totalDailyGoalMinutes = sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
@@ -187,10 +207,12 @@ const App: React.FC = () => {
     return () => clearInterval(checkResetTime);
   }, [resetTime, lastResetDate, handleResetDailyProgress]);
 
-  // update sessions in localStorage
+  // update sessions in localStorage (only if not logged in)
   useEffect(() => {
-    localStorage.setItem('sessions', JSON.stringify(sessions));
-  }, [sessions]);
+    if (!user) {
+      localStorage.setItem('sessions', JSON.stringify(sessions));
+    }
+  }, [sessions, user]);
 
   const totalFocusSeconds = useMemo(() => {
     // do not count a session time towards daily goal once session goal is achieved
