@@ -18,8 +18,8 @@
   - The backend should have this logic.
   - Schedule a event to fire at TargetTimeMs if the session in running state.
   - If in pause state, then do not fire this event
-- Any session handler request, if the user does not exist in DB then create it
-- 
+- Get all sessions request, if the user does not exist in DB then create it
+- Frontend needs to send the sessions to backend if it finds nothing from backend.
 
 ## Schema
 ```mermaid

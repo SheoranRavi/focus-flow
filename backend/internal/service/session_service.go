@@ -12,13 +12,17 @@ import (
 type SessionService struct {
 	repo     *repo.SessionRepo
 	eventSvc *EventService
+	userSvc  *UserService
 }
 
-func NewSessionService(repo *repo.SessionRepo, eventSvc *EventService) *SessionService {
-	return &SessionService{repo: repo, eventSvc: eventSvc}
+func NewSessionService(repo *repo.SessionRepo, eventSvc *EventService, userSvc *UserService) *SessionService {
+	return &SessionService{repo: repo, eventSvc: eventSvc, userSvc: userSvc}
 }
 
 func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entities.Session, error) {
+	// Lazily create user if doesn't exist
+	_ = svc.userSvc.EnsureUserExists(ctx, userId)
+
 	sessions, err := svc.repo.GetAllForUser(ctx, userId)
 	if err != nil {
 		return nil, err

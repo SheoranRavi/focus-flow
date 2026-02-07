@@ -86,3 +86,13 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 
 	return err
 }
+
+func (repo *UserRepo) EnsureUserExists(ctx context.Context, userId string) error {
+	query := `
+		INSERT INTO users (id, name, email, created_at)
+		VALUES ($1, '', '', now())
+		ON CONFLICT (id) DO NOTHING
+	`
+	_, err := repo.db.ExecContext(ctx, query, userId)
+	return err
+}

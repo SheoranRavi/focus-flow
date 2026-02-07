@@ -26,3 +26,7 @@ func (svc *UserService) Update(ctx context.Context, patch *entities.UserPatchInp
 	err = svc.repo.Update(ctx, user)
 	return err
 }
+
+func (svc *UserService) EnsureUserExists(ctx context.Context, userId string) error {
+	return svc.repo.EnsureUserExists(ctx, userId)
+}
