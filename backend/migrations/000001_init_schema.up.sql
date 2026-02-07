@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     state SMALLINT NOT NULL DEFAULT 0,
     focus_seconds INTEGER NOT NULL DEFAULT 0,
     group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL,
-    initial_duration INTEGER NOT NULL DEFAULT 0,
+    session_duration INTEGER NOT NULL DEFAULT 0,
     is_completed BOOLEAN NOT NULL DEFAULT FALSE,
     target_time_ms BIGINT NOT NULL DEFAULT 0,
     time_left INTEGER NOT NULL DEFAULT 0,

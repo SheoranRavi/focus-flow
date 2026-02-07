@@ -3,7 +3,7 @@ package service
 type CreateInput struct {
 	UserId           string
 	Title            string
-	InitialDuration  int
+	SessionDuration  int
 	DailyGoalMinutes int
 	TimeLeft         int
 	NoGoal           bool

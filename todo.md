@@ -24,7 +24,7 @@
   - Load time, how can it be improved.
 
 ## Bugs
-- When only the Goal is changed, the session timer shouldn't reset to initialDuration
+- When only the Goal is changed, the session timer shouldn't reset to sessionDuration
 
 ## Backend requirements
 - Compute analytics

@@ -7,7 +7,7 @@ import (
 type Session struct {
 	Id               int64
 	Title            string
-	InitialDuration  int
+	SessionDuration  int
 	IsCompleted      bool
 	DailyGoalMinutes int
 	NoGoal           bool
@@ -31,10 +31,11 @@ const (
 type PatchInput struct {
 	State            *SessionState
 	DailyGoalMinutes *int
-	InitialDuration  *int
+	SessionDuration  *int
 	TimeLeft         *int
 	NoGoal           *bool
 	TargetTimeMs     *int64
+	FocusSeconds     *int
 	UserId           string
 	SessionId        int64
 }
@@ -44,8 +45,8 @@ func (s *Session) ApplyPatch(in *PatchInput) {
 		s.DailyGoalMinutes = *in.DailyGoalMinutes
 	}
 
-	if in.InitialDuration != nil {
-		s.InitialDuration = *in.InitialDuration
+	if in.SessionDuration != nil {
+		s.SessionDuration = *in.SessionDuration
 	}
 
 	if in.TimeLeft != nil {
@@ -54,6 +55,10 @@ func (s *Session) ApplyPatch(in *PatchInput) {
 
 	if in.TargetTimeMs != nil {
 		s.TargetTimeMs = *in.TargetTimeMs
+	}
+
+	if in.FocusSeconds != nil {
+		s.FocusSeconds = *in.FocusSeconds
 	}
 
 	if in.NoGoal != nil {
@@ -69,7 +74,7 @@ func NewSession(
 	userId string,
 	title string,
 	dailyGoalMinutes int,
-	initialDuration int,
+	sessionDuration int,
 	noGoal bool,
 	groupId int,
 ) *Session {
@@ -85,7 +90,7 @@ func NewSession(
 		DailyGoalMinutes: dailyGoalMinutes,
 		State:            SessionPaused,
 		FocusSeconds:     0,
-		InitialDuration:  initialDuration,
+		SessionDuration:  sessionDuration,
 		IsCompleted:      false,
 		TargetTimeMs:     0,
 		NoGoal:           noGoal,

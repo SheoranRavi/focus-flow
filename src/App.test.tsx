@@ -91,7 +91,7 @@ describe('App Component', () => {
         {
           id: 99,
           title: 'Test Session',
-          initialDuration: 1500,
+          sessionDuration: 1500,
           timeLeft: 1500,
           isCompleted: false,
           dailyGoalMinutes: 25,
@@ -257,7 +257,7 @@ describe('App Component', () => {
         {
           id: 1,
           title: 'Test',
-          initialDuration: 1500,
+          sessionDuration: 1500,
           timeLeft: 1500,
           isCompleted: false,
           dailyGoalMinutes: 25,
@@ -293,7 +293,7 @@ describe('App Component', () => {
         {
           id: 1,
           title: 'Session 1',
-          initialDuration: 1500,
+          sessionDuration: 1500,
           timeLeft: 1500,
           isCompleted: false,
           dailyGoalMinutes: 30,
@@ -303,7 +303,7 @@ describe('App Component', () => {
         {
           id: 2,
           title: 'Session 2',
-          initialDuration: 1500,
+          sessionDuration: 1500,
           timeLeft: 1500,
           isCompleted: false,
           dailyGoalMinutes: 45,

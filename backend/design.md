@@ -12,6 +12,13 @@
 - Compute analytics
   - Time spent per task per unit of time (day, week, month)
 - Store data
+- TimeLeft update should not be triggered by the frontend.
+  - The backend should have this logic.
+  - Schedule a event to fire at TargetTimeMs if the session in running state.
+  - If in pause state, then do not fire this event
+- Where should the daily progress be tracked? -> It is derived (sum of individual progress). So it shouldn't be tracked separately?
+  - But when the reset progress event comes in, then what?
+  - Reset the focus seconds in that case
 
 ## Schema
 ```mermaid
@@ -22,7 +29,7 @@ erDiagram
 Session {
     number id PK
     string title
-    number initialDuration
+    number sessionDuration
     number timeLeft "in seconds"
     boolean isCompleted
     number dailyGoalMinutes
@@ -73,9 +80,10 @@ Group ||--o{ Session : has
 
 ### Notes
 - targetTimeMs: milliseconds since epoch when this session is supposed to finish (only meaningful when the session is running)
-- initialDuration: sessionDuration when it starts
+- sessionDuration: sessionDuration when it starts
 - dailyGoalMinutes: total daily goal for a particular Session
 - focusSeconds: time spent today in focus on this session
+- timeLeft: time left in current session in seconds
 
 - Need to allow goalless sessions just for tracking time.
   - noGoal: if true means that this sessions has no goal. FocusSeconds to be null or zero in this case.
