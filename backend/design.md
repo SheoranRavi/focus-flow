@@ -12,13 +12,14 @@
 - Compute analytics
   - Time spent per task per unit of time (day, week, month)
 - Store data
+
+# ToDo
 - TimeLeft update should not be triggered by the frontend.
   - The backend should have this logic.
   - Schedule a event to fire at TargetTimeMs if the session in running state.
   - If in pause state, then do not fire this event
-- Where should the daily progress be tracked? -> It is derived (sum of individual progress). So it shouldn't be tracked separately?
-  - But when the reset progress event comes in, then what?
-  - Reset the focus seconds in that case
+- Any session handler request, if the user does not exist in DB then create it
+- 
 
 ## Schema
 ```mermaid
@@ -134,3 +135,9 @@ flowchart TD
   EventService --Processes the event--> EventService
   EventService --> SseHandler
 ```
+
+
+## Archive
+- Where should the daily progress be tracked? -> It is derived (sum of individual progress). So it shouldn't be tracked separately?
+  - But when the reset progress event comes in, then what?
+  - Reset the focus seconds in that case

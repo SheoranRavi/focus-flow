@@ -47,11 +47,13 @@ func main() {
 
 	// Initialize auth middleware
 	authMiddleware := middleware.FirebaseAuth(firebaseApp)
+	loggingMiddleware := middleware.Logging()
 
 	// Initialize router
 	r := server.NewRouter(
 		sessionService,
 		authMiddleware,
+		loggingMiddleware,
 	)
 
 	// Start server

@@ -12,6 +12,7 @@ import (
 func NewRouter(
 	sessionSvc *service.SessionService,
 	authMiddleware func(http.Handler) http.Handler,
+	loggingMiddleware func(http.Handler) http.Handler,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -19,6 +20,7 @@ func NewRouter(
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(loggingMiddleware)
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
