@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    sessions_reset_time TIMESTAMP NULL DEFAULT NULL
+    sessions_reset_time TIMESTAMP NULL DEFAULT NULL,
+    active_session_id BIGINT NULL DEFAULT NULL
 );
 
 -- Groups table
@@ -27,6 +28,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     initial_duration INTEGER NOT NULL DEFAULT 0,
     is_completed BOOLEAN NOT NULL DEFAULT FALSE,
     target_time_ms BIGINT NOT NULL DEFAULT 0,
+    time_left INTEGER NOT NULL DEFAULT 0,
     no_goal BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE

@@ -18,7 +18,7 @@ func NewSessionRepo(db *sql.DB) *SessionRepo {
 func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*entities.Session, error) {
 	query := `
 		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, initial_duration, 
-			is_completed, target_time_ms, no_goal, created_at, is_deleted
+			is_completed, target_time_ms, no_goal, created_at, is_deleted, time_left
 		FROM sessions
 		WHERE user_id = $1
 		AND is_deleted = 0
@@ -58,8 +58,8 @@ func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 
 func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) (*entities.Session, error) {
 	query := `
-		INSERT INTO sessions (user_id, title, daily_goal_minutes, initial_duration, no_goal, group_id created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, now())
+		INSERT INTO sessions (user_id, title, daily_goal_minutes, initial_duration, time_left, no_goal, group_id, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, now())
 		RETURNING id, created_at
 	`
 	err := repo.db.QueryRowContext(
@@ -69,6 +69,7 @@ func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 		session.Title,
 		session.DailyGoalMinutes,
 		session.InitialDuration,
+		session.TimeLeft,
 		session.NoGoal,
 		session.GroupId,
 	).Scan(&session.Id, &session.CreatedAt)
@@ -81,7 +82,7 @@ func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 
 func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionId int64) (*entities.Session, error) {
 	query := `
-		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, initial_duration,
+		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, initial_duration, time_left,
 		       is_completed, target_time_ms, no_goal, created_at, is_deleted
 		FROM sessions
 		WHERE id = $1
@@ -153,10 +154,11 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
 			state              = $2,
 			focus_seconds      = $3,
 			initial_duration   = $4,
-			is_completed       = $5,
-			target_time_ms     = $6,
-			no_goal            = $7,
-			is_deleted         = $8
+			time_left          = $5,
+			is_completed       = $6,
+			target_time_ms     = $7,
+			no_goal            = $8,
+			is_deleted         = $9
 		WHERE id = $9
 		  AND user_id = $10
 	`
@@ -168,6 +170,7 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
 		s.State,
 		s.FocusSeconds,
 		s.InitialDuration,
+		s.TimeLeft,
 		s.IsCompleted,
 		s.TargetTimeMs,
 		s.NoGoal,

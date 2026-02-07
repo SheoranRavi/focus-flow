@@ -7,6 +7,11 @@ import (
 )
 
 type EventService struct {
+	userSvc *UserService
+}
+
+func NewEventService(userSvc *UserService) *EventService {
+	return &EventService{userSvc: userSvc}
 }
 
 func (svc *EventService) ReceiveEvent(
@@ -15,5 +20,15 @@ func (svc *EventService) ReceiveEvent(
 	sessionId int64,
 	t EventType,
 	s *entities.Session) error {
-	return nil
+	var err error
+	if t == EventStart || t == EventPause {
+		patch := entities.UserPatchInput{
+			ActiveSessionId: &sessionId,
+		}
+		if t == EventPause {
+			patch.ActiveSessionId = nil
+		}
+		err = svc.userSvc.Update(ctx, &patch)
+	}
+	return err
 }

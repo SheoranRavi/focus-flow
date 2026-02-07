@@ -23,7 +23,7 @@ Session {
     number id PK
     string title
     number initialDuration
-    number timeLeft
+    number timeLeft "in seconds"
     boolean isCompleted
     number dailyGoalMinutes
     bool noGoal

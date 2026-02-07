@@ -17,6 +17,7 @@ type Session struct {
 	State            SessionState
 	GroupId          int
 	UserId           string
+	TimeLeft         int
 	CreatedAt        time.Time
 }
 
@@ -31,7 +32,9 @@ type PatchInput struct {
 	State            *SessionState
 	DailyGoalMinutes *int
 	InitialDuration  *int
+	TimeLeft         *int
 	NoGoal           *bool
+	TargetTimeMs     *int64
 	UserId           string
 	SessionId        int64
 }
@@ -43,6 +46,14 @@ func (s *Session) ApplyPatch(in *PatchInput) {
 
 	if in.InitialDuration != nil {
 		s.InitialDuration = *in.InitialDuration
+	}
+
+	if in.TimeLeft != nil {
+		s.TimeLeft = *in.TimeLeft
+	}
+
+	if in.TargetTimeMs != nil {
+		s.TargetTimeMs = *in.TargetTimeMs
 	}
 
 	if in.NoGoal != nil {

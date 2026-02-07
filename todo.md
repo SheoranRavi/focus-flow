@@ -16,6 +16,8 @@
 
 ## Backend
 - Keep a client list of some kind (on every login the client gets added), then send the start, pause, etc. events to all the connected clients.
+- UserMiddleware or something => if user does not exist then create it.
+- If frontend receives no sessions from backend, then call CreateSessions one by one for each of the sessions.
 
 # Performance
 - Analyze performance of the app.

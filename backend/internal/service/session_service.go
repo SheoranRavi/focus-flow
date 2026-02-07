@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
 	"github.com/sheoranravi/focus-flow/backend/internal/repo"
@@ -14,7 +15,7 @@ type SessionService struct {
 }
 
 func NewSessionService(repo *repo.SessionRepo, eventSvc *EventService) *SessionService {
-	return &SessionService{repo: repo, eventSvc: eventSvc}
+	return &SessionService{repo: repo, eventSvc: eventSvc, userSvc: usrSvc}
 }
 
 func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entities.Session, error) {
@@ -57,8 +58,15 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	if session == nil {
 		return errors.New("session not found")
 	}
+	switch t {
+	case EventStart:
+		*(patchInput.TargetTimeMs) = time.Now().UnixMilli() + int64(session.TimeLeft)*1000
+	case EventPause:
+		*(patchInput.State) = entities.SessionPaused
+	}
 
 	session.ApplyPatch(patchInput)
+
 	err = svc.repo.Update(ctx, session)
 	if err == nil {
 		err = svc.PropagateEvent(ctx, patchInput.UserId, patchInput.SessionId, t, session)

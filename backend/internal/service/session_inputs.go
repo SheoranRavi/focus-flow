@@ -5,6 +5,7 @@ type CreateInput struct {
 	Title            string
 	InitialDuration  int
 	DailyGoalMinutes int
+	TimeLeft         int
 	NoGoal           bool
 	GroupId          int
 }
