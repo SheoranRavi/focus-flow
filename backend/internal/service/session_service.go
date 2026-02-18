@@ -5,7 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
+	"github.com/sheoranravi/focus-flow/backend/internal/logger"
 	"github.com/sheoranravi/focus-flow/backend/internal/repo"
 )
 
@@ -13,18 +15,22 @@ type SessionService struct {
 	repo     *repo.SessionRepo
 	eventSvc *EventService
 	userSvc  *UserService
+	logger   zerolog.Logger
 }
 
 func NewSessionService(repo *repo.SessionRepo, eventSvc *EventService, userSvc *UserService) *SessionService {
-	return &SessionService{repo: repo, eventSvc: eventSvc, userSvc: userSvc}
+	return &SessionService{repo: repo, eventSvc: eventSvc, userSvc: userSvc, logger: logger.NewServiceLogger("session")}
 }
 
 func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entities.Session, error) {
 	// Lazily create user if doesn't exist
+	svc.logger.Info().Str("user_id", userId).Msg("Getting all")
+
 	_ = svc.userSvc.EnsureUserExists(ctx, userId)
 
 	sessions, err := svc.repo.GetAllForUser(ctx, userId)
 	if err != nil {
+		svc.logger.Error().Msg(err.Error())
 		return nil, err
 	}
 	return sessions, err

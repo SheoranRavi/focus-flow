@@ -20,6 +20,7 @@
   - If in pause state, then do not fire this event
 - Get all sessions request, if the user does not exist in DB then create it
 - Frontend needs to send the sessions to backend if it finds nothing from backend.
+- Add logging to the service
 
 ## Schema
 ```mermaid

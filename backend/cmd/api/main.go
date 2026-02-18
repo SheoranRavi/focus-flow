@@ -10,6 +10,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"github.com/sheoranravi/focus-flow/backend/internal/db"
+	"github.com/sheoranravi/focus-flow/backend/internal/logger"
 	"github.com/sheoranravi/focus-flow/backend/internal/middleware"
 	"github.com/sheoranravi/focus-flow/backend/internal/repo"
 	"github.com/sheoranravi/focus-flow/backend/internal/server"
@@ -20,6 +21,13 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found or error loading it")
 	}
+
+	// initialize the logger
+	if err := logger.Initialize(); err != nil {
+		log.Fatal("Failed to initialize logger")
+	}
+	defer logger.Close()
+
 	ctx := context.Background()
 	firebaseApp, err := firebase.NewApp(ctx, nil)
 	if err != nil {

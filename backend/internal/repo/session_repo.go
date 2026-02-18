@@ -21,7 +21,7 @@ func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 			is_completed, target_time_ms, no_goal, created_at, is_deleted, time_left
 		FROM sessions
 		WHERE user_id = $1
-		AND is_deleted = 0
+		AND is_deleted = FALSE
 		ORDER BY created_at DESC
 	`
 	rows, err := repo.db.QueryContext(ctx, query, userId)
@@ -87,7 +87,7 @@ func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionI
 		FROM sessions
 		WHERE id = $1
 		  AND user_id = $2
-		  AND is_deleted = 0
+		  AND is_deleted = FALSE
 	`
 
 	var s entities.Session
@@ -122,10 +122,10 @@ func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionI
 func (repo *SessionRepo) Delete(ctx context.Context, sessionId int64, userId string) error {
 	query := `
 		Update sessions
-		SET is_deleted = 1
+		SET is_deleted = TRUE
 		Where id = $1
 			AND user_id = $2
-			AND is_deleted = 0
+			AND is_deleted = FALSE
 	`
 	res, err := repo.db.ExecContext(ctx, query, sessionId, userId)
 	if err != nil {
@@ -190,7 +190,7 @@ func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string) error
 			is_completed = FALSE,
 			time_left = session_duration
 		WHERE user_id = $1
-			AND is_deleted = 0
+			AND is_deleted = FALSE
 	`
 	_, err := repo.db.ExecContext(ctx, query, userId)
 	return err
