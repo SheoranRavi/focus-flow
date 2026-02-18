@@ -30,7 +30,7 @@ func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 	}
 	defer rows.Close()
 
-	var sessions []*entities.Session
+	sessions := make([]*entities.Session, 0)
 
 	for rows.Next() {
 		var s entities.Session

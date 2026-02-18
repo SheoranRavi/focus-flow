@@ -89,9 +89,12 @@ function mapFrontendToBackend(session: Partial<Session>): Partial<BackendSession
 
 export const api = {
   // Get all sessions for the authenticated user
-  async getSessions(): Promise<Session[]> {
+  async getSessions(): Promise<Session[] | null> {
     const response = await fetchWithAuth('/sessions/');
     const data: BackendSession[] = await response.json();
+    if (!data){
+      return data;
+    }
     return data.map(mapBackendToFrontend);
   },
 

@@ -85,7 +85,7 @@ const App: React.FC = () => {
     if (user) {
       api.getSessions()
         .then(fetchedSessions => {
-          if (fetchedSessions.length > 0) {
+          if (fetchedSessions && fetchedSessions.length > 0) {
             setSessions(fetchedSessions);
           }
         })
