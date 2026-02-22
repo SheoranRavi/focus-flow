@@ -18,6 +18,7 @@
 #### UI-API sessions merge
 - handle errors in repo
 - backend errors to not flow to ui
+- Implement a frontend cache for offline use. Once connection established, update backend from the cache.
   
 
 ## Backend

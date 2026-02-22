@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
 	"github.com/sheoranravi/focus-flow/backend/internal/logger"
@@ -69,7 +70,7 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 func (h *SessionHandler) Delete(rw http.ResponseWriter, req *http.Request) {
 	userId := req.Context().Value(middleware.UserIDKey).(string)
 
-	sessionIdStr := req.URL.Query().Get("id")
+	sessionIdStr := chi.URLParam(req, "sessionId")
 	sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)
 	if err != nil {
 		http.Error(rw, "invalid session id", http.StatusBadRequest)

@@ -10,6 +10,7 @@ import {motion} from "motion/react";
 import { parseSessionsFromStorage } from './lib/utils';
 import { useAuth } from './context/AuthContext';
 import { api } from './lib/api';
+import CreateSession from './components/CreateSession/CreateSession';
 
 
 // --- Main App Component ---
@@ -64,6 +65,8 @@ const App: React.FC = () => {
     }
     return "";
   });
+
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Settings / Menu State
   
@@ -298,6 +301,9 @@ const App: React.FC = () => {
   const handleDelete = (id: number) => {
     setSessions(prev => prev.filter(s => s.id !== id));
     if (activeSessionId === id) setActiveSessionId(null);
+    if(user){
+      api.deleteSession(id).catch(e => console.error(e));
+    }
   };
 
   const handleUpdate = (id: number, newDetails: Partial<Session>) => {
@@ -323,18 +329,41 @@ const App: React.FC = () => {
     localStorage.setItem("resetTime", newTime);
   }
 
-  const handleAddSession = () => {
+  const handleAddSession = (sessionData: {
+    title: string;
+    dailyGoalMinutes: number;
+    sessionDuration: number;
+    noGoal: boolean;
+  }) => {
     const newId = Math.max(...sessions.map(s => s.id), 0) + 1;
-    setSessions([...sessions, {
+    const newSession: Session = {
       id: newId,
-      title: 'New Session',
-      sessionDuration: 30 * 60,
-      timeLeft: 30 * 60,
+      title: sessionData.title,
+      sessionDuration: sessionData.sessionDuration,
+      timeLeft: sessionData.sessionDuration,
       isCompleted: false,
-      dailyGoalMinutes: 30, // Default goal for new sessions
+      dailyGoalMinutes: sessionData.dailyGoalMinutes,
       focusSeconds: 0,
-      state: TimerState.PAUSED
-    }]);
+      state: TimerState.PAUSED,
+      noGoal: sessionData.noGoal,
+    };
+    
+    setSessions([...sessions, newSession]);
+    
+    // If user is logged in, also create on backend
+    if (user) {
+      api.createSession(newSession)
+        .then(createdSession => {
+          // Update with server-generated ID
+          setSessions(prev => prev.map(s => 
+            s.id === newId ? createdSession : s
+          ));
+        })
+        .catch(error => {
+          console.error('Failed to create session on server:', error);
+          // Keep the local session even if server fails
+        });
+    }
   };
 
   // Derived State for UI
@@ -364,7 +393,7 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between">
                <h2 className="text-2xl font-bold text-slate-800">Your Sessions</h2>
                <button 
-                 onClick={handleAddSession}
+                 onClick={() => setIsCreateDialogOpen(true)}
                  className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200"
                >
                  <Plus size={16} /> New Session
@@ -406,7 +435,7 @@ const App: React.FC = () => {
                 {sessions.length === 0 && (
                   <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 rounded-3xl w-full text-slate-400">
                      <p className="mb-4 font-medium">No active tasks</p>
-                     <button onClick={handleAddSession} className="text-emerald-600 hover:underline">Create one to get started</button>
+                     <button onClick={() => setIsCreateDialogOpen(true)} className="text-emerald-600 hover:underline">Create one to get started</button>
                   </div>
                 )}
               </div>
@@ -479,6 +508,13 @@ const App: React.FC = () => {
       </main>
 
       <Footer />
+      
+      {/* Create Session Dialog */}
+      <CreateSession 
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onAddSession={handleAddSession}
+      />
     </div>
   );
 };

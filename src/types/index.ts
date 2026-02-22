@@ -1,5 +1,3 @@
-import React from 'react';
-
 export interface Session {
   id: number;
   title: string;
@@ -10,6 +8,7 @@ export interface Session {
   focusSeconds: number; // time spent on this task today in seconds
   targetTimeMs?: number; // the target timestamp at which this timer is supposed to complete
   state: TimerState;
+  noGoal?: boolean; // whether this is a no-goal session (just tracking time)
 }
 
 // Component Props

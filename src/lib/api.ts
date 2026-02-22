@@ -68,6 +68,7 @@ function mapBackendToFrontend(backendSession: BackendSession): Session {
     focusSeconds: backendSession.focusSeconds,
     targetTimeMs: backendSession.targetTimeMs,
     state: backendSession.state,
+    noGoal: backendSession.noGoal,
   };
 }
 
@@ -83,6 +84,7 @@ function mapFrontendToBackend(session: Partial<Session>): Partial<BackendSession
   if (session.focusSeconds !== undefined) backend.focusSeconds = session.focusSeconds;
   if (session.targetTimeMs !== undefined) backend.targetTimeMs = session.targetTimeMs;
   if (session.state !== undefined) backend.state = session.state;
+  if (session.noGoal !== undefined) backend.noGoal = session.noGoal;
   
   return backend;
 }
