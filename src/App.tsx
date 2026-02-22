@@ -79,14 +79,36 @@ const App: React.FC = () => {
 
   // Audio ref for timer end
   const audioRef = useRef<HTMLAudioElement>(null);
-  
+  const initialSessions = useRef(sessions);
   // Fetch sessions from API if user is logged in
   useEffect(() => {
     if (user) {
       api.getSessions()
         .then(fetchedSessions => {
           if (fetchedSessions && fetchedSessions.length > 0) {
+            console.log(`fetched sessions: ${JSON.stringify(fetchedSessions)}`);
             setSessions(fetchedSessions);
+          } else{
+            Promise.allSettled(
+              initialSessions.current.map(session => api.createSession(session))
+            ).then(results => {
+              const createdSessions = results
+                .filter((result): result is PromiseFulfilledResult<Session> => result.status === 'fulfilled')
+                .map(result => result.value);
+
+              if (createdSessions.length > 0){
+                console.log(`Created sessions: ${JSON.stringify(createdSessions)}`);
+                setSessions(createdSessions);
+              }
+              
+              // log failures
+              const failures = results.filter(r => r.status === 'rejected');
+              if (failures.length > 0){
+                console.error(`Failed to upload ${failures.length} sessions:`, failures);
+              }
+            }).catch(error => {
+              console.error('Failed to upload local sessions:', error);
+            });
           }
         })
         .catch(error => {

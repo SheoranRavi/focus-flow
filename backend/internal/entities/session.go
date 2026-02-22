@@ -1,24 +1,25 @@
 package entities
 
 import (
+	"database/sql"
 	"time"
 )
 
 type Session struct {
-	Id               int64
-	Title            string
-	SessionDuration  int
-	IsCompleted      bool
-	DailyGoalMinutes int
-	NoGoal           bool
-	IsDeleted        bool
-	FocusSeconds     int   // Number of seconds spent on it so far
-	TargetTimeMs     int64 // ms since epoch
-	State            SessionState
-	GroupId          int
-	UserId           string
-	TimeLeft         int
-	CreatedAt        time.Time
+	Id               int64         `json:"id"`
+	Title            string        `json:"title"`
+	SessionDuration  int           `json:"sessionDuration"`
+	IsCompleted      bool          `json:"isCompleted"`
+	DailyGoalMinutes int           `json:"dailyGoalMinutes"`
+	NoGoal           bool          `json:"noGoal"`
+	IsDeleted        bool          `json:"isDeleted"`
+	FocusSeconds     int           `json:"focusSeconds"` // Number of seconds spent on it so far
+	TargetTimeMs     int64         `json:"targetTimeMs"` // ms since epoch
+	State            SessionState  `json:"state"`
+	GroupId          sql.NullInt32 `json:"groupId,omitempty"`
+	UserId           string        `json:"userId"`
+	TimeLeft         int           `json:"timeLeft"`
+	CreatedAt        time.Time     `json:"createdAt"`
 }
 
 type SessionState int16
@@ -75,6 +76,7 @@ func NewSession(
 	title string,
 	dailyGoalMinutes int,
 	sessionDuration int,
+	timeLeft int,
 	noGoal bool,
 	groupId int,
 ) *Session {
@@ -82,13 +84,18 @@ func NewSession(
 	if title == "" {
 		panic("session title cannot be empty")
 	}
-
+	var sqlGroupId sql.NullInt32
+	if groupId != 0 {
+		sqlGroupId.Valid = true
+		sqlGroupId.Int32 = int32(groupId)
+	}
 	return &Session{
 		UserId:           userId,
 		Title:            title,
-		GroupId:          groupId,
+		GroupId:          sqlGroupId,
 		DailyGoalMinutes: dailyGoalMinutes,
 		State:            SessionPaused,
+		TimeLeft:         timeLeft,
 		FocusSeconds:     0,
 		SessionDuration:  sessionDuration,
 		IsCompleted:      false,

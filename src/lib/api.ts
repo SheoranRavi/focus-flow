@@ -41,19 +41,19 @@ async function fetchWithAuth(url: string, options: FetchOptions = {}): Promise<R
 
 export interface BackendSession {
   id: number;
-  user_id: string;
+  userId: string;
   title: string;
-  daily_goal_minutes: number;
+  dailyGoalMinutes: number;
   state: number;
-  focus_seconds: number;
-  group_id: number | null;
-  session_duration: number;
-  time_left: number;
-  is_completed: boolean;
-  target_time_ms: number;
-  no_goal: boolean;
-  created_at: string;
-  is_deleted: boolean;
+  focusSeconds: number;
+  groupId: number | null;
+  sessionDuration: number;
+  timeLeft: number;
+  isCompleted: boolean;
+  targetTimeMs: number;
+  noGoal: boolean;
+  createdAt: string;
+  isDeleted: boolean;
 }
 
 // Convert backend session format to frontend format
@@ -61,12 +61,12 @@ function mapBackendToFrontend(backendSession: BackendSession): Session {
   return {
     id: backendSession.id,
     title: backendSession.title,
-    sessionDuration: backendSession.session_duration,
-    timeLeft: backendSession.time_left,
-    isCompleted: backendSession.is_completed,
-    dailyGoalMinutes: backendSession.daily_goal_minutes,
-    focusSeconds: backendSession.focus_seconds,
-    targetTimeMs: backendSession.target_time_ms,
+    sessionDuration: backendSession.sessionDuration,
+    timeLeft: backendSession.timeLeft,
+    isCompleted: backendSession.isCompleted,
+    dailyGoalMinutes: backendSession.dailyGoalMinutes,
+    focusSeconds: backendSession.focusSeconds,
+    targetTimeMs: backendSession.targetTimeMs,
     state: backendSession.state,
   };
 }
@@ -76,12 +76,12 @@ function mapFrontendToBackend(session: Partial<Session>): Partial<BackendSession
   const backend: Partial<BackendSession> = {};
   
   if (session.title !== undefined) backend.title = session.title;
-  if (session.sessionDuration !== undefined) backend.session_duration = session.sessionDuration;
-  if (session.timeLeft !== undefined) backend.time_left = session.timeLeft;
-  if (session.isCompleted !== undefined) backend.is_completed = session.isCompleted;
-  if (session.dailyGoalMinutes !== undefined) backend.daily_goal_minutes = session.dailyGoalMinutes;
-  if (session.focusSeconds !== undefined) backend.focus_seconds = session.focusSeconds;
-  if (session.targetTimeMs !== undefined) backend.target_time_ms = session.targetTimeMs;
+  if (session.sessionDuration !== undefined) backend.sessionDuration = session.sessionDuration;
+  if (session.timeLeft !== undefined) backend.timeLeft = session.timeLeft;
+  if (session.isCompleted !== undefined) backend.isCompleted = session.isCompleted;
+  if (session.dailyGoalMinutes !== undefined) backend.dailyGoalMinutes = session.dailyGoalMinutes;
+  if (session.focusSeconds !== undefined) backend.focusSeconds = session.focusSeconds;
+  if (session.targetTimeMs !== undefined) backend.targetTimeMs = session.targetTimeMs;
   if (session.state !== undefined) backend.state = session.state;
   
   return backend;
@@ -92,6 +92,7 @@ export const api = {
   async getSessions(): Promise<Session[] | null> {
     const response = await fetchWithAuth('/sessions/');
     const data: BackendSession[] = await response.json();
+    console.log(`fetched sessions response: ${JSON.stringify(data)}`);
     if (!data){
       return data;
     }
@@ -105,6 +106,7 @@ export const api = {
       body: JSON.stringify(mapFrontendToBackend(session)),
     });
     const data: BackendSession = await response.json();
+    console.log(`Backend response for session: ${JSON.stringify(data)}`);
     return mapBackendToFrontend(data);
   },
 

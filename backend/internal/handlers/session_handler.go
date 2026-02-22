@@ -5,25 +5,31 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
+	"github.com/sheoranravi/focus-flow/backend/internal/logger"
 	"github.com/sheoranravi/focus-flow/backend/internal/middleware"
 	"github.com/sheoranravi/focus-flow/backend/internal/service"
 )
 
 type SessionHandler struct {
 	SessionSvc *service.SessionService
+	logger     zerolog.Logger
 }
 
 func NewSessionHandler(svc *service.SessionService) *SessionHandler {
-	return &SessionHandler{SessionSvc: svc}
+	return &SessionHandler{SessionSvc: svc, logger: logger.NewHandlerLogger("session")}
 }
 
 func (h *SessionHandler) Create(rw http.ResponseWriter, req *http.Request) {
+	userId := req.Context().Value(middleware.UserIDKey).(string)
 	var input service.CreateInput
 	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
+	input.UserId = userId
+	h.logger.Info().Str("user_id", userId).Interface("input", input).Msg("Creating session")
 
 	session, err := h.SessionSvc.Add(req.Context(), input)
 	if err != nil {

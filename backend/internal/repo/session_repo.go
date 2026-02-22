@@ -48,6 +48,7 @@ func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 			&s.NoGoal,
 			&s.CreatedAt,
 			&s.IsDeleted,
+			&s.TimeLeft,
 		); err != nil {
 			return nil, err
 		}

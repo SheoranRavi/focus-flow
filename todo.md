@@ -15,6 +15,11 @@
   - Probably can get it working with the notifications API.
 - If there is no internet connection, then batch all the requests?
 
+#### UI-API sessions merge
+- handle errors in repo
+- backend errors to not flow to ui
+  
+
 ## Backend
 - Keep a client list of some kind (on every login the client gets added), then send the start, pause, etc. events to all the connected clients.
 - UserMiddleware or something => if user does not exist then create it.

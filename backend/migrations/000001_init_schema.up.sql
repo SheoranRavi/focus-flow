@@ -50,3 +50,8 @@ CREATE INDEX idx_sessions_group_id ON sessions(group_id);
 CREATE INDEX idx_sessions_created_at ON sessions(created_at DESC);
 CREATE INDEX idx_task_daily_time_session_id ON task_daily_time(session_id);
 CREATE INDEX idx_task_daily_time_date ON task_daily_time(date);
+
+-- Unique constraint: title per user when not deleted
+CREATE UNIQUE INDEX idx_sessions_unique_title_per_user 
+ON sessions(user_id, title) 
+WHERE is_deleted = FALSE;
