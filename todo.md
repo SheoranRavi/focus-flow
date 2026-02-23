@@ -1,21 +1,13 @@
 # UI
-- Track the goals by `name` instead of id
-  - generate the analytics using this name
-  - If the name changes (during edit), classify it as a new Goal
-    - Do we change the id in that case?
-- Add the spotify integration
-- Add a cache layer
-  - localStorage to start with
 - The daily reset should show a notification that the Reset has been triggered
 - Maybe allow editing the time (focusSeconds) for tasks.
-- Add option to have a goalless session, one that is used just for tracking time.
+- Goalless session, update the session card.
 - Enter to save.
 - Dropdown for selecting time.
 - The audio does not happen if the tab is suspended (I think). Explore the use of a service worker or something to get around this.
   - Probably can get it working with the notifications API.
-- If there is no internet connection, then batch all the requests?
 
-#### UI-API sessions merge
+## UI-API sessions merge
 - handle errors in repo
 - backend errors to not flow to ui
 - Implement a frontend cache for offline use. Once connection established, update backend from the cache.
@@ -24,7 +16,6 @@
 ## Backend
 - Keep a client list of some kind (on every login the client gets added), then send the start, pause, etc. events to all the connected clients.
 - UserMiddleware or something => if user does not exist then create it.
-- If frontend receives no sessions from backend, then call CreateSessions one by one for each of the sessions.
 
 # Performance
 - Analyze performance of the app.

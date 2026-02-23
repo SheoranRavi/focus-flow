@@ -12,6 +12,7 @@ import (
 
 func NewRouter(
 	sessionSvc *service.SessionService,
+	eventSvc *service.EventService,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
 ) http.Handler {
@@ -51,6 +52,12 @@ func NewRouter(
 		})
 
 		r.Post("/event", sessionHandler.Event)
+	})
+
+	sseHandler := handlers.NewSSEHandler(eventSvc)
+	r.Route("/events", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Get("/", sseHandler.Handle)
 	})
 
 	return r

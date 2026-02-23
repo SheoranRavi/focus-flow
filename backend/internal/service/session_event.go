@@ -1,6 +1,10 @@
 package service
 
-import "github.com/sheoranravi/focus-flow/backend/internal/entities"
+import (
+	"time"
+
+	"github.com/sheoranravi/focus-flow/backend/internal/entities"
+)
 
 type EventType string
 
@@ -8,6 +12,7 @@ const (
 	EventStart               EventType = "start"
 	EventPause               EventType = "pause"
 	EventEdit                EventType = "edit"
+	EventSessionComplete     EventType = "session_complete"
 	EventNewSession          EventType = "new_session"
 	EventDeleteSession       EventType = "delete_session"
 	EventResetSession        EventType = "reset_session"
@@ -17,7 +22,9 @@ const (
 
 func (t EventType) IsValid() bool {
 	switch t {
-	case EventStart, EventPause, EventEdit, EventNewSession, EventDeleteSession:
+	case EventStart, EventPause, EventEdit, EventSessionComplete,
+		EventNewSession, EventDeleteSession, EventResetSession,
+		EventResetProgress, EventAutoResetTimeChange:
 		return true
 	}
 	return false
@@ -26,4 +33,9 @@ func (t EventType) IsValid() bool {
 type SessionEvent struct {
 	Session *entities.Session
 	Type    EventType
+}
+
+// for the auto_reset_time_change event
+type AutoResetEvent struct {
+	ResetTime time.Time
 }

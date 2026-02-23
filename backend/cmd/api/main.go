@@ -51,8 +51,8 @@ func main() {
 	userRepo := repo.NewUserRepo(database)
 
 	// Initialize services
-	eventService := &service.EventService{}
 	userService := service.NewUserService(userRepo)
+	eventService := service.NewEventService(userService)
 	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
 
 	// Initialize auth middleware
@@ -62,6 +62,7 @@ func main() {
 	// Initialize router
 	r := server.NewRouter(
 		sessionService,
+		eventService,
 		authMiddleware,
 		loggingMiddleware,
 	)

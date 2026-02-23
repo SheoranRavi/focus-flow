@@ -21,19 +21,24 @@ func FirebaseAuth(app *firebase.App) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			var tokenString string
+
 			authHeader := req.Header.Get("Authorization")
 			if authHeader == "" {
-				http.Error(rw, "missing Authorization header", http.StatusUnauthorized)
-				return
+				// check token query string param
+				tokenString = req.URL.Query().Get("token")
+				if tokenString == "" {
+					http.Error(rw, "missing Authorization header or token query parameter", http.StatusUnauthorized)
+					return
+				}
+			} else {
+				parts := strings.SplitN(authHeader, " ", 2)
+				if len(parts) != 2 || parts[0] != "Bearer" {
+					http.Error(rw, "invalid Authorization header", http.StatusUnauthorized)
+					return
+				}
+				tokenString = parts[1]
 			}
-
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				http.Error(rw, "invalid Authorization header", http.StatusUnauthorized)
-				return
-			}
-
-			tokenString := parts[1]
 
 			token, err := verifyToken(req.Context(), authClient, tokenString)
 			if err != nil {

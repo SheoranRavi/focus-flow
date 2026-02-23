@@ -119,6 +119,15 @@ export const api = {
     });
   },
 
+  async streamEvents(): Promise<void>{
+    const idToken = await getAuthToken();
+    const eventSrc = new EventSource(`${API_URL}/events?token=${idToken}`)
+    eventSrc.onmessage = e => console.log(e.data)
+    eventSrc.addEventListener("ping", (e) => {
+      //console.log(e.data);
+    })
+  },
+
   // Send session events (start, pause, reset, etc.)
   async sendSessionEvent(
     sessionId: number,

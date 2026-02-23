@@ -111,6 +111,9 @@ DELETE /sessions/{session_id}
 GET /analytics?period=daily
 GET /analytics?period=weekly
 
+### Users
+Get /users/{userId} -> Needed for getting streak, yesterdayMins, resetTime etc.
+
 ## Real Time multi client updates
 - On login, ping the backend
 - On tab active or something, poll backend to fetch the latest sessions and state
@@ -136,6 +139,17 @@ flowchart TD
   EventService --Processes the event--> EventService
   EventService --> SseHandler
 ```
+
+### Events detail
+- start -> the event start time or target time needs to be specified. (to deal with any lag in network requests). But no need to get consensus from other clients.
+- pause -> Same thing here, the state gets changed to paused, and the time at which pause gets called needs to be passed in request
+- session_complete -> Need to set up a trigger for each running session. Fire an event at TargetTimeMs to send a event to all clients of user.
+
+#### Event SSE
+- in memory store of client connections
+- each event is routed to the connections of each client (except the one it came from perhaps)
+- event svc should store this mapping
+- 
 
 
 ## Archive

@@ -118,6 +118,7 @@ const App: React.FC = () => {
           console.error('Failed to fetch sessions from API:', error);
           // Keep using localStorage sessions on error
         });
+      api.streamEvents();
     }
   }, [user]);
   
