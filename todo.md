@@ -15,7 +15,6 @@
 
 ## Backend
 - Keep a client list of some kind (on every login the client gets added), then send the start, pause, etc. events to all the connected clients.
-- UserMiddleware or something => if user does not exist then create it.
 
 # Performance
 - Analyze performance of the app.
@@ -34,6 +33,6 @@
   - Data is safely stored in the local storage, but multiple device sync would be an issue if not synced regularly
     - If doing multiple device sync thingy, then need to track state in the backend, which timer is running
     - Don't have to have something always running, just need to update in the DB, so something like serverless functions also works
-- How to geneerate analytics?
+- How to generate analytics?
   - Demarcate by Reset time or 12:00 midnight local usertime?
     - Demarcate by Reset time.

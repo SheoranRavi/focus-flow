@@ -39,15 +39,18 @@ func (h *SSEHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// add connection for user
-	eventChan := h.eventSvc.AddClient(userId)
+	connection := h.eventSvc.AddClient(userId)
+	eventChan := connection.EventC
+	h.logger.Info().Str("user_id", userId).Str("conn_id", connection.ConnId).Msg("Subscribed to events")
 
 	for {
 		select {
 		case <-ctx.Done():
-			h.logger.Info().Msg("client disconnected")
-			// ToDo: remove this connection
+			h.logger.Info().Str("userId", userId).Msg("client disconnected.")
+			h.eventSvc.RemoveClientConnection(connection.ConnId, userId)
 			return // client disconnected
 		case msg := <-eventChan:
+			h.logger.Info().Str("userId", userId).Msg("Sending event to client")
 			fmt.Fprintf(rw, "event: ping\n")
 			fmt.Fprintf(rw, "data: %s\n\n", msg)
 			flusher.Flush()

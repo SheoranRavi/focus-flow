@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
 	"github.com/sheoranravi/focus-flow/backend/internal/logger"
@@ -11,13 +14,17 @@ import (
 type EventService struct {
 	userSvc *UserService
 	// each user can have n number of connections, so one channel per connection would be there
-	userConnections map[string][]*Connection
+	//userConnections map[string][]*Connection
+	// userId -> connectionId -> Connection
+	userConnections map[string]map[string]*Connection
 	logger          zerolog.Logger
+	mu              sync.Mutex
 }
 
 func NewEventService(userSvc *UserService) *EventService {
 	return &EventService{userSvc: userSvc,
-		userConnections: make(map[string][]*Connection),
+		//userConnections: make(map[string][]*Connection),
+		userConnections: make(map[string]map[string]*Connection),
 		logger:          logger.NewServiceLogger("event_service")}
 }
 
@@ -37,24 +44,32 @@ func (svc *EventService) ReceiveEvent(
 		}
 		err = svc.userSvc.Update(ctx, &patch)
 	}
+	svc.BroadcastToClientConnections(userId, fmt.Sprintf("Event type: %s", t))
 	return err
 }
 
-// ToDo: Add RemoveClient logic on disconnect. Need to generate some clientId for that.
-// So, create a map of map for it. map[string]map[string]*Connection
-func (svc *EventService) AddClient(userId string) chan string {
+// ToDo: Make it thread safe
+func (svc *EventService) AddClient(userId string) *Connection {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 	svc.logger.Info().Str("userId", userId).Msg("New connection for user")
 	_, ok := svc.userConnections[userId]
 	if !ok {
-		svc.userConnections[userId] = make([]*Connection, 0)
+		svc.userConnections[userId] = make(map[string]*Connection, 0)
 	}
-	conns := svc.userConnections[userId]
-	eventChan := make(chan string)
-	conns = append(conns, &Connection{eventC: eventChan})
-	return eventChan
+	eventChan := make(chan string, 10)
+
+	connId := uuid.New().String()
+	newConnection := &Connection{EventC: eventChan, ConnId: connId}
+
+	svc.userConnections[userId][connId] = newConnection
+	return newConnection
 }
 
 func (svc *EventService) BroadcastToClientConnections(userId string, msg string) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	svc.logger.Info().Str("userId", userId).Msg("Broadcasting event to all connections")
 	// get connections for this user
 	_, ok := svc.userConnections[userId]
 	if !ok {
@@ -65,13 +80,21 @@ func (svc *EventService) BroadcastToClientConnections(userId string, msg string)
 	conns := svc.userConnections[userId]
 	for _, conn := range conns {
 		select {
-		case conn.eventC <- msg:
+		case conn.EventC <- msg:
 		default:
+			svc.logger.Debug().Msg("The event channel is not receiving it seems...")
 			// drop if client slow...
 		}
 	}
 }
 
+func (svc *EventService) RemoveClientConnection(connId string, userId string) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	delete(svc.userConnections[userId], connId)
+}
+
 type Connection struct {
-	eventC chan string
+	EventC chan string
+	ConnId string
 }
