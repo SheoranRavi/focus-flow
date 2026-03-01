@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
@@ -14,7 +13,6 @@ import (
 type EventService struct {
 	userSvc *UserService
 	// each user can have n number of connections, so one channel per connection would be there
-	//userConnections map[string][]*Connection
 	// userId -> connectionId -> Connection
 	userConnections map[string]map[string]*Connection
 	logger          zerolog.Logger
@@ -23,7 +21,6 @@ type EventService struct {
 
 func NewEventService(userSvc *UserService) *EventService {
 	return &EventService{userSvc: userSvc,
-		//userConnections: make(map[string][]*Connection),
 		userConnections: make(map[string]map[string]*Connection),
 		logger:          logger.NewServiceLogger("event_service")}
 }
@@ -35,6 +32,17 @@ func (svc *EventService) ReceiveEvent(
 	t EventType,
 	s *entities.Session) error {
 	var err error
+	// Create the message object
+	msg := Message{
+		EventType: t,
+	}
+	switch t {
+	case EventStart, EventPause, EventSessionComplete, EventDeleteSession, EventResetSession:
+		msg.Object = sessionId
+	default:
+		msg.Object = s
+	}
+
 	if t == EventStart || t == EventPause {
 		patch := entities.UserPatchInput{
 			ActiveSessionId: &sessionId,
@@ -44,11 +52,12 @@ func (svc *EventService) ReceiveEvent(
 		}
 		err = svc.userSvc.Update(ctx, &patch)
 	}
-	svc.BroadcastToClientConnections(userId, fmt.Sprintf("Event type: %s", t))
+
+	svc.BroadcastToClientConnections(userId, msg)
 	return err
 }
 
-// ToDo: Make it thread safe
+// ToDo: Improve thread safety
 func (svc *EventService) AddClient(userId string) *Connection {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
@@ -57,7 +66,7 @@ func (svc *EventService) AddClient(userId string) *Connection {
 	if !ok {
 		svc.userConnections[userId] = make(map[string]*Connection, 0)
 	}
-	eventChan := make(chan string, 10)
+	eventChan := make(chan Message, 10)
 
 	connId := uuid.New().String()
 	newConnection := &Connection{EventC: eventChan, ConnId: connId}
@@ -66,7 +75,7 @@ func (svc *EventService) AddClient(userId string) *Connection {
 	return newConnection
 }
 
-func (svc *EventService) BroadcastToClientConnections(userId string, msg string) {
+func (svc *EventService) BroadcastToClientConnections(userId string, msg Message) {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	svc.logger.Info().Str("userId", userId).Msg("Broadcasting event to all connections")
@@ -95,6 +104,11 @@ func (svc *EventService) RemoveClientConnection(connId string, userId string) {
 }
 
 type Connection struct {
-	EventC chan string
+	EventC chan Message
 	ConnId string
+}
+
+type Message struct {
+	EventType EventType
+	Object    any
 }

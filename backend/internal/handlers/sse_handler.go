@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -51,9 +52,26 @@ func (h *SSEHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 			return // client disconnected
 		case msg := <-eventChan:
 			h.logger.Info().Str("userId", userId).Msg("Sending event to client")
-			fmt.Fprintf(rw, "event: ping\n")
-			fmt.Fprintf(rw, "data: %s\n\n", msg)
+			msgStr, err := objectToString(msg.Object)
+			if err != nil {
+				h.logger.Error().Msg("Unable to convert msg to string")
+			}
+			fmt.Fprintf(rw, "event: %s\n", msg.EventType)
+			fmt.Fprintf(rw, "data: %s\n\n", msgStr)
 			flusher.Flush()
 		}
+	}
+}
+
+func objectToString(obj any) (string, error) {
+	switch v := obj.(type) {
+	case string:
+		return v, nil
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
 	}
 }

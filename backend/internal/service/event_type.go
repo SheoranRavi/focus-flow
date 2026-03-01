@@ -2,8 +2,6 @@ package service
 
 import (
 	"time"
-
-	"github.com/sheoranravi/focus-flow/backend/internal/entities"
 )
 
 type EventType string
@@ -28,11 +26,6 @@ func (t EventType) IsValid() bool {
 		return true
 	}
 	return false
-}
-
-type SessionEvent struct {
-	Session *entities.Session
-	Type    EventType
 }
 
 // for the auto_reset_time_change event
