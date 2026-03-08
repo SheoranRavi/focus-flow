@@ -1,3 +1,9 @@
+# Continuation
+- AI made changes that aint good
+- check the streamEvents call in app.tsx, add the methods to it
+- apply the useCallback hook on them
+- make sure that extra events calls do not go through.
+
 # UI
 - The daily reset should show a notification that the Reset has been triggered
 - Maybe allow editing the time (focusSeconds) for tasks.
@@ -22,6 +28,8 @@
 
 ## Bugs
 - When only the Goal is changed, the session timer shouldn't reset to sessionDuration
+- When adding a new session, multiple new session cards come.
+- Remove session.id from session card
 
 ## Backend requirements
 - Compute analytics

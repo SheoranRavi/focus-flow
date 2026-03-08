@@ -1,3 +1,5 @@
+import { AppAction } from '@/context/reducer';
+import React from "react";
 import { Session } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -119,13 +121,114 @@ export const api = {
     });
   },
 
-  async streamEvents(): Promise<void>{
+  async streamEvents(
+    dispatch: React.Dispatch<AppAction>
+  ): Promise<void> {
     const idToken = await getAuthToken();
-    const eventSrc = new EventSource(`${API_URL}/events?token=${idToken}`)
-    eventSrc.onmessage = e => console.log(e.data)
-    eventSrc.addEventListener("ping", (e) => {
-      //console.log(e.data);
-    })
+    const eventSrc = new EventSource(`${API_URL}/events?token=${idToken}`);
+    
+    // Handle "new_session" event
+    eventSrc.addEventListener("new_session", (e) => {
+      try {
+        const session: BackendSession = JSON.parse(e.data);
+        console.log(`adding new session: ${JSON.stringify(session)}`);
+        dispatch({type: 'ADD_SESSION', session: mapBackendToFrontend(session)});
+      } catch (error) {
+        console.error('Error handling new_session event:', error);
+      }
+    });
+
+    // Handle "delete_session" event
+    eventSrc.addEventListener("delete_session", (e) => {
+      try {
+        const sessionId = parseInt(e.data, 10);
+        dispatch({type: 'DELETE_SESSION', id: sessionId});
+      } catch (error) {
+        console.error('Error handling delete_session event:', error);
+      }
+    });
+
+    // Handle "pause" event
+    eventSrc.addEventListener("pause", (e) => {
+      try {
+        const sessionId = parseInt(e.data, 10);
+        dispatch({type: 'PAUSE_SESSION', id: sessionId});
+      } catch (error) {
+        console.error('Error handling pause event:', error);
+      }
+    });
+
+    // Handle "reset_session" event
+    eventSrc.addEventListener("reset_session", (e) => {
+      try {
+        const sessionId = parseInt(e.data, 10);
+        dispatch({type: 'RESET_SESSION', id: sessionId});
+      } catch (error) {
+        console.error('Error handling reset_session event:', error);
+      }
+    });
+
+    // Handle "start" event
+    eventSrc.addEventListener("start", (e) => {
+      try {
+        const sessionId = parseInt(e.data, 10);
+        dispatch({type: 'START_SESSION', id: sessionId});
+      } catch (error) {
+        console.error('Error handling start event:', error);
+      }
+    });
+
+    // Handle "edit" event
+    eventSrc.addEventListener("edit", (e) => {
+      try {
+        const session: BackendSession = JSON.parse(e.data);
+        dispatch({type: 'UPDATE_SESSION', id: session.id, changes: mapBackendToFrontend(session)});
+      } catch (error) {
+        console.error('Error handling edit event:', error);
+      }
+    });
+
+    // Handle "session_complete" event
+    eventSrc.addEventListener("session_complete", (e) => {
+      try {
+        const sessionId = parseInt(e.data, 10);
+        dispatch({type: 'COMPLETE_SESSION', id: sessionId});
+      } catch (error) {
+        console.error('Error handling session_complete event:', error);
+      }
+    });
+
+    // Handle "auto_reset_time_change" event
+    eventSrc.addEventListener("auto_reset_time_change", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        // Backend sends timestamp, convert to time string (HH:MM format)
+        const resetTime = new Date(data.ResetTime).toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        dispatch({type: 'SET_RESET_TIME', time: resetTime});
+      } catch (error) {
+        console.error('Error handling auto_reset_time_change event:', error);
+      }
+    });
+
+    // Handle "reset_progress" event
+    eventSrc.addEventListener("reset_progress", (e) => {
+      try {
+        // Assuming the backend sends a date string
+        const resetDate = e.data;
+        dispatch({type: 'RESET_DAILY_PROGRESS', resetDate: resetDate});
+      } catch (error) {
+        console.error('Error handling reset_progress event:', error);
+      }
+    });
+
+    // Handle connection errors
+    eventSrc.onerror = (error) => {
+      console.error('EventSource error:', error);
+      eventSrc.close();
+    };
   },
 
   // Send session events (start, pause, reset, etc.)

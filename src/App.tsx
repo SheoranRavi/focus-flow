@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';
 import { Plus, RotateCcw } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
@@ -11,78 +11,41 @@ import { parseSessionsFromStorage } from './lib/utils';
 import { useAuth } from './context/AuthContext';
 import { api } from './lib/api';
 import CreateSession from './components/CreateSession/CreateSession';
+import { appReducer, AppState } from './context/reducer';
 
 
 // --- Main App Component ---
 const App: React.FC = () => {
   const user = useAuth();
-  
-  // State
-  const [sessions, setSessions] = useState<Session[]>(() => {
-    const fallback: Session[] = [
+
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  function initState(): AppState {
+    const fallbackSessions: Session[] = [
       { id: 1, title: 'Deep Work', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
       { id: 2, title: 'Reading', sessionDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0, state: TimerState.PAUSED },
       { id: 3, title: 'Emails', sessionDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0, state: TimerState.PAUSED },
     ];
-    return parseSessionsFromStorage(localStorage.getItem('sessions'), fallback);
-  });
-  
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(() => {
-    if(sessions?.length > 0){
-      let runningS = sessions.filter((s) => {
-        if(s.state === TimerState.RUNNING){
-          return s;
-        }
-      });
-      if (runningS.length > 0){
-        return runningS[0].id;
-      }
-      return null;
-    }
-    return null;
-  });
-  
-  // Global stats state
-  const [streak, setStreak] = useState(() => {
-    const temp = localStorage.getItem('streak');
-    if (temp !== null){
-      return Number.parseInt(temp);
-    }
-    return 0;
-  });
-  const [yesterdayMinutes, setYesterdayMinutes] = useState(() => {
-    const temp = localStorage.getItem('yesterdayMins');
-    if (temp !== null){
-      const parsed = Number.parseFloat(temp);
-      return parsed;
-    }
-    return 0;
-  });
-  const [lastResetDate, setLastResetDate] = useState(() => {
-    const temp = localStorage.getItem('lastResetDate');
-    if (temp !== null){
-      return temp;
-    }
-    return "";
-  });
 
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const sessions = parseSessionsFromStorage(localStorage.getItem('sessions'), fallbackSessions);
 
-  // Settings / Menu State
-  
-  const [resetTime, setResetTime] = useState(() => {
-    let stored = localStorage.getItem('resetTime');
-    if (stored !== undefined && stored !== null){
-      // ToDo: validate the format
-      return stored;
-    }else{
-      return "00:00";
-    }
-  });
+    const activeSessionId = sessions.find(s => s.state === TimerState.RUNNING)?.id ?? null;
+
+    return {
+      sessions,
+      activeSessionId,
+      streak: parseInt(localStorage.getItem('streak') ?? '0', 10),
+      yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
+      lastResetDate: localStorage.getItem('lastResetDate') ?? '',
+      resetTime: localStorage.getItem('resetTime') ?? '00:00',
+    };
+  };
+
+  const [state, dispatch] = useReducer(appReducer, undefined, initState);
 
   // Audio ref for timer end
   const audioRef = useRef<HTMLAudioElement>(null);
-  const initialSessions = useRef(sessions);
+  const initialSessions = useRef(state.sessions);
   // Fetch sessions from API if user is logged in
   useEffect(() => {
     if (user) {
@@ -90,7 +53,7 @@ const App: React.FC = () => {
         .then(fetchedSessions => {
           if (fetchedSessions && fetchedSessions.length > 0) {
             console.log(`fetched sessions: ${JSON.stringify(fetchedSessions)}`);
-            setSessions(fetchedSessions);
+            dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions});
           } else{
             Promise.allSettled(
               initialSessions.current.map(session => api.createSession(session))
@@ -101,7 +64,7 @@ const App: React.FC = () => {
 
               if (createdSessions.length > 0){
                 console.log(`Created sessions: ${JSON.stringify(createdSessions)}`);
-                setSessions(createdSessions);
+                dispatch({type: 'LOAD_SESSIONS', sessions: createdSessions});
               }
               
               // log failures
@@ -118,90 +81,41 @@ const App: React.FC = () => {
           console.error('Failed to fetch sessions from API:', error);
           // Keep using localStorage sessions on error
         });
-      api.streamEvents();
     }
   }, [user]);
   
   // Derived State: Calculate total daily goal from individual session goals
-  const totalDailyGoalMinutes = sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
+  const totalDailyGoalMinutes = state.sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
 
-  // Timer Effect
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-
-    if (activeSessionId) {
-      interval = setInterval(() => {
-        const now = Date.now();
-        
-        // Use a functional update to modify session state and global stats together
-        setSessions(prevSessions => {
-            let delta = 0;
-            const updatedSessions = prevSessions.map(session => {
-                if (session.id === activeSessionId) {
-                    // Safety check: ensure targetTime is set. 
-                    // handleStart should set it.
-                    if (!session.targetTimeMs) return session;
-
-                    // Calculate expected remaining seconds based on target
-                    const secondsLeft = Math.max(0, Math.ceil((session.targetTimeMs - now) / 1000));
-                    
-                    // The difference between what we had in state (timeLeft) and real time (secondsLeft)
-                    // is how much time passed since the last tick (or since tab wake up)
-                    delta = Math.max(0, session.timeLeft - secondsLeft);
-
-                    if (secondsLeft <= 0) {
-                        return { ...session, timeLeft: 0, isCompleted: true, focusSeconds: (session.focusSeconds || 0) + delta };
-                    }
-                    
-                    return { 
-                        ...session, 
-                        timeLeft: secondsLeft, 
-                        focusSeconds: (session.focusSeconds || 0) + delta 
-                    };
-                }
-                return session;
-            });
-
-            // Check completion
-            const activeSession = updatedSessions.find(s => s.id === activeSessionId);
-            if (activeSession && activeSession.isCompleted) {
-                 setActiveSessionId(null);
-                 if (audioRef.current) {
-                    audioRef.current.currentTime = 0;
-                    audioRef.current.play().catch((e: Error) => console.log("Audio play failed:", e));
-                 }
-            }
-
-            return updatedSessions;
-        });
-
-      }, 1000); // Check every second
+  // fire up the notification for session complete
+  const completeNotification = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch((e: Error) => console.log("Audio play failed:", e));
     }
+  }
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [activeSessionId]);
+  // fire notification by monitoring the active session complete status
+  useEffect(() => {
+    const justCompleted = state.sessions.find(s => s.isCompleted && s.id !== state.activeSessionId);
+    if (justCompleted) {
+      completeNotification();
+    }
+  }, [state.sessions, state.activeSessionId]);
+
+  // Timer tick
+  useEffect(() => {
+    if (!state.activeSessionId) return;
+    const interval = setInterval(() => {
+      dispatch({type: 'TICK', now: Date.now()});
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state.activeSessionId])
 
   // handler for resetting the total daily progress
   const handleResetDailyProgress = useCallback((resetDate: string) => {
-    // the total time spent yesterday
-    const yesterdaySeconds = sessions.reduce((sum, s) => sum + s.focusSeconds, 0);
-    // the time that only counts towards the goals
-    const yesterdayGoalSeconds = sessions.reduce((sum, s) => sum + Math.min(s.focusSeconds, s.dailyGoalMinutes * 60), 0);
-    setYesterdayMinutes(yesterdaySeconds/60);
-    setSessions(prev => prev.map(s => ({ ...s, focusSeconds: 0 })));
-    setLastResetDate(resetDate);
-    localStorage.setItem('lastResetDate', resetDate);
-    localStorage.setItem('yesterdayMins', (yesterdaySeconds/60).toString());
-    if(yesterdayGoalSeconds/60 >= totalDailyGoalMinutes){
-      localStorage.setItem('streak', (streak+1).toString());
-      setStreak(prevStreak => prevStreak+1);
-    } else{
-      localStorage.setItem('streak', '0');
-      setStreak(0);
-    }
-  }, [sessions, totalDailyGoalMinutes, streak]);
+    dispatch({type: 'RESET_DAILY_PROGRESS', resetDate: resetDate});
+  }, []);
 
   // helpers
   const getTodayDateTimeString = () => {
@@ -224,109 +138,52 @@ const App: React.FC = () => {
       const [todayDate, currentTimeString] = getTodayDateTimeString();
 
       // If time matches preference
-      if (resetTime !== null && currentTimeString >= resetTime && lastResetDate !== null && todayDate > lastResetDate){
+      if (state.resetTime !== null && currentTimeString >= state.resetTime && state.lastResetDate !== null && todayDate > state.lastResetDate){
         handleResetDailyProgress(todayDate);
         console.log("Daily progress auto-reset triggered.");
       }
     }, 1000);
 
     return () => clearInterval(checkResetTime);
-  }, [resetTime, lastResetDate, handleResetDailyProgress]);
+  }, [state.resetTime, state.lastResetDate, handleResetDailyProgress]);
 
   // update sessions in localStorage (only if not logged in)
   useEffect(() => {
     if (!user) {
-      localStorage.setItem('sessions', JSON.stringify(sessions));
+      localStorage.setItem('sessions', JSON.stringify(state.sessions));
     }
-  }, [sessions, user]);
+  }, [state.sessions, user]);
 
   const totalFocusSeconds = useMemo(() => {
     // do not count a session time towards daily goal once session goal is achieved
-    return sessions.reduce((sum, s) => sum + Math.min(s.focusSeconds, s.dailyGoalMinutes * 60), 0);
-  }, [sessions]);
+    return state.sessions.reduce((sum, s) => sum + Math.min(s.focusSeconds, s.dailyGoalMinutes * 60), 0);
+  }, [state.sessions]);
 
   const handleStart = (id: number) => {
-    handleActiveSessionChange(activeSessionId, id);
+    dispatch({type: 'START_SESSION', id: id});
   };
 
   const handlePause = (id: number) => {
-    handleActiveSessionChange(id, null);
-    if (activeSessionId === id) {
-      setActiveSessionId(null);
-    }
-    setSessions(prev => prev.map(s => {
-        if (s.id === id) {
-            return { ...s, state: TimerState.PAUSED };
-        }
-        return s;
-    }));
+    dispatch({type:'PAUSE_SESSION', id:id});
   };
 
-  const handleActiveSessionChange = (prevId: number | null, id: number | null) => {
-    setSessions((prevSessions) => {
-      let sessionAtTopIdx = -1;
-      const newSessions = prevSessions.map((s, idx) => {
-        let newSession = s;
-        if (prevId !== null && s.id === prevId){
-          // the one being paused
-          newSession.state = TimerState.PAUSED;
-        }
-        if (id !== null && s.id === id){
-          // the timer being started
-          // When starting, set the target end time based on current time + remaining duration
-          // This ensures accuracy even if the thread sleeps
-          const now = Date.now();
-          newSession.state = TimerState.RUNNING;
-          newSession.targetTimeMs = now + (s.timeLeft * 1000);
-          sessionAtTopIdx = idx;
-        }
-        return newSession;
-      });
-      if (sessionAtTopIdx !== -1){
-        const topSession = newSessions[sessionAtTopIdx];
-        newSessions.splice(sessionAtTopIdx, 1);
-        newSessions.unshift(topSession);
-      }
-      return newSessions;
-    });
-    setActiveSessionId(id);
-  }
-
   const handleReset = (id: number) => {
-    setSessions(prev => prev.map(s => 
-      s.id === id ? { ...s, timeLeft: s.sessionDuration, isCompleted: false, state: TimerState.PAUSED } : s
-    ));
-    if (activeSessionId === id) setActiveSessionId(null);
+    dispatch({type:'RESET_SESSION', id:id});
   };
 
   const handleDelete = (id: number) => {
-    setSessions(prev => prev.filter(s => s.id !== id));
-    if (activeSessionId === id) setActiveSessionId(null);
+    dispatch({type:'DELETE_SESSION', id:id});
     if(user){
       api.deleteSession(id).catch(e => console.error(e));
     }
   };
 
   const handleUpdate = (id: number, newDetails: Partial<Session>) => {
-    setSessions(prev => {
-        return prev.map(s => {
-            if (s.id === id) {
-                const updatedSession = { ...s, ...newDetails, isCompleted: false };
-
-                // If we are updating the currently running session (e.g. changing duration),
-                // we must update the targetTime to reflect the new duration immediately
-                if (id === activeSessionId) {
-                    updatedSession.targetTimeMs = Date.now() + (updatedSession.timeLeft * 1000);
-                }
-                return updatedSession;
-            }
-            return s;
-        });
-    });
+    dispatch({type:'UPDATE_SESSION', id:id, changes:newDetails});
   };
 
   const handleSetResetTime = (newTime: string) => {
-    setResetTime(newTime);
+    dispatch({type:'SET_RESET_TIME', time:newTime});
     localStorage.setItem("resetTime", newTime);
   }
 
@@ -336,7 +193,7 @@ const App: React.FC = () => {
     sessionDuration: number;
     noGoal: boolean;
   }) => {
-    const newId = Math.max(...sessions.map(s => s.id), 0) + 1;
+    const newId = Math.max(...state.sessions.map(s => s.id), 0) + 1;
     const newSession: Session = {
       id: newId,
       title: sessionData.title,
@@ -348,17 +205,15 @@ const App: React.FC = () => {
       state: TimerState.PAUSED,
       noGoal: sessionData.noGoal,
     };
-    
-    setSessions([...sessions, newSession]);
-    
-    // If user is logged in, also create on backend
+    console.log(`new session created with id: ${newId}`);
+    dispatch({type:"ADD_SESSION", session: newSession});
+
+    // create session in backend if user is logged in
     if (user) {
       api.createSession(newSession)
         .then(createdSession => {
           // Update with server-generated ID
-          setSessions(prev => prev.map(s => 
-            s.id === newId ? createdSession : s
-          ));
+          dispatch({type:"UPDATE_SESSION", id: newId, changes: createdSession});
         })
         .catch(error => {
           console.error('Failed to create session on server:', error);
@@ -367,16 +222,23 @@ const App: React.FC = () => {
     }
   };
 
+  // subscribe to events
+  useEffect(() => {
+    if (user){
+      api.streamEvents(dispatch);
+    }
+  }, [user])
+
   // Derived State for UI
-  const activeSessionTitle = sessions.find(s => s.id === activeSessionId)?.title || "Ready to Focus";
+  const activeSessionTitle = state.sessions.find(s => s.id === state.activeSessionId)?.title || "Ready to Focus";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-emerald-100">
       <Navbar
         activeSessionTitle={activeSessionTitle}
-        activeSessionId={activeSessionId}
-        streak={streak}
-        resetTime={resetTime}
+        activeSessionId={state.activeSessionId}
+        streak={state.streak}
+        resetTime={state.resetTime}
         handleSetResetTime={handleSetResetTime}
       />
       <main className="max-w-7xl mx-auto p-6 md:p-8">
@@ -405,7 +267,7 @@ const App: React.FC = () => {
             <div className="w-full overflow-x-auto pb-8 -mx-6 px-6 md:mx-0 md:px-0 scrollbar-hide">
               <div className="flex flex-col md:flex-row gap-6 md:flex-wrap">
                 <AnimatePresence mode='popLayout'>
-                  {sessions.map(session => (
+                  {state.sessions.map(session => (
                     <motion.div
                       key={session.id}
                       layout
@@ -421,7 +283,7 @@ const App: React.FC = () => {
                       <SessionCard 
                         key={session.id}
                         session={session}
-                        isActive={activeSessionId === session.id}
+                        isActive={state.activeSessionId === session.id}
                         onStart={handleStart}
                         onPause={handlePause}
                         onDelete={handleDelete}
@@ -433,7 +295,7 @@ const App: React.FC = () => {
                 </AnimatePresence>
                 
                 {/* Empty State / Add Button Card Placeholder */}
-                {sessions.length === 0 && (
+                {state.sessions.length === 0 && (
                   <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 rounded-3xl w-full text-slate-400">
                      <p className="mb-4 font-medium">No active tasks</p>
                      <button onClick={() => setIsCreateDialogOpen(true)} className="text-emerald-600 hover:underline">Create one to get started</button>
@@ -473,7 +335,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-3 divide-x divide-slate-100 w-full mt-8 pt-8 border-t border-slate-50">
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Yesterday</div>
-                        <div className="font-bold text-slate-700 text-lg">{Math.floor(yesterdayMinutes / 60)} h {Math.floor(yesterdayMinutes) % 60} min</div>
+                        <div className="font-bold text-slate-700 text-lg">{Math.floor(state.yesterdayMinutes / 60)} h {Math.floor(state.yesterdayMinutes) % 60} min</div>
                     </div>
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Total Goal</div>
@@ -482,7 +344,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Streak</div>
-                        <div className="font-bold text-slate-700 text-lg">{streak}</div>
+                        <div className="font-bold text-slate-700 text-lg">{state.streak}</div>
                     </div>
                 </div>
              </div>
