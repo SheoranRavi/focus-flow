@@ -78,6 +78,7 @@ function mapBackendToFrontend(backendSession: BackendSession): Session {
 function mapFrontendToBackend(session: Partial<Session>): Partial<BackendSession> {
   const backend: Partial<BackendSession> = {};
   
+  if (session.id !== undefined) backend.id = session.id;
   if (session.title !== undefined) backend.title = session.title;
   if (session.sessionDuration !== undefined) backend.sessionDuration = session.sessionDuration;
   if (session.timeLeft !== undefined) backend.timeLeft = session.timeLeft;
@@ -233,14 +234,13 @@ export const api = {
 
   // Send session events (start, pause, reset, etc.)
   async sendSessionEvent(
-    sessionId: number,
+    id: number,
     eventType: string,
-    payload: Partial<Session>
+    payload: Partial<Session> = {}
   ): Promise<void> {
-    await fetchWithAuth(`/sessions/event?type=${eventType}`, {
+    await fetchWithAuth(`/sessions/event?type=${eventType}&id=${id}`, {
       method: 'POST',
       body: JSON.stringify({
-        session_id: sessionId,
         ...mapFrontendToBackend(payload),
       }),
     });

@@ -64,26 +64,32 @@ func (svc *SessionService) Delete(ctx context.Context, sessionId int64, userId s
 }
 
 // ToDo: handle the event reset time change
-func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities.PatchInput, t EventType) error {
-	session, err := svc.repo.GetForUser(ctx, patchInput.UserId, patchInput.SessionId)
+func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities.PatchInput, t EventType, userId string, sessionId int64) error {
+	session, err := svc.repo.GetForUser(ctx, userId, sessionId)
 	if err != nil {
 		return err
 	}
 	if session == nil {
+		svc.logger.Info().Int64("session_id", sessionId).Str("user_id", userId).Msg("Session not found")
 		return errors.New("session not found")
 	}
 	applyPatch := true
 	switch t {
 	case EventStart:
-		*(patchInput.TargetTimeMs) = time.Now().UnixMilli() + int64(session.TimeLeft)*1000
+		// ToDo: TimeLeft never changes, so needs to be updated
+		t := time.Now().UnixMilli() + int64(session.TimeLeft)*1000
+		patchInput.TargetTimeMs = &t
+		patchInput.State = new(entities.SessionState)
 		*(patchInput.State) = entities.SessionRunning
 	case EventPause:
-		*(patchInput.State) = entities.SessionPaused
+		patchInput.State = new(entities.SessionState)
+		*(patchInput).State = entities.SessionPaused
 	case EventResetSession:
-		*(patchInput.FocusSeconds) = session.SessionDuration
+		patchInput.FocusSeconds = new(int)
+		*(patchInput).FocusSeconds = session.SessionDuration
 	case EventResetProgress:
 		applyPatch = false
-		err = svc.repo.ResetProgress(ctx, patchInput.UserId)
+		err = svc.repo.ResetProgress(ctx, userId)
 		if err != nil {
 			return err
 		}
@@ -96,7 +102,7 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	}
 
 	if err == nil {
-		err = svc.propagateEvent(ctx, patchInput.UserId, patchInput.SessionId, t, session)
+		err = svc.propagateEvent(ctx, userId, sessionId, t, session)
 	}
 	return err
 }

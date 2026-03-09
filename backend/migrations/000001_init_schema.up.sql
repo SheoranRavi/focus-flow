@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    sessions_reset_time TIMESTAMP NULL DEFAULT NULL,
-    active_session_id BIGINT NULL DEFAULT NULL
+    sessions_reset_time TIME NOT NULL DEFAULT '00:00:00',
+    active_session_id BIGINT NULL DEFAULT 0
 );
 
 -- Groups table

@@ -54,19 +54,29 @@ func (h *SessionHandler) GetAll(rw http.ResponseWriter, req *http.Request) {
 
 func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 	userId := req.Context().Value(middleware.UserIDKey).(string)
+	sessionIdStr := req.URL.Query().Get("id")
+	if sessionIdStr == "" {
+		http.Error(rw, "missing session id", http.StatusBadRequest)
+		return
+	}
+	sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)
+	if err != nil {
+		http.Error(rw, "invalid session id", http.StatusBadRequest)
+		return
+	}
 	var input entities.PatchInput
 	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+		h.logger.Error().Msg("Unable to decode to PatchInput")
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	input.UserId = userId
 
 	eventTypeStr := service.EventType(req.URL.Query().Get("type"))
 	eventType := service.EventType(eventTypeStr)
 	if !eventType.IsValid() {
 		http.Error(rw, errors.New("Event type is not valid").Error(), http.StatusBadRequest)
 	}
-	if err := h.SessionSvc.HandleEvent(req.Context(), &input, eventType); err != nil {
+	if err := h.SessionSvc.HandleEvent(req.Context(), &input, eventType, userId, sessionId); err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}

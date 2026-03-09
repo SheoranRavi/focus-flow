@@ -4,15 +4,21 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
+	"github.com/sheoranravi/focus-flow/backend/internal/logger"
 )
 
 type SessionRepo struct {
-	db *sql.DB
+	db     *sql.DB
+	logger zerolog.Logger
 }
 
 func NewSessionRepo(db *sql.DB) *SessionRepo {
-	return &SessionRepo{db: db}
+	return &SessionRepo{
+		db:     db,
+		logger: logger.NewRepoLogger("session"),
+	}
 }
 
 func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*entities.Session, error) {
@@ -26,6 +32,7 @@ func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 	`
 	rows, err := repo.db.QueryContext(ctx, query, userId)
 	if err != nil {
+		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to query sessions")
 		return nil, err
 	}
 	defer rows.Close()
@@ -50,6 +57,7 @@ func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 			&s.IsDeleted,
 			&s.TimeLeft,
 		); err != nil {
+			repo.logger.Error().Err(err).Msg("Failed to scan session row")
 			return nil, err
 		}
 		sessions = append(sessions, &s)
@@ -76,6 +84,7 @@ func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 	).Scan(&session.Id, &session.CreatedAt)
 
 	if err != nil {
+		repo.logger.Error().Err(err).Str("user_id", session.UserId).Str("title", session.Title).Msg("Failed to create session")
 		return nil, err
 	}
 	return session, nil
@@ -102,6 +111,7 @@ func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionI
 		&s.FocusSeconds,
 		&s.GroupId,
 		&s.SessionDuration,
+		&s.TimeLeft,
 		&s.IsCompleted,
 		&s.TargetTimeMs,
 		&s.NoGoal,
@@ -113,6 +123,7 @@ func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionI
 		return nil, nil
 	}
 	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", sessionId).Str("user_id", userId).Msg("Failed to get session")
 		return nil, err
 	}
 
@@ -130,10 +141,12 @@ func (repo *SessionRepo) Delete(ctx context.Context, sessionId int64, userId str
 	`
 	res, err := repo.db.ExecContext(ctx, query, sessionId, userId)
 	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", sessionId).Str("user_id", userId).Msg("Failed to delete session")
 		return err
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", sessionId).Msg("Failed to get rows affected")
 		return err
 	}
 	if rowsAffected == 0 {
@@ -149,19 +162,27 @@ func (repo *SessionRepo) Delete(ctx context.Context, sessionId int64, userId str
 
 func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error {
 	query := `
-		UPDATE sessions
-		SET
-			daily_goal_minutes = $1,
-			state              = $2,
-			focus_seconds      = $3,
-			session_duration   = $4,
-			time_left          = $5,
-			is_completed       = $6,
-			target_time_ms     = $7,
-			no_goal            = $8,
-			is_deleted         = $9
-		WHERE id = $9
-		  AND user_id = $10
+		WITH updated AS (
+        UPDATE sessions
+        SET
+            daily_goal_minutes = $1,
+            state              = $2,
+            focus_seconds      = $3,
+            session_duration   = $4,
+            time_left          = $5,
+            is_completed       = $6,
+            target_time_ms     = $7,
+            no_goal            = $8,
+            is_deleted         = $9
+        WHERE id = $10
+          AND user_id = $11
+        RETURNING id, user_id
+    )
+    UPDATE sessions
+    SET state = 0
+    WHERE user_id = (SELECT user_id FROM updated)
+      AND id != (SELECT id FROM updated)
+      AND state = 1
 	`
 
 	_, err := repo.db.ExecContext(
@@ -180,6 +201,9 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
 		s.UserId,
 	)
 
+	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", s.Id).Str("user_id", s.UserId).Msg("Failed to update session")
+	}
 	return err
 }
 
@@ -194,5 +218,8 @@ func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string) error
 			AND is_deleted = FALSE
 	`
 	_, err := repo.db.ExecContext(ctx, query, userId)
+	if err != nil {
+		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to reset progress")
+	}
 	return err
 }

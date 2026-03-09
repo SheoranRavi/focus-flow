@@ -25,8 +25,8 @@ type Session struct {
 type SessionState int16
 
 const (
-	SessionRunning SessionState = 0
-	SessionPaused  SessionState = 1
+	SessionPaused  SessionState = 0
+	SessionRunning SessionState = 1
 )
 
 type PatchInput struct {
@@ -37,8 +37,6 @@ type PatchInput struct {
 	NoGoal           *bool
 	TargetTimeMs     *int64
 	FocusSeconds     *int
-	UserId           string
-	SessionId        int64
 }
 
 func (s *Session) ApplyPatch(in *PatchInput) {

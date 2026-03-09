@@ -161,14 +161,20 @@ const App: React.FC = () => {
 
   const handleStart = (id: number) => {
     dispatch({type: 'START_SESSION', id: id});
+    if(user)
+      api.sendSessionEvent(id, 'start').catch(e => console.error(e));
   };
 
   const handlePause = (id: number) => {
     dispatch({type:'PAUSE_SESSION', id:id});
+    if(user)
+      api.sendSessionEvent(id, 'pause').catch(e => console.error(e));
   };
 
   const handleReset = (id: number) => {
     dispatch({type:'RESET_SESSION', id:id});
+    if(user)
+      api.sendSessionEvent(id, 'reset_session').catch(e => console.error(e));
   };
 
   const handleDelete = (id: number) => {
@@ -180,11 +186,14 @@ const App: React.FC = () => {
 
   const handleUpdate = (id: number, newDetails: Partial<Session>) => {
     dispatch({type:'UPDATE_SESSION', id:id, changes:newDetails});
+    if (user)
+      api.sendSessionEvent(id, 'edit', newDetails).catch(e => console.error(e));
   };
 
   const handleSetResetTime = (newTime: string) => {
     dispatch({type:'SET_RESET_TIME', time:newTime});
     localStorage.setItem("resetTime", newTime);
+    // TODO: Call on the user handler to update this
   }
 
   const handleAddSession = (sessionData: {

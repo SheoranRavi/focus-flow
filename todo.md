@@ -1,8 +1,7 @@
 # Continuation
-- AI made changes that aint good
-- check the streamEvents call in app.tsx, add the methods to it
-- apply the useCallback hook on them
-- make sure that extra events calls do not go through.
+- Send update events to backend - reset_daily_progress, change_session_reset_time.
+- Add reconnection capability to SSE from frontend.
+- Biggest -> Central timer source needs to be present.
 
 # UI
 - The daily reset should show a notification that the Reset has been triggered
@@ -28,8 +27,6 @@
 
 ## Bugs
 - When only the Goal is changed, the session timer shouldn't reset to sessionDuration
-- When adding a new session, multiple new session cards come.
-- Remove session.id from session card
 
 ## Backend requirements
 - Compute analytics

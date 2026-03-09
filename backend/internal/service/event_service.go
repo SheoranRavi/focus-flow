@@ -46,6 +46,7 @@ func (svc *EventService) ReceiveEvent(
 	if t == EventStart || t == EventPause {
 		patch := entities.UserPatchInput{
 			ActiveSessionId: &sessionId,
+			UserId:          userId,
 		}
 		if t == EventPause {
 			patch.ActiveSessionId = nil
@@ -54,6 +55,7 @@ func (svc *EventService) ReceiveEvent(
 	}
 
 	svc.BroadcastToClientConnections(userId, msg)
+	// ToDo: Should we return err here?
 	return err
 }
 
