@@ -40,7 +40,7 @@ func (h *SSEHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// add connection for user
-	connection := h.eventSvc.AddClient(userId)
+	connection := h.eventSvc.AddUserConnection(userId)
 	eventChan := connection.EventC
 	h.logger.Info().Str("user_id", userId).Str("conn_id", connection.ConnId).Msg("Subscribed to events")
 

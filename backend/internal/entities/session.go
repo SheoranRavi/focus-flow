@@ -13,12 +13,12 @@ type Session struct {
 	DailyGoalMinutes int           `json:"dailyGoalMinutes"`
 	NoGoal           bool          `json:"noGoal"`
 	IsDeleted        bool          `json:"isDeleted"`
-	FocusSeconds     int           `json:"focusSeconds"` // Number of seconds spent on it so far
+	FocusSeconds     int           `json:"focusSeconds"` // Number of seconds spent on it so far in current day
 	TargetTimeMs     int64         `json:"targetTimeMs"` // ms since epoch
 	State            SessionState  `json:"state"`
 	GroupId          sql.NullInt32 `json:"groupId,omitempty"`
 	UserId           string        `json:"userId"`
-	TimeLeft         int           `json:"timeLeft"`
+	TimeLeft         int           `json:"timeLeft"` // in seconds
 	CreatedAt        time.Time     `json:"createdAt"`
 }
 
@@ -37,6 +37,7 @@ type PatchInput struct {
 	NoGoal           *bool
 	TargetTimeMs     *int64
 	FocusSeconds     *int
+	IsCompleted      *bool
 }
 
 func (s *Session) ApplyPatch(in *PatchInput) {
@@ -66,6 +67,9 @@ func (s *Session) ApplyPatch(in *PatchInput) {
 
 	if in.State != nil {
 		s.State = *in.State
+	}
+	if in.IsCompleted != nil {
+		s.IsCompleted = *in.IsCompleted
 	}
 }
 

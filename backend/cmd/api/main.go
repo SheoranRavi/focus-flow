@@ -55,6 +55,12 @@ func main() {
 	eventService := service.NewEventService(userService)
 	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
 
+	// Schedule events
+	schedErr := sessionService.ScheduleEvents(ctx)
+	if schedErr != nil {
+		log.Fatalf("Not able to schedule events: %s", schedErr)
+	}
+
 	// Initialize auth middleware
 	authMiddleware := middleware.FirebaseAuth(firebaseApp)
 	loggingMiddleware := middleware.Logging()

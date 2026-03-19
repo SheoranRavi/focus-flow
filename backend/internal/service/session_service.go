@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -12,14 +15,21 @@ import (
 )
 
 type SessionService struct {
-	repo     *repo.SessionRepo
-	eventSvc *EventService
-	userSvc  *UserService
-	logger   zerolog.Logger
+	repo       *repo.SessionRepo
+	eventSvc   *EventService
+	userSvc    *UserService
+	userTimers map[string]*TickerChan // store the timer corresponding to a user
+	timerMu    sync.Mutex
+	logger     zerolog.Logger
 }
 
 func NewSessionService(repo *repo.SessionRepo, eventSvc *EventService, userSvc *UserService) *SessionService {
-	return &SessionService{repo: repo, eventSvc: eventSvc, userSvc: userSvc, logger: logger.NewServiceLogger("session")}
+	return &SessionService{
+		repo:       repo,
+		eventSvc:   eventSvc,
+		userSvc:    userSvc,
+		userTimers: make(map[string]*TickerChan),
+		logger:     logger.NewServiceLogger("session")}
 }
 
 func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entities.Session, error) {
@@ -36,6 +46,16 @@ func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entiti
 	return sessions, err
 }
 
+func (svc *SessionService) GetAllActiveSessions(ctx context.Context) ([]*entities.Session, error) {
+	sessions, err := svc.repo.GetAllActiveSessions(ctx)
+	if err != nil {
+		svc.logger.Error().Msg(err.Error())
+		return nil, err
+	}
+
+	return sessions, err
+}
+
 func (svc *SessionService) Add(ctx context.Context, sessionInput CreateInput) (*entities.Session, error) {
 	session := entities.NewSession(sessionInput.UserId,
 		sessionInput.Title,
@@ -48,7 +68,7 @@ func (svc *SessionService) Add(ctx context.Context, sessionInput CreateInput) (*
 	session, err := svc.repo.Create(ctx, session)
 	if err == nil {
 		svc.logger.Info().Int64("session_id", session.Id).Str("user_id", session.UserId).Msg("Created Session")
-		err = svc.propagateEvent(ctx, sessionInput.UserId, session.Id, EventNewSession, session)
+		err = svc.processEvent(ctx, sessionInput.UserId, session.Id, EventNewSession, session)
 	} else {
 		svc.logger.Error().Msg(err.Error())
 	}
@@ -58,7 +78,7 @@ func (svc *SessionService) Add(ctx context.Context, sessionInput CreateInput) (*
 func (svc *SessionService) Delete(ctx context.Context, sessionId int64, userId string) error {
 	err := svc.repo.Delete(ctx, sessionId, userId)
 	if err == nil {
-		err = svc.propagateEvent(ctx, userId, sessionId, EventDeleteSession, nil)
+		err = svc.processEvent(ctx, userId, sessionId, EventDeleteSession, nil)
 	}
 	return err
 }
@@ -81,12 +101,14 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 		patchInput.TargetTimeMs = &t
 		patchInput.State = new(entities.SessionState)
 		*(patchInput.State) = entities.SessionRunning
+		patchInput.IsCompleted = new(bool)
+		*(patchInput.IsCompleted) = false
 	case EventPause:
 		patchInput.State = new(entities.SessionState)
 		*(patchInput).State = entities.SessionPaused
 	case EventResetSession:
-		patchInput.FocusSeconds = new(int)
-		*(patchInput).FocusSeconds = session.SessionDuration
+		patchInput.TimeLeft = new(int)
+		*(patchInput).TimeLeft = session.SessionDuration
 	case EventResetProgress:
 		applyPatch = false
 		err = svc.repo.ResetProgress(ctx, userId)
@@ -102,13 +124,124 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	}
 
 	if err == nil {
-		err = svc.propagateEvent(ctx, userId, sessionId, t, session)
+		err = svc.processEvent(ctx, userId, sessionId, t, session)
 	}
 	return err
 }
 
+// schedule send for all given sessions
+func (svc *SessionService) ScheduleEvents(ctx context.Context) error {
+	errCount := 0
+	numSched := 0
+	sessions, err := svc.GetAllActiveSessions(ctx)
+	if err != nil {
+		return err
+	}
+	for _, sess := range sessions {
+		err := svc.ScheduleEvent(ctx, sess)
+		if err != nil {
+			svc.logger.Error().Msg(err.Error())
+			errCount++
+		} else {
+			numSched++
+		}
+	}
+	svc.logger.Info().Msgf("numScheduled: %d, num error: %d", numSched, errCount)
+	return nil
+}
+
+func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.Session) error {
+	// schedule this event to fire at target time
+	delay := time.Until(time.UnixMilli(session.TargetTimeMs))
+	if delay < 0 {
+		// update the DB state at this point
+		// ToDo: make a subroutine for updating these three state values
+		session.State = entities.SessionPaused
+		session.FocusSeconds += session.TimeLeft   // we can assume that timeLeft seconds passed
+		session.TimeLeft = session.SessionDuration // reset
+		svc.repo.Update(ctx, session)
+		return fmt.Errorf("Target time passed for user: %s, session: %d", session.UserId, session.Id)
+	}
+	ticker := time.NewTicker(time.Second)
+	tickerChan := &TickerChan{
+		Ticker:     ticker,
+		CancelChan: make(chan bool), // unbuffered channel, this is fine to block
+	}
+	// tick handler runs in its own goroutine
+	go svc.tickHandler(tickerChan, session)
+	svc.timerMu.Lock()
+	// add t to the map
+	svc.userTimers[svc.getUserSessionKey(session.UserId, session.Id)] = tickerChan
+	svc.timerMu.Unlock()
+	return nil
+}
+
+func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session) {
+	timeLeft := int(time.Until(time.UnixMilli(session.TargetTimeMs)).Seconds())
+
+	focusSeconds := session.FocusSeconds + session.TimeLeft - timeLeft // 3 + 57 - 40 -> prevFocusSeconds + how much time passed since then
+	ctx := context.Background()
+	sessionComplete := make(chan bool, 1) // buffered channel to avoid deadlock
+	for {
+		select {
+		case <-t.Ticker.C:
+			// update timeLeft, focusSeconds, check if TargetTimeMs is reached
+			timeLeft--
+			focusSeconds++
+			if timeLeft <= 0 {
+				timeLeft = 0 // to avoid a negative timeLeft value
+				sessionComplete <- true
+			}
+			session.TimeLeft = timeLeft
+			session.FocusSeconds = focusSeconds
+			svc.repo.Update(ctx, session)
+		case <-sessionComplete:
+			t.Ticker.Stop()
+			// set session to completed and time left to session duration
+			session.TimeLeft = session.SessionDuration
+			session.IsCompleted = true
+			session.State = entities.SessionPaused
+			sessionSched := &SessionSchedule{
+				UserId:       session.UserId,
+				SessionId:    session.Id,
+				TargetTimeMs: session.TargetTimeMs,
+			}
+			// broadcast the session completion to clients
+			svc.logger.Info().Msgf("Session %d is complete, updating DB and clients.", session.Id)
+			svc.eventSvc.SendCompletion(sessionSched)
+			svc.repo.Update(ctx, session)
+			// remove this ticker from map
+			delete(svc.userTimers, svc.getUserSessionKey(session.UserId, session.Id))
+			return
+		case <-t.CancelChan:
+			t.Ticker.Stop()
+			delete(svc.userTimers, svc.getUserSessionKey(session.UserId, session.Id))
+			return
+		}
+	}
+}
+
+func (svc *SessionService) CancelEvent(session *entities.Session) bool {
+	key := svc.getUserSessionKey(session.UserId, session.Id)
+	svc.timerMu.Lock()
+	t, ok := svc.userTimers[key]
+	delete(svc.userTimers, key)
+	svc.timerMu.Unlock()
+	if !ok {
+		svc.logger.Info().Msgf("No timer event found for key: %s", key)
+		return false
+	}
+	t.CancelChan <- true
+	svc.logger.Info().Msgf("Ticker stopped for key: %s", key)
+	return true
+}
+
+func (svc *SessionService) getUserSessionKey(userId string, sessionId int64) string {
+	return userId + strconv.FormatInt(sessionId, 10)
+}
+
 // Called to propagate a session event
-func (svc *SessionService) propagateEvent(ctx context.Context,
+func (svc *SessionService) processEvent(ctx context.Context,
 	userId string,
 	sessionId int64,
 	t EventType,
@@ -116,5 +249,19 @@ func (svc *SessionService) propagateEvent(ctx context.Context,
 	if !t.IsValid() {
 		return errors.New("event type not valid")
 	}
+	// schedule the event for regular updates
+	switch t {
+	case EventStart:
+		// ToDo: Handle error
+		svc.ScheduleEvent(ctx, s)
+	case EventPause:
+		svc.CancelEvent(s)
+	}
+	// send out the event to all connections
 	return svc.eventSvc.ReceiveEvent(ctx, userId, sessionId, t, s)
+}
+
+type TickerChan struct {
+	Ticker     *time.Ticker
+	CancelChan chan bool
 }

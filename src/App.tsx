@@ -54,6 +54,10 @@ const App: React.FC = () => {
           if (fetchedSessions && fetchedSessions.length > 0) {
             console.log(`fetched sessions: ${JSON.stringify(fetchedSessions)}`);
             dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions});
+            const runningSess = fetchedSessions.filter((s) => s.state === TimerState.RUNNING)
+            if (runningSess && runningSess.length > 0){
+              dispatch({type: 'START_SESSION', id: runningSess[0].id});
+            }
           } else{
             Promise.allSettled(
               initialSessions.current.map(session => api.createSession(session))

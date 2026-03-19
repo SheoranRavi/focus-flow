@@ -90,6 +90,51 @@ func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 	return session, nil
 }
 
+func (repo *SessionRepo) GetAllActiveSessions(ctx context.Context) ([]*entities.Session, error) {
+	query := `
+		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration, 
+			is_completed, target_time_ms, no_goal, created_at, is_deleted, time_left
+		FROM sessions
+		WHERE state= 1
+		AND is_deleted = FALSE
+		ORDER BY created_at DESC
+	`
+
+	rows, err := repo.db.QueryContext(ctx, query)
+	if err != nil {
+		repo.logger.Error().Err(err).Msg("Failed to get all active sessions.")
+		return nil, err
+	}
+	defer rows.Close()
+
+	sessions := make([]*entities.Session, 0)
+
+	for rows.Next() {
+		var s entities.Session
+		if err := rows.Scan(
+			&s.Id,
+			&s.UserId,
+			&s.Title,
+			&s.DailyGoalMinutes,
+			&s.State,
+			&s.FocusSeconds,
+			&s.GroupId,
+			&s.SessionDuration,
+			&s.IsCompleted,
+			&s.TargetTimeMs,
+			&s.NoGoal,
+			&s.CreatedAt,
+			&s.IsDeleted,
+			&s.TimeLeft,
+		); err != nil {
+			repo.logger.Error().Err(err).Msg("Failed to scan session row")
+			return nil, err
+		}
+		sessions = append(sessions, &s)
+	}
+	return sessions, rows.Err()
+}
+
 func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionId int64) (*entities.Session, error) {
 	query := `
 		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration, time_left,

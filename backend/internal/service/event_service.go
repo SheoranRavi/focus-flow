@@ -16,7 +16,7 @@ type EventService struct {
 	// userId -> connectionId -> Connection
 	userConnections map[string]map[string]*Connection
 	logger          zerolog.Logger
-	mu              sync.Mutex
+	connectionMu    sync.Mutex
 }
 
 func NewEventService(userSvc *UserService) *EventService {
@@ -33,16 +33,7 @@ func (svc *EventService) ReceiveEvent(
 	s *entities.Session) error {
 	var err error
 	// Create the message object
-	msg := Message{
-		EventType: t,
-	}
-	switch t {
-	case EventStart, EventPause, EventSessionComplete, EventDeleteSession, EventResetSession:
-		msg.Object = sessionId
-	default:
-		msg.Object = s
-	}
-
+	msg := svc.constructMessage(t, sessionId, s)
 	if t == EventStart || t == EventPause {
 		patch := entities.UserPatchInput{
 			ActiveSessionId: &sessionId,
@@ -54,15 +45,15 @@ func (svc *EventService) ReceiveEvent(
 		err = svc.userSvc.Update(ctx, &patch)
 	}
 
-	svc.BroadcastToClientConnections(userId, msg)
+	svc.BroadcastToUserConnections(userId, msg)
 	// ToDo: Should we return err here?
 	return err
 }
 
 // ToDo: Improve thread safety
-func (svc *EventService) AddClient(userId string) *Connection {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+func (svc *EventService) AddUserConnection(userId string) *Connection {
+	svc.connectionMu.Lock()
+	defer svc.connectionMu.Unlock()
 	svc.logger.Info().Str("userId", userId).Msg("New connection for user")
 	_, ok := svc.userConnections[userId]
 	if !ok {
@@ -77,9 +68,9 @@ func (svc *EventService) AddClient(userId string) *Connection {
 	return newConnection
 }
 
-func (svc *EventService) BroadcastToClientConnections(userId string, msg Message) {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+func (svc *EventService) BroadcastToUserConnections(userId string, msg Message) {
+	svc.connectionMu.Lock()
+	defer svc.connectionMu.Unlock()
 	svc.logger.Info().Str("userId", userId).Msg("Broadcasting event to all connections")
 	// get connections for this user
 	_, ok := svc.userConnections[userId]
@@ -100,9 +91,30 @@ func (svc *EventService) BroadcastToClientConnections(userId string, msg Message
 }
 
 func (svc *EventService) RemoveClientConnection(connId string, userId string) {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	svc.connectionMu.Lock()
+	defer svc.connectionMu.Unlock()
 	delete(svc.userConnections[userId], connId)
+}
+
+func (svc *EventService) SendCompletion(session *SessionSchedule) {
+	msg := Message{
+		EventType: EventSessionComplete,
+		Object:    session.SessionId,
+	}
+	svc.BroadcastToUserConnections(session.UserId, msg)
+}
+
+func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entities.Session) Message {
+	msg := Message{
+		EventType: t,
+	}
+	switch t {
+	case EventStart, EventPause, EventSessionComplete, EventDeleteSession, EventResetSession:
+		msg.Object = sessionId
+	default:
+		msg.Object = s
+	}
+	return msg
 }
 
 type Connection struct {
@@ -113,4 +125,10 @@ type Connection struct {
 type Message struct {
 	EventType EventType
 	Object    any
+}
+
+type SessionSchedule struct {
+	UserId       string
+	SessionId    int64
+	TargetTimeMs int64
 }

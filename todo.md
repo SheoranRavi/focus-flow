@@ -1,7 +1,14 @@
 # Continuation
-- Send update events to backend - reset_daily_progress, change_session_reset_time.
+- Send update events to backend - reset_daily_progress, change_session_reset_time, session_reset
 - Add reconnection capability to SSE from frontend.
-- Biggest -> Central timer source needs to be present.
+- Daily reset needs to be triggered in the backend
+- Ensure timer accuracy. See if using higher accurancy timeLeft helps (float64 or in milliseconds)
+  - Build tests to verify timer accuracy
+- Biggest -> Central timer source needs to be figured out.
+  - The start and pause events need to send the time when they were triggered (from client side).
+    - Propagate this time to all clients/connections for them to sync to this time.
+  - set focusSeconds to 0 on daily reset
+
 
 # UI
 - The daily reset should show a notification that the Reset has been triggered
@@ -13,8 +20,7 @@
   - Probably can get it working with the notifications API.
 
 ## UI-API sessions merge
-- handle errors in repo
-- backend errors to not flow to ui
+- backend/repo errors to not flow to ui
 - Implement a frontend cache for offline use. Once connection established, update backend from the cache.
   
 
