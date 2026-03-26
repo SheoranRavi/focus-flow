@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -96,9 +95,6 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	applyPatch := true
 	switch t {
 	case EventStart:
-		// ToDo: TimeLeft never changes, so needs to be updated
-		t := time.Now().UnixMilli() + int64(session.TimeLeft)*1000
-		patchInput.TargetTimeMs = &t
 		patchInput.State = new(entities.SessionState)
 		*(patchInput.State) = entities.SessionRunning
 		patchInput.IsCompleted = new(bool)
@@ -151,6 +147,16 @@ func (svc *SessionService) ScheduleEvents(ctx context.Context) error {
 }
 
 func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.Session) error {
+	svc.timerMu.Lock()
+	// can't start already running session
+	if t, ok := svc.userTimers[session.UserId]; ok && t.SessionId == session.Id {
+		svc.logger.Info().Msgf("User session already running: %s:%d", session.UserId, t.SessionId)
+		return fmt.Errorf("User session already running: %s:%d", session.UserId, t.SessionId)
+	}
+	svc.timerMu.Unlock()
+	// pause any session currently running
+	svc.CancelEvent(session)
+
 	// schedule this event to fire at target time
 	delay := time.Until(time.UnixMilli(session.TargetTimeMs))
 	if delay < 0 {
@@ -171,23 +177,40 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 	go svc.tickHandler(tickerChan, session)
 	svc.timerMu.Lock()
 	// add t to the map
-	svc.userTimers[svc.getUserSessionKey(session.UserId, session.Id)] = tickerChan
+	svc.userTimers[session.UserId] = tickerChan
 	svc.timerMu.Unlock()
 	return nil
 }
 
-func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session) {
-	timeLeft := int(time.Until(time.UnixMilli(session.TargetTimeMs)).Seconds())
+func (svc *SessionService) CancelEvent(session *entities.Session) bool {
+	key := session.UserId
+	svc.timerMu.Lock()
+	t, ok := svc.userTimers[key]
+	delete(svc.userTimers, key)
+	svc.timerMu.Unlock()
+	if !ok {
+		svc.logger.Info().Msgf("No timer event found for key: %s", key)
+		return false
+	}
+	t.CancelChan <- true
+	svc.logger.Info().Msgf("Ticker stopped for key: %s", key)
+	return true
+}
 
-	focusSeconds := session.FocusSeconds + session.TimeLeft - timeLeft // 3 + 57 - 40 -> prevFocusSeconds + how much time passed since then
+func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session) {
+	var timeLeft int
+	initTimeLeft := session.TimeLeft
+	initFocusSeconds := session.FocusSeconds
+	targetTimeMs := session.TargetTimeMs
+
 	ctx := context.Background()
 	sessionComplete := make(chan bool, 1) // buffered channel to avoid deadlock
 	for {
 		select {
 		case <-t.Ticker.C:
 			// update timeLeft, focusSeconds, check if TargetTimeMs is reached
-			timeLeft--
-			focusSeconds++
+			timeLeft = int(time.Until(time.UnixMilli(targetTimeMs)).Seconds())
+			focusSeconds := initFocusSeconds + initTimeLeft - timeLeft
 			if timeLeft <= 0 {
 				timeLeft = 0 // to avoid a negative timeLeft value
 				sessionComplete <- true
@@ -211,33 +234,23 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 			svc.eventSvc.SendCompletion(sessionSched)
 			svc.repo.Update(ctx, session)
 			// remove this ticker from map
-			delete(svc.userTimers, svc.getUserSessionKey(session.UserId, session.Id))
+			svc.timerMu.Lock()
+			delete(svc.userTimers, session.UserId)
+			svc.timerMu.Unlock()
 			return
 		case <-t.CancelChan:
 			t.Ticker.Stop()
-			delete(svc.userTimers, svc.getUserSessionKey(session.UserId, session.Id))
+			svc.logger.Info().Msgf("Stopping ticker for session %d", session.Id)
 			return
 		}
 	}
 }
 
-func (svc *SessionService) CancelEvent(session *entities.Session) bool {
-	key := svc.getUserSessionKey(session.UserId, session.Id)
-	svc.timerMu.Lock()
-	t, ok := svc.userTimers[key]
-	delete(svc.userTimers, key)
-	svc.timerMu.Unlock()
-	if !ok {
-		svc.logger.Info().Msgf("No timer event found for key: %s", key)
-		return false
-	}
-	t.CancelChan <- true
-	svc.logger.Info().Msgf("Ticker stopped for key: %s", key)
-	return true
-}
-
-func (svc *SessionService) getUserSessionKey(userId string, sessionId int64) string {
-	return userId + strconv.FormatInt(sessionId, 10)
+// call this from main.go
+func (svc *SessionService) ScheduleDailyReset(ctx context.Context) {
+	// get the reset times for all the users
+	// schedule the reset of focus seconds and all
+	///svc.userSvc.GetResetTimes()
 }
 
 // Called to propagate a session event
@@ -263,5 +276,6 @@ func (svc *SessionService) processEvent(ctx context.Context,
 
 type TickerChan struct {
 	Ticker     *time.Ticker
+	SessionId  int64
 	CancelChan chan bool
 }

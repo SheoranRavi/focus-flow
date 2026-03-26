@@ -76,6 +76,7 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 	if !eventType.IsValid() {
 		http.Error(rw, errors.New("Event type is not valid").Error(), http.StatusBadRequest)
 	}
+
 	if err := h.SessionSvc.HandleEvent(req.Context(), &input, eventType, userId, sessionId); err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return

@@ -56,7 +56,9 @@ const App: React.FC = () => {
             dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions});
             const runningSess = fetchedSessions.filter((s) => s.state === TimerState.RUNNING)
             if (runningSess && runningSess.length > 0){
-              dispatch({type: 'START_SESSION', id: runningSess[0].id});
+              // ToDo: Figure out a better way
+              const targetTime = runningSess[0].targetTimeMs !== undefined ? runningSess[0].targetTimeMs : Date.now();
+              dispatch({type: 'START_SESSION', id: runningSess[0].id, targetTimeMs: targetTime});
             }
           } else{
             Promise.allSettled(
@@ -101,7 +103,7 @@ const App: React.FC = () => {
 
   // fire notification by monitoring the active session complete status
   useEffect(() => {
-    const justCompleted = state.sessions.find(s => s.isCompleted && s.id !== state.activeSessionId);
+    const justCompleted = state.sessions.find(s => s.isCompleted && s.id !== state.activeSessionId && s.state === TimerState.RUNNING);
     if (justCompleted) {
       completeNotification();
     }
@@ -164,9 +166,12 @@ const App: React.FC = () => {
   }, [state.sessions]);
 
   const handleStart = (id: number) => {
-    dispatch({type: 'START_SESSION', id: id});
+    const activeSess = state.sessions.filter((x) => x.id === id);
+    const s = activeSess[0];
+    const newTargetTimeMs = Date.now() + s.timeLeft*1000;
+    dispatch({type: 'START_SESSION', id: id, targetTimeMs: newTargetTimeMs});
     if(user)
-      api.sendSessionEvent(id, 'start').catch(e => console.error(e));
+      api.sendSessionEvent(id, 'start', {targetTimeMs: newTargetTimeMs}).catch(e => console.error(e));
   };
 
   const handlePause = (id: number) => {

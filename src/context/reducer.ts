@@ -11,7 +11,7 @@ export type AppState = {
 };
 
 export type AppAction =
-  | { type: 'START_SESSION'; id: number }
+  | { type: 'START_SESSION'; id: number; targetTimeMs: number }
   | { type: 'PAUSE_SESSION'; id: number }
   | { type: 'RESET_SESSION'; id: number }
   | { type: 'DELETE_SESSION'; id: number }
@@ -43,12 +43,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case 'START_SESSION': {
-      const now = Date.now();
       // Move started session to top
       const idx = state.sessions.findIndex(s => s.id === action.id);
       const updated = state.sessions.map(s => {
+        if (s.id === action.id) return { ...s, state: TimerState.RUNNING, targetTimeMs: action.targetTimeMs };
+        // if any other session was running then set it to paused
         if (s.id === state.activeSessionId) return { ...s, state: TimerState.PAUSED };
-        if (s.id === action.id) return { ...s, state: TimerState.RUNNING, targetTimeMs: now + s.timeLeft * 1000 };
         return s;
       });
       if (idx !== -1) {

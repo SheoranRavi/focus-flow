@@ -230,7 +230,7 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
       AND state = 1
 	`
 
-	_, err := repo.db.ExecContext(
+	res, err := repo.db.ExecContext(
 		ctx,
 		query,
 		s.DailyGoalMinutes,
@@ -245,6 +245,13 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
 		s.Id,
 		s.UserId,
 	)
+
+	numAffected, err := res.RowsAffected()
+	if err != nil {
+		repo.logger.Warn().Err(err).Msg("SessionUpdate: could not get rows affected")
+	} else {
+		repo.logger.Info().Msgf("SessionUpdate number of rows impacted: %d", numAffected)
+	}
 
 	if err != nil {
 		repo.logger.Error().Err(err).Int64("session_id", s.Id).Str("user_id", s.UserId).Msg("Failed to update session")

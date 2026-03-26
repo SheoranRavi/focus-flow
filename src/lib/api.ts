@@ -172,8 +172,11 @@ export const api = {
     // Handle "start" event
     eventSrc.addEventListener("start", (e) => {
       try {
-        const sessionId = parseInt(e.data, 10);
-        dispatch({type: 'START_SESSION', id: sessionId});
+        const session: BackendSession = JSON.parse(e.data);
+        const frontEndSession = mapBackendToFrontend(session);
+        // ToDo: Figure out a better way
+        const targetTime = frontEndSession.targetTimeMs !== undefined ? frontEndSession.targetTimeMs : Date.now();
+        dispatch({type: 'START_SESSION', id: frontEndSession.id, targetTimeMs: targetTime});
       } catch (error) {
         console.error('Error handling start event:', error);
       }

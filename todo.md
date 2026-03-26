@@ -2,11 +2,8 @@
 - Send update events to backend - reset_daily_progress, change_session_reset_time, session_reset
 - Add reconnection capability to SSE from frontend.
 - Daily reset needs to be triggered in the backend
-- Ensure timer accuracy. See if using higher accurancy timeLeft helps (float64 or in milliseconds)
-  - Build tests to verify timer accuracy
+- Build tests to ensure timer accuracy
 - Biggest -> Central timer source needs to be figured out.
-  - The start and pause events need to send the time when they were triggered (from client side).
-    - Propagate this time to all clients/connections for them to sync to this time.
   - set focusSeconds to 0 on daily reset
 
 
@@ -47,3 +44,6 @@
 - How to generate analytics?
   - Demarcate by Reset time or 12:00 midnight local usertime?
     - Demarcate by Reset time.
+
+## Bugs and Learnings
+- When another session is started for a user with one already in running state, the already running session needs to be canceled. Overlooking this caused a bug where both the sessions were in running state.
