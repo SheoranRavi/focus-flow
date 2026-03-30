@@ -16,11 +16,12 @@ import (
 
 type SessionHandler struct {
 	SessionSvc *service.SessionService
+	UserSvc    *service.UserService
 	logger     zerolog.Logger
 }
 
-func NewSessionHandler(svc *service.SessionService) *SessionHandler {
-	return &SessionHandler{SessionSvc: svc, logger: logger.NewHandlerLogger("session")}
+func NewSessionHandler(svc *service.SessionService, userSvc *service.UserService) *SessionHandler {
+	return &SessionHandler{SessionSvc: svc, UserSvc: userSvc, logger: logger.NewHandlerLogger("session")}
 }
 
 func (h *SessionHandler) Create(rw http.ResponseWriter, req *http.Request) {
@@ -77,8 +78,14 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, errors.New("Event type is not valid").Error(), http.StatusBadRequest)
 	}
 
-	if err := h.SessionSvc.HandleEvent(req.Context(), &input, eventType, userId, sessionId); err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
+	if eventType == service.EventResetProgress {
+		err := h.UserSvc.HandleEvent(req.Context(), eventType, userId)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if err := h.SessionSvc.HandleEvent(req.Context(), &input, eventType, userId, sessionId); err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

@@ -7,7 +7,7 @@ MAIN_PATH=./cmd/api
 MIGRATIONS_PATH=./migrations
 
 # Database
-DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/focusflow?sslmode=disable
+DATABASE_URL ?= postgres://focus_app:focus_password_strong123@localhost:5432/focus_db?sslmode=disable
 
 ## help: Display this help message
 help:

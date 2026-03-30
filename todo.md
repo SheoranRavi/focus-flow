@@ -1,10 +1,10 @@
 # Continuation
-- Send update events to backend - reset_daily_progress, change_session_reset_time, session_reset
+- Send update events to backend - reset_daily_progress, change_session_reset_time
 - Add reconnection capability to SSE from frontend.
 - Daily reset needs to be triggered in the backend
+  - Figure out how to get user timezone
+  - Maybe add a manual select option in UI
 - Build tests to ensure timer accuracy
-- Biggest -> Central timer source needs to be figured out.
-  - set focusSeconds to 0 on daily reset
 
 
 # UI

@@ -105,12 +105,8 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	case EventResetSession:
 		patchInput.TimeLeft = new(int)
 		*(patchInput).TimeLeft = session.SessionDuration
-	case EventResetProgress:
-		applyPatch = false
-		err = svc.repo.ResetProgress(ctx, userId)
-		if err != nil {
-			return err
-		}
+		patchInput.IsCompleted = new(bool)
+		*(patchInput.IsCompleted) = false
 	}
 
 	// don't apply patch to individual session if flag not set
