@@ -30,6 +30,7 @@ func NewEventService(userSvc *UserService, sessRepo *repo.SessionRepo) *EventSer
 	return &EventService{userSvc: userSvc,
 		sessionRepo:     sessRepo,
 		userConnections: make(map[string]map[string]*Connection),
+		userTimers:      make(map[string]*time.Timer),
 		logger:          logger.NewServiceLogger("event_service")}
 }
 
