@@ -45,7 +45,7 @@ func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entitie
 
 func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, error) {
 	query := `
-		SELECT id, name, email, created_at, sessions_reset_time, active_session_id from users 
+		SELECT id, name, email, created_at, sessions_reset_time, active_session_id, yesterday_mins, streak, timezone from users 
 		WHERE id = $1
 	`
 	var user entities.User
@@ -62,6 +62,9 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 		&user.CreatedAt,
 		&sessionsResetTime,
 		&activeSessionId,
+		&user.YesterdayMins,
+		&user.Streak,
+		&user.Timezone,
 	)
 
 	if err == sql.ErrNoRows {
@@ -69,7 +72,7 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 	}
 	// ToDo: This will still set 00:00 as the time in else case I think. Handle it. Set it to user's midnight.
 	if sessionsResetTime.Valid {
-		user.SessionsResetTime = sessionsResetTime.Time
+		user.SessionsResetTime = sessionsResetTime.Time.String()
 	}
 	if activeSessionId.Valid {
 		user.ActiveSessionId = activeSessionId.Int64
@@ -80,6 +83,51 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
+	query := `
+		SELECT id, name, email, created_at, sessions_reset_time, active_session_id, yesterday_mins, streak, timezone from users 
+	`
+	rows, err := repo.db.QueryContext(ctx, query)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]*entities.User, 0)
+	for rows.Next() {
+		var user entities.User
+		var sessionsResetTime sql.NullTime
+		var activeSessionId sql.NullInt64
+		if err = rows.Scan(
+			&user.Id,
+			&user.Name,
+			&user.Email,
+			&user.CreatedAt,
+			&sessionsResetTime,
+			&activeSessionId,
+			&user.YesterdayMins,
+			&user.Streak,
+			&user.Timezone,
+		); err != nil {
+			repo.logger.Error().Msg("Failed to scan row into User object")
+			return nil, err
+		}
+		// ToDo: This will still set 00:00 as the time in else case I think. Handle it. Set it to user's midnight.
+		if sessionsResetTime.Valid {
+			user.SessionsResetTime = sessionsResetTime.Time.String()
+		}
+		if activeSessionId.Valid {
+			user.ActiveSessionId = activeSessionId.Int64
+		}
+		users = append(users, &user)
+	}
+
+	return users, nil
 }
 
 func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {

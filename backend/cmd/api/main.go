@@ -52,13 +52,18 @@ func main() {
 
 	// Initialize services
 	userService := service.NewUserService(userRepo)
-	eventService := service.NewEventService(userService)
+	eventService := service.NewEventService(userService, sessionRepo)
 	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
 
 	// Schedule events
 	schedErr := sessionService.ScheduleEvents(ctx)
 	if schedErr != nil {
 		log.Fatalf("Not able to schedule events: %s", schedErr)
+	}
+	// Schedule User resets
+	userSchedErr := eventService.ScheduleSessionReset(ctx)
+	if userSchedErr != nil {
+		log.Fatalf("Not able to schedule user reset events: %s", userSchedErr)
 	}
 
 	// Initialize auth middleware
@@ -69,6 +74,7 @@ func main() {
 	r := server.NewRouter(
 		sessionService,
 		eventService,
+		userService,
 		authMiddleware,
 		loggingMiddleware,
 	)

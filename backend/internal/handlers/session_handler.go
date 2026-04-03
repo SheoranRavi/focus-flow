@@ -16,12 +16,12 @@ import (
 
 type SessionHandler struct {
 	SessionSvc *service.SessionService
-	UserSvc    *service.UserService
+	EventSvc   *service.EventService
 	logger     zerolog.Logger
 }
 
-func NewSessionHandler(svc *service.SessionService, userSvc *service.UserService) *SessionHandler {
-	return &SessionHandler{SessionSvc: svc, UserSvc: userSvc, logger: logger.NewHandlerLogger("session")}
+func NewSessionHandler(svc *service.SessionService, eventSvc *service.EventService) *SessionHandler {
+	return &SessionHandler{SessionSvc: svc, EventSvc: eventSvc, logger: logger.NewHandlerLogger("session")}
 }
 
 func (h *SessionHandler) Create(rw http.ResponseWriter, req *http.Request) {
@@ -66,10 +66,15 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var input entities.PatchInput
+	var userPatch entities.UserPatchInput
 	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-		h.logger.Error().Msg("Unable to decode to PatchInput")
-		http.Error(rw, err.Error(), http.StatusBadRequest)
-		return
+		// try decoding to UserPatch
+		err = json.NewDecoder(req.Body).Decode(&userPatch)
+		if err != nil {
+			h.logger.Error().Msg("Unable to decode to PatchInput")
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	eventTypeStr := service.EventType(req.URL.Query().Get("type"))
@@ -78,8 +83,8 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, errors.New("Event type is not valid").Error(), http.StatusBadRequest)
 	}
 
-	if eventType == service.EventResetProgress {
-		err := h.UserSvc.HandleEvent(req.Context(), eventType, userId)
+	if eventType == service.EventResetProgress || eventType == service.EventAutoResetTimeChange {
+		err := h.EventSvc.HandleEvent(req.Context(), eventType, userId, &userPatch)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return

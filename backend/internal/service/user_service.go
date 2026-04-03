@@ -11,16 +11,14 @@ import (
 )
 
 type UserService struct {
-	repo        *repo.UserRepo
-	sessionRepo *repo.SessionRepo
-	logger      zerolog.Logger
+	repo   *repo.UserRepo
+	logger zerolog.Logger
 }
 
-func NewUserService(usrRepo *repo.UserRepo, sessRepo *repo.SessionRepo) *UserService {
+func NewUserService(usrRepo *repo.UserRepo) *UserService {
 	return &UserService{
-		repo:        usrRepo,
-		sessionRepo: sessRepo,
-		logger:      logger.NewServiceLogger("user_service"),
+		repo:   usrRepo,
+		logger: logger.NewServiceLogger("user_service"),
 	}
 }
 
@@ -46,22 +44,14 @@ func (svc *UserService) GetUserDetails(ctx context.Context, userId string) (*ent
 	return user, nil
 }
 
-func (svc *UserService) EnsureUserExists(ctx context.Context, userId string) error {
-	return svc.repo.EnsureUserExists(ctx, userId)
+func (svc *UserService) GetAllUsers(ctx context.Context) ([]*entities.User, error) {
+	users, err := svc.repo.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
-func (svc *UserService) HandleEvent(ctx context.Context, t EventType, userId string) error {
-	switch t {
-	case EventResetProgress:
-		// return yesterdayMins, streak.
-		sessions, err := svc.sessionRepo.GetAllForUser(ctx, userId)
-		if err != nil {
-			return err
-		}
-		// calculate yesterdayMins and streak
-		err = svc.sessionRepo.ResetProgress(ctx, userId)
-		if err != nil {
-			return err
-		}
-	}
+func (svc *UserService) EnsureUserExists(ctx context.Context, userId string) error {
+	return svc.repo.EnsureUserExists(ctx, userId)
 }

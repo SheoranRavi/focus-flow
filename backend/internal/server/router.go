@@ -13,6 +13,7 @@ import (
 func NewRouter(
 	sessionSvc *service.SessionService,
 	eventSvc *service.EventService,
+	userSvc *service.UserService,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
 ) http.Handler {
@@ -39,7 +40,7 @@ func NewRouter(
 		w.Write([]byte("ok"))
 	})
 
-	sessionHandler := handlers.NewSessionHandler(sessionSvc)
+	sessionHandler := handlers.NewSessionHandler(sessionSvc, eventSvc)
 
 	r.Route("/sessions", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -58,6 +59,12 @@ func NewRouter(
 	r.Route("/events", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Get("/", sseHandler.Handle)
+	})
+
+	userHandler := handlers.NewUserHandler(userSvc)
+	r.Route("/users", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Get("/{userId}", userHandler.Get)
 	})
 
 	return r
