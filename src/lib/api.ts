@@ -1,6 +1,7 @@
 import { AppAction } from '@/context/reducer';
 import React from "react";
-import { Session } from '../types';
+import { Session, BackendUser } from '../types';
+import { getTodayDateTimeString } from './utils';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -221,8 +222,10 @@ export const api = {
     eventSrc.addEventListener("reset_progress", (e) => {
       try {
         // Assuming the backend sends a date string
-        const resetDate = e.data;
-        dispatch({type: 'RESET_DAILY_PROGRESS', resetDate: resetDate});
+        const yesterdayMins = e.data.yesterdayMins;
+        const streak = e.data.streak;
+        const [todayDate, _] = getTodayDateTimeString();
+        dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate: todayDate});
       } catch (error) {
         console.error('Error handling reset_progress event:', error);
       }
@@ -247,5 +250,12 @@ export const api = {
         ...mapFrontendToBackend(payload),
       }),
     });
+  },
+
+  async getUser(userId: string): Promise<BackendUser | null> {
+    const response = await fetchWithAuth(`/users/${userId}`);
+    const user: BackendUser = await response.json();
+    console.log(`fetched user: ${JSON.stringify(user)}`);
+    return user
   },
 };

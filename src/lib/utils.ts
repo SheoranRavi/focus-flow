@@ -6,6 +6,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export const getTodayDateTimeString = () => {
+  const now = new Date();
+  const currentTimeString = now.toLocaleTimeString("en-GB", {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const todayDate = now.toLocaleDateString("en-GB", { 
+    day: '2-digit', 
+    month: '2-digit',
+    year: '2-digit'
+  });
+  return [todayDate, currentTimeString];
+};
+
 // Safe number parser with fallback
 function toNumber(val: unknown, fallback: number): number {
   if (typeof val === "number" && !Number.isNaN(val)) return val

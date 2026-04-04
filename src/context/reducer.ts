@@ -1,5 +1,5 @@
 // reducer.ts
-import { Session, TimerState } from '../types';
+import { BackendUser, Session, TimerState } from '../types';
 
 export type AppState = {
   sessions: Session[];
@@ -19,12 +19,21 @@ export type AppAction =
   | { type: 'ADD_SESSION'; session: Session }
   | { type: 'COMPLETE_SESSION'; id: number }
   | { type: 'TICK'; now: number }
-  | { type: 'RESET_DAILY_PROGRESS'; resetDate: string }
+  | { type: 'RESET_DAILY_PROGRESS'; yesterdayMins: number; streak: number; resetDate: string; fromApi: boolean }
   | { type: 'SET_RESET_TIME'; time: string }
-  | { type: 'LOAD_SESSIONS'; sessions: Session[] };
+  | { type: 'LOAD_SESSIONS'; sessions: Session[] }
+  | { type: 'LOAD_USER'; user: Partial<BackendUser>};
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
+
+    case 'LOAD_USER':
+      return {
+        ...state,
+        yesterdayMinutes: action.user.yesterdayMins ?? 0,
+        streak: action.user.streak ?? 0,
+        resetTime: action.user.sessionsResetTime ?? "00:00",
+      };
 
     case 'LOAD_SESSIONS':
       return { ...state, sessions: action.sessions };
@@ -124,14 +133,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const yesterdayGoalSeconds = state.sessions.reduce(
         (sum, s) => sum + Math.min(s.focusSeconds, s.dailyGoalMinutes * 60), 0
       );
-      const newStreak = yesterdayGoalSeconds / 60 >= totalGoalMinutes ? state.streak + 1 : 0;
+      
+      let newStreak = yesterdayGoalSeconds / 60 >= totalGoalMinutes ? state.streak + 1 : 0;
+      let yesterdayMins = yesterdaySeconds/60;
+      if (action.fromApi){
+        yesterdayMins = action.yesterdayMins;
+        newStreak = action.streak
+      }
       localStorage.setItem('lastResetDate', action.resetDate);
       localStorage.setItem('yesterdayMins', (yesterdaySeconds/60).toString());
       localStorage.setItem('streak', newStreak.toString());
       return {
         ...state,
         sessions: state.sessions.map(s => ({ ...s, focusSeconds: 0 })),
-        yesterdayMinutes: yesterdaySeconds / 60,
+        yesterdayMinutes: yesterdayMins,
         lastResetDate: action.resetDate,
         streak: newStreak,
       };

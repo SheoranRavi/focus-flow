@@ -1,10 +1,11 @@
 # Continuation
-- Send update events to backend - reset_daily_progress, change_session_reset_time
-- Set up user routes
+- GetUser on login
+  - EnsureUserExists in backend
+- Send user level events
+  - set up handlers for them in frontend
+- Handle the case of both frontend and backend triggering reset within seconds/minutes of each other.
 - Add reconnection capability to SSE from frontend.
 - Daily reset needs to be triggered in the backend
-  - Figure out how to get user timezone
-  - Maybe add a manual select option in UI
   - Get timezone during first login, or after any GetUser calls
 - Build tests to ensure timer accuracy
 

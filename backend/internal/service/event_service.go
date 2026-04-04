@@ -35,6 +35,7 @@ func NewEventService(userSvc *UserService, sessRepo *repo.SessionRepo) *EventSer
 }
 
 func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId string, userPatch *entities.UserPatchInput) error {
+	svc.logger.Info().Msgf("Handling event %s for user %s", t, userId)
 	user, err := svc.userSvc.GetUserDetails(ctx, userId)
 	if err != nil {
 		return err
@@ -212,6 +213,7 @@ func (svc *EventService) ScheduleSessionReset(ctx context.Context) error {
 
 func (svc *EventService) handleResetTrigger(userId string) {
 	ctx := context.Background()
+	svc.logger.Info().Msgf("Reset triggered for user: %s", userId)
 	svc.HandleEvent(ctx, EventResetProgress, userId, &entities.UserPatchInput{})
 	user, err := svc.userSvc.GetUserDetails(ctx, userId)
 	if err != nil {

@@ -11,6 +11,17 @@ export interface Session {
   noGoal?: boolean; // whether this is a no-goal session (just tracking time)
 }
 
+export interface BackendUser{
+  id: string;
+  name: string;
+  email: string;
+  sessionsResetTime: string;
+  activeSessionId: string;
+  yesterdayMins: number;
+  streak: number;
+  timezone: string;
+}
+
 // Component Props
 export interface ProgressRingProps {
   radius: number;
