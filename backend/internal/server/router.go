@@ -61,10 +61,11 @@ func NewRouter(
 		r.Get("/", sseHandler.Handle)
 	})
 
-	userHandler := handlers.NewUserHandler(userSvc)
+	userHandler := handlers.NewUserHandler(userSvc, eventSvc)
 	r.Route("/users", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Get("/{userId}", userHandler.Get)
+		r.Post("/event", userHandler.Event)
 	})
 
 	return r

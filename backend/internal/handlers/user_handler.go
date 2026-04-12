@@ -2,9 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
-	"regexp"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
@@ -14,12 +13,13 @@ import (
 )
 
 type UserHandler struct {
-	svc    *service.UserService
-	logger zerolog.Logger
+	svc      *service.UserService
+	eventSvc *service.EventService
+	logger   zerolog.Logger
 }
 
-func NewUserHandler(svc *service.UserService) *UserHandler {
-	return &UserHandler{svc: svc, logger: logger.NewHandlerLogger("User")}
+func NewUserHandler(svc *service.UserService, eventSvc *service.EventService) *UserHandler {
+	return &UserHandler{svc: svc, eventSvc: eventSvc, logger: logger.NewHandlerLogger("User")}
 }
 
 func (h *UserHandler) Get(rw http.ResponseWriter, req *http.Request) {
@@ -32,29 +32,36 @@ func (h *UserHandler) Get(rw http.ResponseWriter, req *http.Request) {
 	_ = json.NewEncoder(rw).Encode(user)
 }
 
-func (h *UserHandler) UpdateResetTime(rw http.ResponseWriter, req *http.Request) {
+func (h *UserHandler) Event(rw http.ResponseWriter, req *http.Request) {
 	userId := req.Context().Value(middleware.UserIDKey).(string)
-	resetTime := req.URL.Query().Get("resettime")
-	timezone := req.URL.Query().Get("timezone")
-	// validate
-	pattern := `^\d\d:\d\d$`
-	matched, _ := regexp.MatchString(pattern, resetTime)
-	if !matched {
-		http.Error(rw, "resetTime not correct", http.StatusBadRequest)
-	}
-	_, err := time.LoadLocation(timezone)
+
+	var userPatch entities.UserPatchInput
+	// try decoding to UserPatch
+	err := json.NewDecoder(req.Body).Decode(&userPatch)
 	if err != nil {
-		http.Error(rw, "timezone not correct", http.StatusBadRequest)
-	}
-	patch := entities.UserPatchInput{
-		SessionResetTime: &resetTime,
-		Timezone:         &timezone,
-		UserId:           userId,
-	}
-	h.svc.Update(req.Context(), &patch)
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		h.logger.Error().Msg("Unable to decode to PatchInput")
+		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
+	userPatch.UserId = userId
+	h.logger.Info().Msgf("Decoded patchInput: %+v", userPatch)
+
+	eventTypeStr := service.EventType(req.URL.Query().Get("type"))
+	eventType := service.EventType(eventTypeStr)
+	if !eventType.IsValid() {
+		http.Error(rw, errors.New("Event type is not valid").Error(), http.StatusBadRequest)
+	}
+
+	if eventType == service.EventResetProgress || eventType == service.EventAutoResetTimeChange {
+		err := h.eventSvc.HandleEvent(req.Context(), eventType, userId, &userPatch)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		http.Error(rw, "Incorred event for this route", http.StatusBadRequest)
+		return
+	}
+
 	rw.WriteHeader(http.StatusNoContent)
 }

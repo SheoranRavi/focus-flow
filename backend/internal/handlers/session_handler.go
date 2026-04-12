@@ -66,16 +66,12 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var input entities.PatchInput
-	var userPatch entities.UserPatchInput
 	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-		// try decoding to UserPatch
-		err = json.NewDecoder(req.Body).Decode(&userPatch)
-		if err != nil {
-			h.logger.Error().Msg("Unable to decode to PatchInput")
-			http.Error(rw, err.Error(), http.StatusBadRequest)
-			return
-		}
+		h.logger.Error().Msg("Unable to decode to PatchInput")
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
 	}
+	h.logger.Info().Msgf("Decoded patchInput: %+v", input)
 
 	eventTypeStr := service.EventType(req.URL.Query().Get("type"))
 	eventType := service.EventType(eventTypeStr)
@@ -83,13 +79,7 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, errors.New("Event type is not valid").Error(), http.StatusBadRequest)
 	}
 
-	if eventType == service.EventResetProgress || eventType == service.EventAutoResetTimeChange {
-		err := h.EventSvc.HandleEvent(req.Context(), eventType, userId, &userPatch)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else if err := h.SessionSvc.HandleEvent(req.Context(), &input, eventType, userId, sessionId); err != nil {
+	if err := h.SessionSvc.HandleEvent(req.Context(), &input, eventType, userId, sessionId); err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}

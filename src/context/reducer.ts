@@ -7,6 +7,7 @@ export type AppState = {
   yesterdayMinutes: number;
   lastResetDate: string;
   resetTime: string;
+  timezone: string;
   activeSessionId: number | null;
 };
 
@@ -21,6 +22,7 @@ export type AppAction =
   | { type: 'TICK'; now: number }
   | { type: 'RESET_DAILY_PROGRESS'; yesterdayMins: number; streak: number; resetDate: string; fromApi: boolean }
   | { type: 'SET_RESET_TIME'; time: string }
+  | { type: 'SET_TIMEZONE'; timezone: string }
   | { type: 'LOAD_SESSIONS'; sessions: Session[] }
   | { type: 'LOAD_USER'; user: Partial<BackendUser>};
 
@@ -32,7 +34,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         yesterdayMinutes: action.user.yesterdayMins ?? 0,
         streak: action.user.streak ?? 0,
-        resetTime: action.user.sessionsResetTime ?? "00:00",
+        resetTime: action.user.sessionsResetTime ?? state.resetTime,
+        timezone: action.user.timezone ?? state.timezone,
       };
 
     case 'LOAD_SESSIONS':
@@ -138,11 +141,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       let yesterdayMins = yesterdaySeconds/60;
       if (action.fromApi){
         yesterdayMins = action.yesterdayMins;
-        newStreak = action.streak
+        newStreak = action.streak;
       }
       localStorage.setItem('lastResetDate', action.resetDate);
       localStorage.setItem('yesterdayMins', (yesterdaySeconds/60).toString());
-      localStorage.setItem('streak', newStreak.toString());
+      localStorage.setItem('streak', newStreak === undefined ? '0' : newStreak.toString());
+      console.log(`Setting yesterdayMins: ${yesterdayMins}, streak: ${newStreak}`);
       return {
         ...state,
         sessions: state.sessions.map(s => ({ ...s, focusSeconds: 0 })),
@@ -154,6 +158,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_RESET_TIME':
       return { ...state, resetTime: action.time };
+
+    case 'SET_TIMEZONE':
+      return { ...state, timezone: action.timezone };
 
     default:
       return state;

@@ -125,8 +125,11 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 		UPDATE users
 		SET
 			sessions_reset_time = $1,
-			active_session_id  = $2
-		WHERE id = $3
+			active_session_id  = $2,
+			yesterday_mins = $3,
+			streak = $4,
+			timezone = $5
+		WHERE id = $6
 	`
 
 	_, err := repo.db.ExecContext(
@@ -134,6 +137,9 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 		query,
 		u.SessionsResetTime,
 		u.ActiveSessionId,
+		u.YesterdayMins,
+		u.Streak,
+		u.Timezone,
 		u.Id,
 	)
 

@@ -38,6 +38,7 @@ const App: React.FC = () => {
       yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
       lastResetDate: localStorage.getItem('lastResetDate') ?? '',
       resetTime: localStorage.getItem('resetTime') ?? '00:00',
+      timezone: localStorage.getItem('timezone') ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
   };
 
@@ -134,7 +135,10 @@ useEffect(() => {
   // handler for resetting the total daily progress
   const handleResetDailyProgress = useCallback((resetDate: string) => {
     dispatch({type: 'RESET_DAILY_PROGRESS', resetDate: resetDate, fromApi: false, yesterdayMins: 0, streak: 0});
-  }, []);
+    if (user){
+      api.sendUserEvent('reset_progress');
+    }
+  }, [user]);
 
   
 
@@ -199,10 +203,15 @@ useEffect(() => {
       api.sendSessionEvent(id, 'edit', newDetails).catch(e => console.error(e));
   };
 
-  const handleSetResetTime = (newTime: string) => {
-    dispatch({type:'SET_RESET_TIME', time:newTime});
-    localStorage.setItem("resetTime", newTime);
-    // TODO: Call on the user handler to update this
+  const handleSaveSettings = (newResetTime: string, newTimezone: string) => {
+    dispatch({type:'SET_RESET_TIME', time:newResetTime});
+    dispatch({type:'SET_TIMEZONE', timezone:newTimezone});
+    localStorage.setItem("resetTime", newResetTime);
+    localStorage.setItem("timezone", newTimezone);
+    if (user){
+      console.log('saving settings to backend');
+      api.sendUserEvent('auto_reset_time_change', {sessionsResetTime: newResetTime, timezone: newTimezone}).catch(e => console.error(e));
+    }
   }
 
   const handleAddSession = (sessionData: {
@@ -257,7 +266,8 @@ useEffect(() => {
         activeSessionId={state.activeSessionId}
         streak={state.streak}
         resetTime={state.resetTime}
-        handleSetResetTime={handleSetResetTime}
+        timezone={state.timezone}
+        handleSaveSettings={handleSaveSettings}
       />
       <main className="max-w-7xl mx-auto p-6 md:p-8">
         {/* Hidden Audio Element */}

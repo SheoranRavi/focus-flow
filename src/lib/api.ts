@@ -208,11 +208,11 @@ export const api = {
       try {
         const data = JSON.parse(e.data);
         // Backend sends timestamp, convert to time string (HH:MM format)
-        const resetTime = new Date(data.ResetTime).toLocaleTimeString('en-GB', {
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        const resetTime = data.resetTime;
+        const timezone = data.timezone;
         dispatch({type: 'SET_RESET_TIME', time: resetTime});
+        dispatch({type: 'SET_TIMEZONE', timezone: timezone});
+        console.log(`Set the resetTime: ${resetTime}, timezone: ${timezone}`);
       } catch (error) {
         console.error('Error handling auto_reset_time_change event:', error);
       }
@@ -221,10 +221,11 @@ export const api = {
     // Handle "reset_progress" event
     eventSrc.addEventListener("reset_progress", (e) => {
       try {
-        // Assuming the backend sends a date string
-        const yesterdayMins = e.data.yesterdayMins;
-        const streak = e.data.streak;
+        const data = JSON.parse(e.data);
+        const yesterdayMins = data.yesterdayMins;
+        const streak = data.streak;
         const [todayDate, _] = getTodayDateTimeString();
+        console.log(`From API yesterdayMins: ${yesterdayMins}, streak: ${streak}`);
         dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate: todayDate});
       } catch (error) {
         console.error('Error handling reset_progress event:', error);
@@ -248,6 +249,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({
         ...mapFrontendToBackend(payload),
+      }),
+    });
+  },
+
+  // Send user events (progress reset, autoreset time change)
+  async sendUserEvent(
+    eventType: string,
+    payload: Partial<BackendUser> = {}
+  ): Promise<void> {
+    await fetchWithAuth(`/users/event?type=${eventType}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        ...payload,
       }),
     });
   },

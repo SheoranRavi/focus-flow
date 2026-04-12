@@ -74,17 +74,26 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		}
 		userData.YesterdayMins = *userPatch.YesterdayMins
 		userData.Streak = *userPatch.Streak
+		userData.TotalGoalMinutes = totalGoalMinutes
 	case EventAutoResetTimeChange:
+		if userPatch.SessionsResetTime == nil || userPatch.Timezone == nil {
+			return fmt.Errorf("SessionsResetTime and Timezone needs to be supplied")
+		}
 		re := regexp.MustCompile(`\d{2}:\d{2}`)
-		matched := re.MatchString(*userPatch.SessionResetTime)
+		matched := re.MatchString(*userPatch.SessionsResetTime)
 		if !matched {
-			return fmt.Errorf("session reset time %s should be of the form 'xy:ab'", *userPatch.SessionResetTime)
+			return fmt.Errorf("session reset time %s should be of the form 'xy:ab'", *userPatch.SessionsResetTime)
+		}
+		_, locationErr := time.LoadLocation(*userPatch.Timezone)
+		if locationErr != nil {
+			return fmt.Errorf("timezone not correct")
 		}
 		err := svc.userSvc.Update(ctx, userPatch)
 		if err != nil {
 			return err
 		}
-		userData.SessionResetTime = *userPatch.SessionResetTime
+		userData.SessionResetTime = *userPatch.SessionsResetTime
+		userData.Timezone = *userPatch.Timezone
 		// refresh user
 		user, err = svc.userSvc.GetUserDetails(ctx, user.Id)
 		svc.scheduleSessionResetForUser(ctx, user)
@@ -125,17 +134,21 @@ func (svc *EventService) ReceiveUserEvent(ctx context.Context, userId string, us
 	switch t {
 	case EventResetProgress:
 		msg.Object = struct {
-			yesterdayMins int
-			streak        int
+			YesterdayMins    int `json:"yesterdayMins"`
+			Streak           int `json:"streak"`
+			TotalGoalMinutes int `json:"totalGoalMinutes"`
 		}{
-			yesterdayMins: userData.YesterdayMins,
-			streak:        userData.Streak,
+			YesterdayMins:    userData.YesterdayMins,
+			Streak:           userData.Streak,
+			TotalGoalMinutes: userData.TotalGoalMinutes,
 		}
 	case EventAutoResetTimeChange:
 		msg.Object = struct {
-			resetTime string
+			ResetTime string `json:"resetTime"`
+			Timezone  string `json:"timezone"`
 		}{
-			resetTime: userData.SessionResetTime,
+			ResetTime: userData.SessionResetTime,
+			Timezone:  userData.Timezone,
 		}
 	}
 	svc.BroadcastToUserConnections(userId, msg)
@@ -297,4 +310,6 @@ type UserEventData struct {
 	YesterdayMins    int
 	Streak           int
 	SessionResetTime string
+	Timezone         string
+	TotalGoalMinutes int
 }

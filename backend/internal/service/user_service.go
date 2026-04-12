@@ -37,6 +37,7 @@ func (svc *UserService) Update(ctx context.Context, patch *entities.UserPatchInp
 }
 
 func (svc *UserService) GetUserDetails(ctx context.Context, userId string) (*entities.User, error) {
+	svc.EnsureUserExists(ctx, userId)
 	user, err := svc.repo.Get(ctx, userId)
 	if err != nil {
 		return nil, err

@@ -17,12 +17,12 @@ type User struct {
 }
 
 type UserPatchInput struct {
-	ActiveSessionId  *int64
-	SessionResetTime *string
-	YesterdayMins    *int
-	Streak           *int
-	Timezone         *string
-	UserId           string
+	ActiveSessionId   *int64
+	SessionsResetTime *string
+	YesterdayMins     *int
+	Streak            *int
+	Timezone          *string
+	UserId            string
 }
 
 func (user *User) ApplyPatch(in *UserPatchInput) {
@@ -30,8 +30,8 @@ func (user *User) ApplyPatch(in *UserPatchInput) {
 		user.ActiveSessionId = *in.ActiveSessionId
 	}
 
-	if in.SessionResetTime != nil {
-		user.SessionsResetTime = *in.SessionResetTime
+	if in.SessionsResetTime != nil {
+		user.SessionsResetTime = *in.SessionsResetTime
 	}
 
 	if in.YesterdayMins != nil {
