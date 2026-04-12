@@ -1,12 +1,9 @@
 # Continuation
-- GetUser on login
-  - EnsureUserExists in backend
-- Send user level events
-  - set up handlers for them in frontend
+- Add all timezones to dropdown
+- PauseEvent should send the targetTimeMs, client needs to set timeLeft according to that
+  - Same goes for session complete; focus time and all needs to be sent.
 - Handle the case of both frontend and backend triggering reset within seconds/minutes of each other.
 - Add reconnection capability to SSE from frontend.
-- Daily reset needs to be triggered in the backend
-  - Get timezone during first login, or after any GetUser calls
 - Build tests to ensure timer accuracy
 
 

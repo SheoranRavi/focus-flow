@@ -16,13 +16,14 @@ const (
 	EventResetSession        EventType = "reset_session"
 	EventResetProgress       EventType = "reset_progress"
 	EventAutoResetTimeChange EventType = "auto_reset_time_change"
+	EventRegistration        EventType = "registration"
 )
 
 func (t EventType) IsValid() bool {
 	switch t {
 	case EventStart, EventPause, EventEdit, EventSessionComplete,
 		EventNewSession, EventDeleteSession, EventResetSession,
-		EventResetProgress, EventAutoResetTimeChange:
+		EventResetProgress, EventAutoResetTimeChange, EventRegistration:
 		return true
 	}
 	return false

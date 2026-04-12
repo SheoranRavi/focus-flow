@@ -97,6 +97,22 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		// refresh user
 		user, err = svc.userSvc.GetUserDetails(ctx, user.Id)
 		svc.scheduleSessionResetForUser(ctx, user)
+	case EventRegistration:
+		if userPatch.Timezone == nil {
+			return fmt.Errorf("Timezone needs to be supplied")
+		}
+		_, locationErr := time.LoadLocation(*userPatch.Timezone)
+		if locationErr != nil {
+			return fmt.Errorf("timezone not correct")
+		}
+		err := svc.userSvc.Update(ctx, userPatch)
+		if err != nil {
+			return err
+		}
+		// Schedule session reset for the new user
+		user, _ = svc.userSvc.GetUserDetails(ctx, user.Id)
+		svc.scheduleSessionResetForUser(ctx, user)
+		return nil // No broadcast needed for registration
 	}
 	svc.ReceiveUserEvent(ctx, userId, &userData, t)
 	return nil

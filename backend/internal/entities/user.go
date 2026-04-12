@@ -22,6 +22,8 @@ type UserPatchInput struct {
 	YesterdayMins     *int
 	Streak            *int
 	Timezone          *string
+	Name              *string
+	Email             *string
 	UserId            string
 }
 
@@ -44,5 +46,13 @@ func (user *User) ApplyPatch(in *UserPatchInput) {
 
 	if in.Timezone != nil {
 		user.Timezone = *in.Timezone
+	}
+
+	if in.Name != nil {
+		user.Name = *in.Name
+	}
+
+	if in.Email != nil {
+		user.Email = *in.Email
 	}
 }

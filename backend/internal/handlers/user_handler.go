@@ -52,7 +52,7 @@ func (h *UserHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, errors.New("Event type is not valid").Error(), http.StatusBadRequest)
 	}
 
-	if eventType == service.EventResetProgress || eventType == service.EventAutoResetTimeChange {
+	if eventType == service.EventResetProgress || eventType == service.EventAutoResetTimeChange || eventType == service.EventRegistration {
 		err := h.eventSvc.HandleEvent(req.Context(), eventType, userId, &userPatch)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
