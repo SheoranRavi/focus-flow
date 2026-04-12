@@ -252,7 +252,8 @@ useEffect(() => {
   // subscribe to events
   useEffect(() => {
     if (user){
-      api.streamEvents(dispatch);
+      const cleanup = api.streamEvents(dispatch);
+      return cleanup;
     }
   }, [user])
 

@@ -123,119 +123,165 @@ export const api = {
     });
   },
 
-  async streamEvents(
+  streamEvents(
     dispatch: React.Dispatch<AppAction>
-  ): Promise<void> {
-    const idToken = await getAuthToken();
-    const eventSrc = new EventSource(`${API_URL}/events?token=${idToken}`);
-    
-    // Handle "new_session" event
-    eventSrc.addEventListener("new_session", (e) => {
-      try {
-        const session: BackendSession = JSON.parse(e.data);
-        console.log(`adding new session: ${JSON.stringify(session)}`);
-        dispatch({type: 'ADD_SESSION', session: mapBackendToFrontend(session)});
-      } catch (error) {
-        console.error('Error handling new_session event:', error);
-      }
-    });
+  ): () => void {
+    let eventSrc: EventSource | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let reconnectDelay = 1000; // Start with 1 second
+    const maxReconnectDelay = 30000; // Max 30 seconds
+    let isClosed = false;
 
-    // Handle "delete_session" event
-    eventSrc.addEventListener("delete_session", (e) => {
-      try {
-        const sessionId = parseInt(e.data, 10);
-        dispatch({type: 'DELETE_SESSION', id: sessionId});
-      } catch (error) {
-        console.error('Error handling delete_session event:', error);
-      }
-    });
+    const connect = async () => {
+      if (isClosed) return;
 
-    // Handle "pause" event
-    eventSrc.addEventListener("pause", (e) => {
       try {
-        const sessionId = parseInt(e.data, 10);
-        dispatch({type: 'PAUSE_SESSION', id: sessionId});
-      } catch (error) {
-        console.error('Error handling pause event:', error);
-      }
-    });
+        const idToken = await getAuthToken();
+        eventSrc = new EventSource(`${API_URL}/events?token=${idToken}`);
 
-    // Handle "reset_session" event
-    eventSrc.addEventListener("reset_session", (e) => {
-      try {
-        const sessionId = parseInt(e.data, 10);
-        dispatch({type: 'RESET_SESSION', id: sessionId});
-      } catch (error) {
-        console.error('Error handling reset_session event:', error);
-      }
-    });
+        // Reset delay on successful connection
+        eventSrc.onopen = () => {
+          console.log('SSE connection established');
+          reconnectDelay = 1000;
+        };
 
-    // Handle "start" event
-    eventSrc.addEventListener("start", (e) => {
-      try {
-        const session: BackendSession = JSON.parse(e.data);
-        const frontEndSession = mapBackendToFrontend(session);
-        // ToDo: Figure out a better way
-        const targetTime = frontEndSession.targetTimeMs !== undefined ? frontEndSession.targetTimeMs : Date.now();
-        dispatch({type: 'START_SESSION', id: frontEndSession.id, targetTimeMs: targetTime});
-      } catch (error) {
-        console.error('Error handling start event:', error);
-      }
-    });
+        // Handle "new_session" event
+        eventSrc.addEventListener("new_session", (e) => {
+          try {
+            const session: BackendSession = JSON.parse(e.data);
+            console.log(`adding new session: ${JSON.stringify(session)}`);
+            dispatch({type: 'ADD_SESSION', session: mapBackendToFrontend(session)});
+          } catch (error) {
+            console.error('Error handling new_session event:', error);
+          }
+        });
 
-    // Handle "edit" event
-    eventSrc.addEventListener("edit", (e) => {
-      try {
-        const session: BackendSession = JSON.parse(e.data);
-        dispatch({type: 'UPDATE_SESSION', id: session.id, changes: mapBackendToFrontend(session)});
-      } catch (error) {
-        console.error('Error handling edit event:', error);
-      }
-    });
+        // Handle "delete_session" event
+        eventSrc.addEventListener("delete_session", (e) => {
+          try {
+            const sessionId = parseInt(e.data, 10);
+            dispatch({type: 'DELETE_SESSION', id: sessionId});
+          } catch (error) {
+            console.error('Error handling delete_session event:', error);
+          }
+        });
 
-    // Handle "session_complete" event
-    eventSrc.addEventListener("session_complete", (e) => {
-      try {
-        const sessionId = parseInt(e.data, 10);
-        dispatch({type: 'COMPLETE_SESSION', id: sessionId});
-      } catch (error) {
-        console.error('Error handling session_complete event:', error);
-      }
-    });
+        // Handle "pause" event
+        eventSrc.addEventListener("pause", (e) => {
+          try {
+            const sessionId = parseInt(e.data, 10);
+            dispatch({type: 'PAUSE_SESSION', id: sessionId});
+          } catch (error) {
+            console.error('Error handling pause event:', error);
+          }
+        });
 
-    // Handle "auto_reset_time_change" event
-    eventSrc.addEventListener("auto_reset_time_change", (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        // Backend sends timestamp, convert to time string (HH:MM format)
-        const resetTime = data.resetTime;
-        const timezone = data.timezone;
-        dispatch({type: 'SET_RESET_TIME', time: resetTime});
-        dispatch({type: 'SET_TIMEZONE', timezone: timezone});
-        console.log(`Set the resetTime: ${resetTime}, timezone: ${timezone}`);
-      } catch (error) {
-        console.error('Error handling auto_reset_time_change event:', error);
-      }
-    });
+        // Handle "reset_session" event
+        eventSrc.addEventListener("reset_session", (e) => {
+          try {
+            const sessionId = parseInt(e.data, 10);
+            dispatch({type: 'RESET_SESSION', id: sessionId});
+          } catch (error) {
+            console.error('Error handling reset_session event:', error);
+          }
+        });
 
-    // Handle "reset_progress" event
-    eventSrc.addEventListener("reset_progress", (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        const yesterdayMins = data.yesterdayMins;
-        const streak = data.streak;
-        const [todayDate, _] = getTodayDateTimeString();
-        console.log(`From API yesterdayMins: ${yesterdayMins}, streak: ${streak}`);
-        dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate: todayDate});
-      } catch (error) {
-        console.error('Error handling reset_progress event:', error);
-      }
-    });
+        // Handle "start" event
+        eventSrc.addEventListener("start", (e) => {
+          try {
+            const session: BackendSession = JSON.parse(e.data);
+            const frontEndSession = mapBackendToFrontend(session);
+            // ToDo: Figure out a better way
+            const targetTime = frontEndSession.targetTimeMs !== undefined ? frontEndSession.targetTimeMs : Date.now();
+            dispatch({type: 'START_SESSION', id: frontEndSession.id, targetTimeMs: targetTime});
+          } catch (error) {
+            console.error('Error handling start event:', error);
+          }
+        });
 
-    // Handle connection errors
-    eventSrc.onerror = (error) => {
-      console.error('EventSource error:', error);
-      eventSrc.close();
+        // Handle "edit" event
+        eventSrc.addEventListener("edit", (e) => {
+          try {
+            const session: BackendSession = JSON.parse(e.data);
+            dispatch({type: 'UPDATE_SESSION', id: session.id, changes: mapBackendToFrontend(session)});
+          } catch (error) {
+            console.error('Error handling edit event:', error);
+          }
+        });
+
+        // Handle "session_complete" event
+        eventSrc.addEventListener("session_complete", (e) => {
+          try {
+            const sessionId = parseInt(e.data, 10);
+            dispatch({type: 'COMPLETE_SESSION', id: sessionId});
+          } catch (error) {
+            console.error('Error handling session_complete event:', error);
+          }
+        });
+
+        // Handle "auto_reset_time_change" event
+        eventSrc.addEventListener("auto_reset_time_change", (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            // Backend sends timestamp, convert to time string (HH:MM format)
+            const resetTime = data.resetTime;
+            const timezone = data.timezone;
+            dispatch({type: 'SET_RESET_TIME', time: resetTime});
+            dispatch({type: 'SET_TIMEZONE', timezone: timezone});
+            console.log(`Set the resetTime: ${resetTime}, timezone: ${timezone}`);
+          } catch (error) {
+            console.error('Error handling auto_reset_time_change event:', error);
+          }
+        });
+
+        // Handle "reset_progress" event
+        eventSrc.addEventListener("reset_progress", (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            const yesterdayMins = data.yesterdayMins;
+            const streak = data.streak;
+            const [todayDate, _] = getTodayDateTimeString();
+            console.log(`From API yesterdayMins: ${yesterdayMins}, streak: ${streak}`);
+            dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate: todayDate});
+          } catch (error) {
+            console.error('Error handling reset_progress event:', error);
+          }
+        });
+
+        // Handle connection errors with reconnection
+        eventSrc.onerror = () => {
+          console.error('SSE connection error, will reconnect in', reconnectDelay, 'ms');
+          eventSrc?.close();
+
+          if (!isClosed) {
+            reconnectTimeout = setTimeout(() => {
+              reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+              connect();
+            }, reconnectDelay);
+          }
+        };
+      } catch (error) {
+        console.error('Failed to establish SSE connection:', error);
+        if (!isClosed) {
+          reconnectTimeout = setTimeout(() => {
+            reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+            connect();
+          }, reconnectDelay);
+        }
+      }
+    };
+
+    connect();
+
+    // Return cleanup function
+    return () => {
+      isClosed = true;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (eventSrc) {
+        eventSrc.close();
+      }
     };
   },
 
