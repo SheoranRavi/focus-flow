@@ -1,10 +1,10 @@
 # Continuation
+- Deploy backend
 - Add all timezones to dropdown
-- PauseEvent should send the targetTimeMs, client needs to set timeLeft according to that
-  - Same goes for session complete; focus time and all needs to be sent.
 - Handle the case of both frontend and backend triggering reset within seconds/minutes of each other.
-- Add reconnection capability to SSE from frontend.
+- Add system notification to session complete.
 - Build tests to ensure timer accuracy
+- Analytics support
 
 
 # UI
@@ -22,7 +22,7 @@
   
 
 ## Backend
-- Keep a client list of some kind (on every login the client gets added), then send the start, pause, etc. events to all the connected clients.
+- Performance and concurrency tests for backend
 
 # Performance
 - Analyze performance of the app.

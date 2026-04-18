@@ -74,6 +74,16 @@ Group ||--o{ Session : has
 
 ```
 
+## Start and Pause events
+- Start sends targetTimeMs against which all calculations are performed
+  - Backend should calculate against it
+  - All UIs should calculate against it. So UIs should all be aligned at all times. ii desu ne?
+- Pause event happens
+  - Time lag b/w the client and backend
+  - This causes discrepancy
+  - Soln: Client sends the timeLeft field.
+  - Backend explicitly sets values based on it.
+  - 
 ## Computing analytics
 #### Requirements:
 - Time spent on each goal by day

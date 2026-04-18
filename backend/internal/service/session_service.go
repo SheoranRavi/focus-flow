@@ -224,6 +224,7 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 				UserId:       session.UserId,
 				SessionId:    session.Id,
 				TargetTimeMs: session.TargetTimeMs,
+				FocusSeconds: session.FocusSeconds,
 			}
 			// broadcast the session completion to clients
 			svc.logger.Info().Msgf("Session %d is complete, updating DB and clients.", session.Id)
@@ -240,13 +241,6 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 			return
 		}
 	}
-}
-
-// call this from main.go
-func (svc *SessionService) ScheduleDailyReset(ctx context.Context) {
-	// get the reset times for all the users
-	// schedule the reset of focus seconds and all
-	///svc.userSvc.GetResetTimes()
 }
 
 // Called to propagate a session event

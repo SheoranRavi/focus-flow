@@ -217,9 +217,16 @@ func (svc *EventService) RemoveClientConnection(connId string, userId string) {
 }
 
 func (svc *EventService) SendCompletion(session *SessionSchedule) {
+	completionObj := struct {
+		SessionId    int64 `json:"sessionId"`
+		FocusSeconds int   `json:"focusSeconds"`
+	}{
+		SessionId:    session.SessionId,
+		FocusSeconds: session.FocusSeconds,
+	}
 	msg := Message{
 		EventType: EventSessionComplete,
-		Object:    session.SessionId,
+		Object:    completionObj,
 	}
 	svc.BroadcastToUserConnections(session.UserId, msg)
 }
@@ -299,7 +306,13 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 			TargetTimeMs: s.TargetTimeMs,
 		}
 	case EventPause, EventSessionComplete, EventDeleteSession, EventResetSession:
-		msg.Object = sessionId
+		msg.Object = struct {
+			Id       int64 `json:"id"`
+			TimeLeft int   `json:"timeLeft"`
+		}{
+			Id:       sessionId,
+			TimeLeft: s.TimeLeft,
+		}
 	default:
 		msg.Object = s
 	}
@@ -320,6 +333,7 @@ type SessionSchedule struct {
 	UserId       string
 	SessionId    int64
 	TargetTimeMs int64
+	FocusSeconds int // the new time spent for this session
 }
 
 type UserEventData struct {

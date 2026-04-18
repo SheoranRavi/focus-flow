@@ -13,12 +13,12 @@ export type AppState = {
 
 export type AppAction =
   | { type: 'START_SESSION'; id: number; targetTimeMs: number }
-  | { type: 'PAUSE_SESSION'; id: number }
+  | { type: 'PAUSE_SESSION'; id: number; timeLeft: number }
   | { type: 'RESET_SESSION'; id: number }
   | { type: 'DELETE_SESSION'; id: number }
   | { type: 'UPDATE_SESSION'; id: number; changes: Partial<Session> }
   | { type: 'ADD_SESSION'; session: Session }
-  | { type: 'COMPLETE_SESSION'; id: number }
+  | { type: 'COMPLETE_SESSION'; id: number; focusSeconds: number }
   | { type: 'TICK'; now: number }
   | { type: 'RESET_DAILY_PROGRESS'; yesterdayMins: number; streak: number; resetDate: string; fromApi: boolean }
   | { type: 'SET_RESET_TIME'; time: string }
@@ -75,7 +75,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         activeSessionId: state.activeSessionId === action.id ? null : state.activeSessionId,
         sessions: state.sessions.map(s =>
-          s.id === action.id ? { ...s, state: TimerState.PAUSED } : s
+          s.id === action.id ? { ...s, state: TimerState.PAUSED, timeLeft: action.timeLeft } : s
         ),
       };
 
@@ -108,7 +108,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         activeSessionId: null,
         sessions: state.sessions.map(s =>
-          s.id === action.id ? { ...s, isCompleted: true } : s
+          s.id === action.id ? { ...s, isCompleted: true, focusSeconds: action.focusSeconds, timeLeft: 0 } : s
         ),
       };
 

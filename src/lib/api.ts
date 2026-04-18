@@ -169,8 +169,10 @@ export const api = {
         // Handle "pause" event
         eventSrc.addEventListener("pause", (e) => {
           try {
-            const sessionId = parseInt(e.data, 10);
-            dispatch({type: 'PAUSE_SESSION', id: sessionId});
+            const data = JSON.parse(e.data);
+            const sessionId = data.id;
+            const timeLeft = data.timeLeft;
+            dispatch({type: 'PAUSE_SESSION', id: sessionId, timeLeft: timeLeft});
           } catch (error) {
             console.error('Error handling pause event:', error);
           }
@@ -212,8 +214,10 @@ export const api = {
         // Handle "session_complete" event
         eventSrc.addEventListener("session_complete", (e) => {
           try {
-            const sessionId = parseInt(e.data, 10);
-            dispatch({type: 'COMPLETE_SESSION', id: sessionId});
+            const data = JSON.parse(e.data);
+            const sessionId = data.sessionId;
+            const focusSeconds = data.focusSeconds;
+            dispatch({type: 'COMPLETE_SESSION', id: sessionId, focusSeconds: focusSeconds});
           } catch (error) {
             console.error('Error handling session_complete event:', error);
           }

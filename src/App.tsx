@@ -179,9 +179,11 @@ useEffect(() => {
   };
 
   const handlePause = (id: number) => {
-    dispatch({type:'PAUSE_SESSION', id:id});
+    // get timeLeft
+    const s = state.sessions.filter(s => s.id === id);
+    dispatch({type:'PAUSE_SESSION', id:id, timeLeft: s[0].timeLeft});
     if(user)
-      api.sendSessionEvent(id, 'pause').catch(e => console.error(e));
+      api.sendSessionEvent(id, 'pause', {timeLeft: s[0].timeLeft}).catch(e => console.error(e));
   };
 
   const handleReset = (id: number) => {
