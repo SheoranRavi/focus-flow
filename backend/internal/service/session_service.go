@@ -200,47 +200,49 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 	targetTimeMs := session.TargetTimeMs
 
 	ctx := context.Background()
-	sessionComplete := make(chan bool, 1) // buffered channel to avoid deadlock
 	for {
 		select {
 		case <-t.Ticker.C:
 			// update timeLeft, focusSeconds, check if TargetTimeMs is reached
 			timeLeft = int(time.Until(time.UnixMilli(targetTimeMs)).Seconds())
 			focusSeconds := initFocusSeconds + initTimeLeft - timeLeft
-			if timeLeft <= 0 {
-				timeLeft = 0 // to avoid a negative timeLeft value
-				sessionComplete <- true
-			}
+
 			session.TimeLeft = timeLeft
 			session.FocusSeconds = focusSeconds
-			svc.repo.Update(ctx, session)
-		case <-sessionComplete:
-			t.Ticker.Stop()
-			// set session to completed and time left to session duration
-			session.TimeLeft = session.SessionDuration
-			session.IsCompleted = true
-			session.State = entities.SessionPaused
-			sessionSched := &SessionSchedule{
-				UserId:       session.UserId,
-				SessionId:    session.Id,
-				TargetTimeMs: session.TargetTimeMs,
-				FocusSeconds: session.FocusSeconds,
+			if timeLeft <= 0 {
+				t.Ticker.Stop()
+				timeLeft = 0 // to avoid a negative timeLeft value
+				svc.handleCompletion(ctx, session)
+				return
 			}
-			// broadcast the session completion to clients
-			svc.logger.Info().Msgf("Session %d is complete, updating DB and clients.", session.Id)
-			svc.eventSvc.SendCompletion(sessionSched)
 			svc.repo.Update(ctx, session)
-			// remove this ticker from map
-			svc.timerMu.Lock()
-			delete(svc.userTimers, session.UserId)
-			svc.timerMu.Unlock()
-			return
 		case <-t.CancelChan:
 			t.Ticker.Stop()
 			svc.logger.Info().Msgf("Stopping ticker for session %d", session.Id)
 			return
 		}
 	}
+}
+
+func (svc *SessionService) handleCompletion(ctx context.Context, session *entities.Session) {
+	// set session to completed and time left to session duration
+	session.TimeLeft = session.SessionDuration
+	session.IsCompleted = true
+	session.State = entities.SessionPaused
+	sessionSched := &SessionSchedule{
+		UserId:       session.UserId,
+		SessionId:    session.Id,
+		TargetTimeMs: session.TargetTimeMs,
+		FocusSeconds: session.FocusSeconds,
+	}
+	// broadcast the session completion to clients
+	svc.logger.Info().Msgf("Session %d is complete, updating DB and clients.", session.Id)
+	svc.eventSvc.SendCompletion(sessionSched)
+	svc.repo.Update(ctx, session)
+	// remove this ticker from map
+	svc.timerMu.Lock()
+	delete(svc.userTimers, session.UserId)
+	svc.timerMu.Unlock()
 }
 
 // Called to propagate a session event
