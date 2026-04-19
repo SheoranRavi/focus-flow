@@ -11,7 +11,30 @@ import (
 
 type contextKey string
 
-const UserIDKey contextKey = "userId"
+type AuthUser struct {
+	UID   string
+	Email string
+	Name  string
+}
+
+const (
+	UserIDKey   contextKey = "userId"
+	AuthUserKey contextKey = "authUser"
+)
+
+func claimAsString(claims map[string]interface{}, key string) string {
+	value, ok := claims[key]
+	if !ok {
+		return ""
+	}
+
+	stringValue, ok := value.(string)
+	if !ok {
+		return ""
+	}
+
+	return stringValue
+}
 
 func FirebaseAuth(app *firebase.App) func(http.Handler) http.Handler {
 	authClient, err := app.Auth(context.Background())
@@ -46,7 +69,14 @@ func FirebaseAuth(app *firebase.App) func(http.Handler) http.Handler {
 				return
 			}
 
+			authUser := AuthUser{
+				UID:   token.UID,
+				Email: claimAsString(token.Claims, "email"),
+				Name:  claimAsString(token.Claims, "name"),
+			}
+
 			ctx := context.WithValue(req.Context(), UserIDKey, token.UID)
+			ctx = context.WithValue(ctx, AuthUserKey, authUser)
 			next.ServeHTTP(rw, req.WithContext(ctx))
 		})
 	}

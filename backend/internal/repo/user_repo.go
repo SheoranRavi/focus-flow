@@ -149,13 +149,16 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 	return err
 }
 
-func (repo *UserRepo) EnsureUserExists(ctx context.Context, userId string) error {
+func (repo *UserRepo) EnsureUserExists(ctx context.Context, userId, name, email string) error {
 	query := `
 		INSERT INTO users (id, name, email, created_at)
-		VALUES ($1, '', '', now())
-		ON CONFLICT (id) DO NOTHING
+		VALUES ($1, $2, $3, now())
+		ON CONFLICT (id) DO UPDATE
+		SET
+			name = EXCLUDED.name,
+			email = EXCLUDED.email
 	`
-	_, err := repo.db.ExecContext(ctx, query, userId)
+	_, err := repo.db.ExecContext(ctx, query, userId, name, email)
 	if err != nil {
 		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to ensure user exists")
 	}

@@ -4,21 +4,25 @@ import (
 	"context"
 	"fmt"
 
+	"firebase.google.com/go/v4/auth"
 	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
 	"github.com/sheoranravi/focus-flow/backend/internal/logger"
+	"github.com/sheoranravi/focus-flow/backend/internal/middleware"
 	"github.com/sheoranravi/focus-flow/backend/internal/repo"
 )
 
 type UserService struct {
-	repo   *repo.UserRepo
-	logger zerolog.Logger
+	repo       *repo.UserRepo
+	authClient *auth.Client
+	logger     zerolog.Logger
 }
 
-func NewUserService(usrRepo *repo.UserRepo) *UserService {
+func NewUserService(usrRepo *repo.UserRepo, authClient *auth.Client) *UserService {
 	return &UserService{
-		repo:   usrRepo,
-		logger: logger.NewServiceLogger("user_service"),
+		repo:       usrRepo,
+		authClient: authClient,
+		logger:     logger.NewServiceLogger("user_service"),
 	}
 }
 
@@ -54,5 +58,35 @@ func (svc *UserService) GetAllUsers(ctx context.Context) ([]*entities.User, erro
 }
 
 func (svc *UserService) EnsureUserExists(ctx context.Context, userId string) error {
-	return svc.repo.EnsureUserExists(ctx, userId)
+	var email, name string
+
+	if v := ctx.Value(middleware.AuthUserKey); v != nil {
+		if authUser, ok := v.(middleware.AuthUser); ok {
+			email = authUser.Email
+			name = authUser.Name
+		}
+	}
+
+	if (email == "" || name == "") && svc.authClient != nil {
+		firebaseUser, err := svc.authClient.GetUser(ctx, userId)
+		if err != nil {
+			svc.logger.Warn().Err(err).Str("user_id", userId).Msg("Failed to fetch firebase user")
+		} else {
+			if email == "" {
+				email = firebaseUser.Email
+			}
+			if name == "" {
+				name = firebaseUser.DisplayName
+			}
+		}
+	}
+
+	if email == "" {
+		email = userId + "@unknown.local"
+	}
+	if name == "" {
+		name = "Unknown"
+	}
+
+	return svc.repo.EnsureUserExists(ctx, userId, name, email)
 }

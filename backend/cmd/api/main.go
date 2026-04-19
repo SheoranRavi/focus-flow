@@ -15,6 +15,7 @@ import (
 	"github.com/sheoranravi/focus-flow/backend/internal/repo"
 	"github.com/sheoranravi/focus-flow/backend/internal/server"
 	"github.com/sheoranravi/focus-flow/backend/internal/service"
+	"google.golang.org/api/option"
 )
 
 func main() {
@@ -29,13 +30,27 @@ func main() {
 	defer logger.Close()
 
 	ctx := context.Background()
-	firebaseApp, err := firebase.NewApp(ctx, nil)
+	var firebaseOptions []option.ClientOption
+	if credentialsJSON := os.Getenv("FIREBASE_CREDENTIALS_JSON"); credentialsJSON != "" {
+		firebaseOptions = append(firebaseOptions, option.WithCredentialsJSON([]byte(credentialsJSON)))
+	} else {
+		log.Default().Println("credentialsJSON not loaded")
+	}
+
+	firebaseApp, err := firebase.NewApp(ctx, nil, firebaseOptions...)
 	if err != nil {
 		log.Fatalf("Failed to initialize Firebase app: %v", err)
 	}
+
+	authClient, err := firebaseApp.Auth(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase auth client: %v", err)
+	}
+
 	// Initialize database
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
+		log.Default().Println("Trying default DB URL")
 		dsn = "postgres://postgres:postgres@localhost:5432/focusflow?sslmode=disable"
 	}
 
@@ -51,7 +66,7 @@ func main() {
 	userRepo := repo.NewUserRepo(database)
 
 	// Initialize services
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, authClient)
 	eventService := service.NewEventService(userService, sessionRepo)
 	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
 
@@ -86,7 +101,7 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	if err := http.ListenAndServe("0.0.0.0:"+port, r); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
