@@ -278,7 +278,7 @@ func (svc *EventService) scheduleSessionResetForUser(ctx context.Context, user *
 	}
 	now := time.Now().In(loc)
 	target := time.Date(now.Year(), now.Month(), now.Day(), parsed.Hour(), parsed.Minute(), 0, 0, loc)
-	if target.Before(time.Now()) {
+	if target.Before(now) {
 		target = target.Add(24 * time.Hour)
 	}
 	targetUTC := target.UTC()
