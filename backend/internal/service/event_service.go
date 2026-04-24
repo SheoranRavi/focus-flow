@@ -305,7 +305,7 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 			Id:           sessionId,
 			TargetTimeMs: s.TargetTimeMs,
 		}
-	case EventPause, EventSessionComplete, EventDeleteSession, EventResetSession:
+	case EventPause, EventSessionComplete, EventDeleteSession:
 		msg.Object = struct {
 			Id       int64 `json:"id"`
 			TimeLeft int   `json:"timeLeft"`
@@ -313,6 +313,8 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 			Id:       sessionId,
 			TimeLeft: s.TimeLeft,
 		}
+	case EventResetSession:
+		msg.Object = s.Id
 	default:
 		msg.Object = s
 	}

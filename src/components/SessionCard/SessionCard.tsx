@@ -4,7 +4,6 @@ import { SessionCardProps } from '@/types';
 
 const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, onPause, onDelete, onUpdate, onReset }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(session.title);
   const [editDuration, setEditDuration] = useState(session.sessionDuration / 60); // in minutes
   const [editDailyGoal, setEditDailyGoal] = useState(session.dailyGoalMinutes); // in minutes
 
@@ -31,7 +30,6 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
     const newGoal = Math.max(0, parseInt(String(editDailyGoal)) || 0);
 
     onUpdate(session.id, { 
-      title: editTitle, 
       sessionDuration: newDuration * 60,
       timeLeft: newDuration * 60,
       dailyGoalMinutes: newGoal,
@@ -50,12 +48,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
       <div className="w-full flex justify-between items-start mb-4">
         {isEditing ? (
           <div className="flex flex-col gap-2 w-full z-10">
-            <input 
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="font-semibold text-lg border-b border-slate-300 focus:outline-none focus:border-emerald-500"
-              autoFocus
-            />
+            <h3 className="font-semibold text-lg text-slate-800 truncate" title={session.title}>{session.title}</h3>
             {/* Session Length Input */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 w-24">Session Length:</span>
@@ -97,7 +90,6 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
             <div className="flex gap-1">
               <button 
                 onClick={() => {
-                  setEditTitle(session.title);
                   setEditDuration(session.sessionDuration / 60);
                   setEditDailyGoal(session.dailyGoalMinutes);
                   setIsEditing(true);
