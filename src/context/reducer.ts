@@ -120,7 +120,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         const secondsLeft = Math.max(0, Math.ceil((s.targetTimeMs - action.now) / 1000));
         const delta = Math.max(0, s.timeLeft - secondsLeft);
         if (secondsLeft <= 0) { completed = true; }
-        return { ...s, timeLeft: secondsLeft, focusSeconds: (s.focusSeconds || 0) + delta, isCompleted: secondsLeft <= 0 };
+        return { ...s, timeLeft: secondsLeft, focusSeconds: (s.focusSeconds || 0) + delta, isCompleted: secondsLeft <= 0, state: TimerState.PAUSED };
       });
       return {
         ...state,
@@ -144,7 +144,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         newStreak = action.streak;
       }
       localStorage.setItem('lastResetDate', action.resetDate);
-      localStorage.setItem('yesterdayMins', (yesterdaySeconds/60).toString());
+      localStorage.setItem('yesterdayMins', (yesterdayMins).toString());
       localStorage.setItem('streak', newStreak === undefined ? '0' : newStreak.toString());
       console.log(`Setting yesterdayMins: ${yesterdayMins}, streak: ${newStreak}`);
       return {
