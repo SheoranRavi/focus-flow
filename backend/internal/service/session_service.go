@@ -166,6 +166,7 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 	}
 	ticker := time.NewTicker(time.Second)
 	tickerChan := &TickerChan{
+		SessionId:  session.Id,
 		Ticker:     ticker,
 		CancelChan: make(chan bool), // unbuffered channel, this is fine to block
 	}
