@@ -261,8 +261,10 @@ func (svc *EventService) handleResetTrigger(userId string) {
 
 func (svc *EventService) scheduleSessionResetForUser(ctx context.Context, user *entities.User) error {
 	// delete if already exists
-	if _, ok := svc.userTimers[user.Id]; ok {
+	if prevTimer, ok := svc.userTimers[user.Id]; ok {
 		svc.timerMu.Lock()
+		// precautionary stop
+		prevTimer.Stop()
 		delete(svc.userTimers, user.Id)
 		svc.timerMu.Unlock()
 	}
@@ -305,7 +307,7 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 			Id:           sessionId,
 			TargetTimeMs: s.TargetTimeMs,
 		}
-	case EventPause, EventSessionComplete, EventDeleteSession:
+	case EventPause, EventSessionComplete:
 		msg.Object = struct {
 			Id       int64 `json:"id"`
 			TimeLeft int   `json:"timeLeft"`
@@ -313,7 +315,7 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 			Id:       sessionId,
 			TimeLeft: s.TimeLeft,
 		}
-	case EventResetSession:
+	case EventResetSession, EventDeleteSession:
 		msg.Object = s.Id
 	default:
 		msg.Object = s
