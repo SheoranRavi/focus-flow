@@ -234,20 +234,22 @@ useEffect(() => {
       state: TimerState.PAUSED,
       noGoal: sessionData.noGoal,
     };
-    console.log(`new session created with id: ${newId}`);
-    dispatch({type:"ADD_SESSION", session: newSession});
+    console.log(`new session created with local id: ${newId}`);
 
     // create session in backend if user is logged in
     if (user) {
       api.createSession(newSession)
         .then(createdSession => {
-          // Update with server-generated ID
-          dispatch({type:"UPDATE_SESSION", id: newId, changes: createdSession});
+          // no need to add if this session is already added through SSE
+          // but dispatch add anyway
+          newSession.id = createdSession.id;
+          dispatch({type:"ADD_SESSION", session: newSession});
         })
         .catch(error => {
           console.error('Failed to create session on server:', error);
-          // Keep the local session even if server fails
         });
+    }else{
+      dispatch({type:"ADD_SESSION", session: newSession});
     }
   };
 

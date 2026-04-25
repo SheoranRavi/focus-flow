@@ -108,7 +108,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         activeSessionId: null,
         sessions: state.sessions.map(s =>
-          s.id === action.id ? { ...s, isCompleted: true, focusSeconds: action.focusSeconds, timeLeft: 0 } : s
+          s.id === action.id ? { ...s, isCompleted: true, focusSeconds: action.focusSeconds, timeLeft: 0, state: TimerState.PAUSED } : s
         ),
       };
 
