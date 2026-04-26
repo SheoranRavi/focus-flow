@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sync"
 	"time"
 
@@ -79,9 +78,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		if userPatch.SessionsResetTime == nil || userPatch.Timezone == nil {
 			return fmt.Errorf("SessionsResetTime and Timezone needs to be supplied")
 		}
-		re := regexp.MustCompile(`\d{2}:\d{2}`)
-		matched := re.MatchString(*userPatch.SessionsResetTime)
-		if !matched {
+		if _, parseErr := time.Parse("15:04", *userPatch.SessionsResetTime); parseErr != nil {
 			return fmt.Errorf("session reset time %s should be of the form 'xy:ab'", *userPatch.SessionsResetTime)
 		}
 		_, locationErr := time.LoadLocation(*userPatch.Timezone)

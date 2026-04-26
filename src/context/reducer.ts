@@ -119,8 +119,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         if (s.id !== state.activeSessionId || !s.targetTimeMs) return s;
         const secondsLeft = Math.max(0, Math.ceil((s.targetTimeMs - action.now) / 1000));
         const delta = Math.max(0, s.timeLeft - secondsLeft);
-        if (secondsLeft <= 0) { completed = true; }
-        return { ...s, timeLeft: secondsLeft, focusSeconds: (s.focusSeconds || 0) + delta, isCompleted: secondsLeft <= 0, state: TimerState.PAUSED };
+        let timerState = TimerState.RUNNING;
+        if (secondsLeft <= 0) { 
+          completed = true; 
+          timerState = TimerState.PAUSED
+        }
+        return { ...s, timeLeft: secondsLeft, focusSeconds: (s.focusSeconds || 0) + delta, isCompleted: secondsLeft <= 0, state: timerState };
       });
       return {
         ...state,

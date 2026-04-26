@@ -44,9 +44,6 @@ func (h *UserHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	userPatch.UserId = userId
-	if userPatch.ActiveSessionId == nil {
-		userPatch.ClearActiveSession = true
-	}
 	h.logger.Info().Msgf("Decoded patchInput: %+v", userPatch)
 
 	eventTypeStr := service.EventType(req.URL.Query().Get("type"))

@@ -49,9 +49,7 @@ func NewRouter(
 		r.Get("/", sessionHandler.GetAll)
 		r.Post("/", sessionHandler.Create)
 
-		r.Route("/{sessionId}", func(r chi.Router) {
-			r.Delete("/", sessionHandler.Delete)
-		})
+		r.Delete("/{sessionId}", sessionHandler.Delete)
 
 		r.Post("/event", sessionHandler.Event)
 	})
