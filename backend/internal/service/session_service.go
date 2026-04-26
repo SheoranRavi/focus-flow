@@ -189,8 +189,8 @@ func (svc *SessionService) CancelEvent(session *entities.Session) bool {
 		svc.logger.Info().Msgf("No timer event found for key: %s", key)
 		return false
 	}
-	t.CancelChan <- true
-	svc.logger.Info().Msgf("Ticker stopped for key: %s", key)
+	close(t.CancelChan)
+	svc.logger.Info().Msgf("Ticker deleted for key: %s", key)
 	return true
 }
 
