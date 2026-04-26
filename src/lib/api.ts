@@ -316,8 +316,8 @@ export const api = {
     });
   },
 
-  async getUser(userId: string): Promise<BackendUser | null> {
-    const response = await fetchWithAuth(`/users/${userId}`);
+  async getUser(): Promise<BackendUser | null> {
+    const response = await fetchWithAuth(`/users/me`);
     const user: BackendUser = await response.json();
     console.log(`fetched user: ${JSON.stringify(user)}`);
     return user

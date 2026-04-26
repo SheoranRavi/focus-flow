@@ -93,14 +93,14 @@ const App: React.FC = () => {
 
 // fetch user details if user is logged in
 useEffect(() => {
-  const fetchUser = async (user: any) => {
-    const userObj = await api.getUser(user.uid);
+  const fetchUser = async () => {
+    const userObj = await api.getUser();
     if (userObj != null){
       dispatch({type: "LOAD_USER", user: userObj});
     }
   }
   if (user){
-    fetchUser(user)
+    fetchUser()
   }
 }, [user])
   
@@ -136,7 +136,9 @@ useEffect(() => {
   const handleResetDailyProgress = useCallback((resetDate: string) => {
     dispatch({type: 'RESET_DAILY_PROGRESS', resetDate: resetDate, fromApi: false, yesterdayMins: 0, streak: 0});
     if (user){
-      api.sendUserEvent('reset_progress');
+      api.sendUserEvent('reset_progress').catch(err => {
+        console.error(err);
+      });
     }
   }, [user]);
 

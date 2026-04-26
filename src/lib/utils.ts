@@ -12,7 +12,10 @@ export const getTodayDateTimeString = () => {
     hour: '2-digit',
     minute: '2-digit'
   });
-  const todayDate = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const todayDate = `${yyyy}-${mm}-${dd}`; // local YYYY-MM-DD
   return [todayDate, currentTimeString];
 };
 

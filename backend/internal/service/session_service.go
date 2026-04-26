@@ -209,14 +209,26 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 		select {
 		case <-t.Ticker.C:
 			// update timeLeft, focusSeconds, check if TargetTimeMs is reached
-			timeLeft = int(time.Until(time.UnixMilli(targetTimeMs)).Seconds())
+			remaining := time.Until(time.UnixMilli(targetTimeMs))
+			if remaining <= 0 {
+				timeLeft = 0
+			} else {
+				// Round up partial seconds so the timer does not complete early.
+				timeLeft = int((remaining + time.Second - 1) / time.Second)
+			}
 			focusSeconds := initFocusSeconds + initTimeLeft - timeLeft
+			maxFocusSeconds := initFocusSeconds + initTimeLeft
+			if focusSeconds > maxFocusSeconds {
+				focusSeconds = maxFocusSeconds
+			}
+			if focusSeconds < 0 {
+				focusSeconds = 0
+			}
 
 			session.TimeLeft = timeLeft
 			session.FocusSeconds = focusSeconds
-			if timeLeft <= 0 {
+			if timeLeft == 0 {
 				t.Ticker.Stop()
-				timeLeft = 0 // to avoid a negative timeLeft value
 				svc.handleCompletion(ctx, session)
 				return
 			}
