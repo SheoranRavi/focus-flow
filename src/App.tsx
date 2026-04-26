@@ -202,6 +202,9 @@ useEffect(() => {
   };
 
   const handleUpdate = (id: number, newDetails: Partial<Session>) => {
+    if (id === state.activeSessionId && typeof newDetails.timeLeft === 'number') {
+      newDetails.targetTimeMs = Date.now() + newDetails.timeLeft * 1000;
+    }
     dispatch({type:'UPDATE_SESSION', id:id, changes:newDetails});
     if (user)
       api.sendSessionEvent(id, 'edit', newDetails).catch(e => console.error(e));

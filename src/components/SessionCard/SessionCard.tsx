@@ -31,7 +31,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
 
     onUpdate(session.id, { 
       sessionDuration: newDuration * 60,
-      timeLeft: newDuration * 60,
+      timeLeft: newDuration * 60, // being set to the initial duration
       dailyGoalMinutes: newGoal,
     });
     setIsEditing(false);

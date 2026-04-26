@@ -114,6 +114,11 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 		*patchInput.State = entities.SessionPaused
 		// cancel already running timer
 		svc.CancelEvent(session)
+	case EventEdit:
+		// if this is a running session, then cancel the existing timer and set it's state to paused
+		svc.CancelEvent(session) // no need to check for running state
+		patchInput.State = new(entities.SessionState)
+		*patchInput.State = entities.SessionPaused
 	}
 
 	// don't apply patch to individual session if flag not set

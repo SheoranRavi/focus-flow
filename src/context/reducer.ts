@@ -95,10 +95,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         sessions: state.sessions.map(s => {
           if (s.id !== action.id) return s;
-          const updated = { ...s, ...action.changes, isCompleted: false };
-          if (s.id === state.activeSessionId) {
-            updated.targetTimeMs = Date.now() + updated.timeLeft * 1000;
-          }
+          const updated = { ...s, ...action.changes, isCompleted: false, state: TimerState.PAUSED };
           return updated;
         }),
       };
