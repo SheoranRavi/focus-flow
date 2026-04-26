@@ -314,7 +314,7 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 			TimeLeft: s.TimeLeft,
 		}
 	case EventResetSession, EventDeleteSession:
-		msg.Object = s.Id
+		msg.Object = sessionId
 	default:
 		msg.Object = s
 	}

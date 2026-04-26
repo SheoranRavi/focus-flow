@@ -117,12 +117,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       let completed = false;
       const sessions = state.sessions.map(s => {
         if (s.id !== state.activeSessionId || !s.targetTimeMs) return s;
-        const secondsLeft = Math.max(0, Math.ceil((s.targetTimeMs - action.now) / 1000));
+        let secondsLeft = Math.max(0, Math.ceil((s.targetTimeMs - action.now) / 1000));
         const delta = Math.max(0, s.timeLeft - secondsLeft);
         let timerState = TimerState.RUNNING;
         if (secondsLeft <= 0) { 
           completed = true; 
-          timerState = TimerState.PAUSED
+          timerState = TimerState.PAUSED;
+          secondsLeft = s.sessionDuration;
         }
         return { ...s, timeLeft: secondsLeft, focusSeconds: (s.focusSeconds || 0) + delta, isCompleted: secondsLeft <= 0, state: timerState };
       });
