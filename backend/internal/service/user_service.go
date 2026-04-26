@@ -27,6 +27,10 @@ func NewUserService(usrRepo *repo.UserRepo, authClient *auth.Client) *UserServic
 }
 
 func (svc *UserService) Update(ctx context.Context, patch *entities.UserPatchInput) error {
+	err := svc.EnsureUserExists(ctx, patch.UserId)
+	if err != nil {
+		return err
+	}
 	user, err := svc.repo.Get(ctx, patch.UserId)
 	if err != nil {
 		return err
