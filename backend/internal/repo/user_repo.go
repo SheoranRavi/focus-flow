@@ -23,13 +23,14 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 
 func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entities.User, error) {
 	query := `
-		INSERT INTO users (name, email, created_at, sessions_reset_time, active_session_id)
-		VALUES ($1, $2, now(), $3, $4)
+		INSERT INTO users (id, name, email, created_at, sessions_reset_time, active_session_id)
+		VALUES ($1, $2, $3, now(), $4, $5)
 		RETURNING id, created_at
 	`
 	err := repo.db.QueryRowContext(
 		ctx,
 		query,
+		user.Id,
 		user.Name,
 		user.Email,
 		user.SessionsResetTime,

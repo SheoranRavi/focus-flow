@@ -44,12 +44,16 @@ func (h *UserHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	userPatch.UserId = userId
+	if userPatch.ActiveSessionId == nil {
+		userPatch.ClearActiveSession = true
+	}
 	h.logger.Info().Msgf("Decoded patchInput: %+v", userPatch)
 
 	eventTypeStr := service.EventType(req.URL.Query().Get("type"))
 	eventType := service.EventType(eventTypeStr)
 	if !eventType.IsValid() {
 		http.Error(rw, errors.New("Event type is not valid").Error(), http.StatusBadRequest)
+		return
 	}
 
 	if eventType == service.EventResetProgress || eventType == service.EventAutoResetTimeChange || eventType == service.EventRegistration {
@@ -59,7 +63,7 @@ func (h *UserHandler) Event(rw http.ResponseWriter, req *http.Request) {
 			return
 		}
 	} else {
-		http.Error(rw, "Incorred event for this route", http.StatusBadRequest)
+		http.Error(rw, "Incorrect event for this route", http.StatusBadRequest)
 		return
 	}
 

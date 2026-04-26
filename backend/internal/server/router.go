@@ -27,6 +27,7 @@ func NewRouter(
 
 	// cors
 	r.Use(cors.Handler(cors.Options{
+		//ToDo: limit allowed origins
 		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},

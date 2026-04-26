@@ -147,6 +147,7 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 	// can't start already running session
 	if t, ok := svc.userTimers[session.UserId]; ok && t.SessionId == session.Id {
 		svc.logger.Info().Msgf("User session already running: %s:%d", session.UserId, t.SessionId)
+		svc.timerMu.Unlock()
 		return fmt.Errorf("User session already running: %s:%d", session.UserId, t.SessionId)
 	}
 	svc.timerMu.Unlock()

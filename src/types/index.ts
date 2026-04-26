@@ -16,7 +16,7 @@ export interface BackendUser{
   name: string;
   email: string;
   sessionsResetTime: string;
-  activeSessionId: string;
+  activeSessionId: number | null;
   yesterdayMins: number;
   streak: number;
   timezone: string;

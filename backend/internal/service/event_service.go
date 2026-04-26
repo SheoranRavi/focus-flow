@@ -134,6 +134,7 @@ func (svc *EventService) ReceiveEvent(
 		}
 		if t == EventPause {
 			patch.ActiveSessionId = nil
+			patch.ClearActiveSession = true
 		}
 		err = svc.userSvc.Update(ctx, &patch)
 	}
