@@ -56,7 +56,7 @@ func (svc *SessionService) GetAllActiveSessions(ctx context.Context) ([]*entitie
 }
 
 func (svc *SessionService) Add(ctx context.Context, sessionInput CreateInput) (*entities.Session, error) {
-	session := entities.NewSession(sessionInput.UserId,
+	session, newSessionErr := entities.NewSession(sessionInput.UserId,
 		sessionInput.Title,
 		sessionInput.DailyGoalMinutes,
 		sessionInput.SessionDuration,
@@ -64,6 +64,10 @@ func (svc *SessionService) Add(ctx context.Context, sessionInput CreateInput) (*
 		sessionInput.NoGoal,
 		sessionInput.GroupId,
 	)
+	if newSessionErr != nil {
+		svc.logger.Error().Msg(newSessionErr.Error())
+		return nil, newSessionErr
+	}
 	session, err := svc.repo.Create(ctx, session)
 	if err == nil {
 		svc.logger.Info().Int64("session_id", session.Id).Str("user_id", session.UserId).Msg("Created Session")
