@@ -3,6 +3,7 @@ import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } f
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
+import { api } from "../lib/api";
 
 const Register: React.FC = () => {
   const [firstName, setFirstName] = useState("");
@@ -18,7 +19,12 @@ const Register: React.FC = () => {
       setLoading(true);
       setError("");
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      // Send user details to backend
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const name = result.user.displayName || '';
+      const email = result.user.email || '';
+      await api.sendUserEvent('registration', { timezone, name, email }).catch(e => console.error('Failed to send user details:', e));
       navigate("/");
     } catch (err: any) {
       setError(err.message || "Failed to sign up with Google");
@@ -29,7 +35,7 @@ const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!firstName || !lastName || !email || !password) {
       setError("Please fill in all fields");
       return;
@@ -39,7 +45,10 @@ const Register: React.FC = () => {
       setLoading(true);
       setError("");
       await createUserWithEmailAndPassword(auth, email, password);
-      // TODO: Store firstName and lastName in user profile/database
+      // Send user details to backend
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const name = `${firstName} ${lastName}`;
+      await api.sendUserEvent('registration', { timezone, name, email }).catch(e => console.error('Failed to send user details:', e));
       navigate("/");
     } catch (err: any) {
       setError(err.message || "Failed to create account");

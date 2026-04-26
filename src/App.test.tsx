@@ -37,7 +37,8 @@ describe('App Component', () => {
   describe('Initial Render', () => {
     it('should render the app header with title', () => {
       renderApp();
-      expect(screen.getByText('Focus Flow')).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      expect(heading).toBeInTheDocument();
     });
 
     it('should display "No active session" when no timer is running', () => {
@@ -90,7 +91,7 @@ describe('App Component', () => {
         {
           id: 99,
           title: 'Test Session',
-          initialDuration: 1500,
+          sessionDuration: 1500,
           timeLeft: 1500,
           isCompleted: false,
           dailyGoalMinutes: 25,
@@ -256,7 +257,7 @@ describe('App Component', () => {
         {
           id: 1,
           title: 'Test',
-          initialDuration: 1500,
+          sessionDuration: 1500,
           timeLeft: 1500,
           isCompleted: false,
           dailyGoalMinutes: 25,
@@ -292,7 +293,7 @@ describe('App Component', () => {
         {
           id: 1,
           title: 'Session 1',
-          initialDuration: 1500,
+          sessionDuration: 1500,
           timeLeft: 1500,
           isCompleted: false,
           dailyGoalMinutes: 30,
@@ -302,7 +303,7 @@ describe('App Component', () => {
         {
           id: 2,
           title: 'Session 2',
-          initialDuration: 1500,
+          sessionDuration: 1500,
           timeLeft: 1500,
           isCompleted: false,
           dailyGoalMinutes: 45,
@@ -348,7 +349,8 @@ describe('App Component', () => {
       
       // Should not throw and render with defaults
       renderApp();
-      expect(screen.getByText('Focus Flow')).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      expect(heading).toBeInTheDocument();
     });
 
     it('should handle invalid streak value in localStorage', () => {
@@ -360,7 +362,8 @@ describe('App Component', () => {
       const header = document.querySelector('header');
       expect(header).toBeTruthy();
       // Just verify the app renders without crashing
-      expect(screen.getByText('Focus Flow')).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      expect(heading).toBeInTheDocument();
     });
 
     it('should generate unique IDs for new sessions', async () => {
@@ -395,7 +398,7 @@ describe('App Component', () => {
       renderApp();
       
       const audio = document.querySelector('audio');
-      expect(audio?.getAttribute('src')).toContain('mixkit');
+      expect(audio?.getAttribute('src')).toContain('.mp3');
     });
   });
 
@@ -468,8 +471,8 @@ describe('App Component', () => {
         await waitFor(() => {
           const lastResetDate = localStorage.getItem('lastResetDate');
           expect(lastResetDate).toBeTruthy();
-          // Should be in DD/MM/YY format
-          expect(lastResetDate).toMatch(/\d{2}\/\d{2}\/\d{2}/);
+          // Should be in YYYY-MM-DD format
+          expect(lastResetDate).toMatch(/\d{4}-\d{2}-\d{2}/);
         });
       }
     });

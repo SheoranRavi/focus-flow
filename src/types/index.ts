@@ -1,15 +1,25 @@
-import React from 'react';
-
 export interface Session {
   id: number;
   title: string;
-  initialDuration: number; // in seconds
+  sessionDuration: number; // in seconds
   timeLeft: number; // in seconds
   isCompleted: boolean;
   dailyGoalMinutes: number; // adjustable daily goal
   focusSeconds: number; // time spent on this task today in seconds
-  targetTime?: number; // the target timestamp at which this timer is supposed to complete
+  targetTimeMs?: number; // the target timestamp at which this timer is supposed to complete
   state: TimerState;
+  noGoal?: boolean; // whether this is a no-goal session (just tracking time)
+}
+
+export interface BackendUser{
+  id: string;
+  name: string;
+  email: string;
+  sessionsResetTime: string;
+  activeSessionId: number | null;
+  yesterdayMins: number;
+  streak: number;
+  timezone: string;
 }
 
 // Component Props

@@ -1,0 +1,277 @@
+package repo
+
+import (
+	"context"
+	"database/sql"
+
+	"github.com/rs/zerolog"
+	"github.com/sheoranravi/focus-flow/backend/internal/entities"
+	"github.com/sheoranravi/focus-flow/backend/internal/logger"
+)
+
+type SessionRepo struct {
+	db     *sql.DB
+	logger zerolog.Logger
+}
+
+func NewSessionRepo(db *sql.DB) *SessionRepo {
+	return &SessionRepo{
+		db:     db,
+		logger: logger.NewRepoLogger("session"),
+	}
+}
+
+func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*entities.Session, error) {
+	query := `
+		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration, 
+			is_completed, target_time_ms, no_goal, created_at, is_deleted, time_left
+		FROM sessions
+		WHERE user_id = $1
+		AND is_deleted = FALSE
+		ORDER BY created_at DESC
+	`
+	rows, err := repo.db.QueryContext(ctx, query, userId)
+	if err != nil {
+		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to query sessions")
+		return nil, err
+	}
+	defer rows.Close()
+
+	sessions := make([]*entities.Session, 0)
+
+	for rows.Next() {
+		var s entities.Session
+		if err := rows.Scan(
+			&s.Id,
+			&s.UserId,
+			&s.Title,
+			&s.DailyGoalMinutes,
+			&s.State,
+			&s.FocusSeconds,
+			&s.GroupId,
+			&s.SessionDuration,
+			&s.IsCompleted,
+			&s.TargetTimeMs,
+			&s.NoGoal,
+			&s.CreatedAt,
+			&s.IsDeleted,
+			&s.TimeLeft,
+		); err != nil {
+			repo.logger.Error().Err(err).Msg("Failed to scan session row")
+			return nil, err
+		}
+		sessions = append(sessions, &s)
+	}
+	return sessions, rows.Err()
+}
+
+func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) (*entities.Session, error) {
+	query := `
+		INSERT INTO sessions (user_id, title, daily_goal_minutes, session_duration, time_left, no_goal, group_id, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+		RETURNING id, created_at
+	`
+	err := repo.db.QueryRowContext(
+		ctx,
+		query,
+		session.UserId,
+		session.Title,
+		session.DailyGoalMinutes,
+		session.SessionDuration,
+		session.TimeLeft,
+		session.NoGoal,
+		session.GroupId,
+	).Scan(&session.Id, &session.CreatedAt)
+
+	if err != nil {
+		repo.logger.Error().Err(err).Str("user_id", session.UserId).Str("title", session.Title).Msg("Failed to create session")
+		return nil, err
+	}
+	return session, nil
+}
+
+func (repo *SessionRepo) GetAllActiveSessions(ctx context.Context) ([]*entities.Session, error) {
+	query := `
+		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration, 
+			is_completed, target_time_ms, no_goal, created_at, is_deleted, time_left
+		FROM sessions
+		WHERE state= 1
+		AND is_deleted = FALSE
+		ORDER BY created_at DESC
+	`
+
+	rows, err := repo.db.QueryContext(ctx, query)
+	if err != nil {
+		repo.logger.Error().Err(err).Msg("Failed to get all active sessions.")
+		return nil, err
+	}
+	defer rows.Close()
+
+	sessions := make([]*entities.Session, 0)
+
+	for rows.Next() {
+		var s entities.Session
+		if err := rows.Scan(
+			&s.Id,
+			&s.UserId,
+			&s.Title,
+			&s.DailyGoalMinutes,
+			&s.State,
+			&s.FocusSeconds,
+			&s.GroupId,
+			&s.SessionDuration,
+			&s.IsCompleted,
+			&s.TargetTimeMs,
+			&s.NoGoal,
+			&s.CreatedAt,
+			&s.IsDeleted,
+			&s.TimeLeft,
+		); err != nil {
+			repo.logger.Error().Err(err).Msg("Failed to scan session row")
+			return nil, err
+		}
+		sessions = append(sessions, &s)
+	}
+	return sessions, rows.Err()
+}
+
+func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionId int64) (*entities.Session, error) {
+	query := `
+		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration, time_left,
+		       is_completed, target_time_ms, no_goal, created_at, is_deleted
+		FROM sessions
+		WHERE id = $1
+		  AND user_id = $2
+		  AND is_deleted = FALSE
+	`
+
+	var s entities.Session
+
+	err := repo.db.QueryRowContext(ctx, query, sessionId, userId).Scan(
+		&s.Id,
+		&s.UserId,
+		&s.Title,
+		&s.DailyGoalMinutes,
+		&s.State,
+		&s.FocusSeconds,
+		&s.GroupId,
+		&s.SessionDuration,
+		&s.TimeLeft,
+		&s.IsCompleted,
+		&s.TargetTimeMs,
+		&s.NoGoal,
+		&s.CreatedAt,
+		&s.IsDeleted,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", sessionId).Str("user_id", userId).Msg("Failed to get session")
+		return nil, err
+	}
+
+	return &s, nil
+
+}
+
+func (repo *SessionRepo) Delete(ctx context.Context, sessionId int64, userId string) error {
+	query := `
+		Update sessions
+		SET is_deleted = TRUE
+		Where id = $1
+			AND user_id = $2
+			AND is_deleted = FALSE
+	`
+	res, err := repo.db.ExecContext(ctx, query, sessionId, userId)
+	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", sessionId).Str("user_id", userId).Msg("Failed to delete session")
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", sessionId).Msg("Failed to get rows affected")
+		return err
+	}
+	if rowsAffected == 0 {
+		// Either:
+		// - session does not exist
+		// - does not belong to user
+		// - already deleted
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error {
+	query := `
+		WITH updated AS (
+        UPDATE sessions
+        SET
+            daily_goal_minutes = $1,
+            state              = $2,
+            focus_seconds      = $3,
+            session_duration   = $4,
+            time_left          = $5,
+            is_completed       = $6,
+            target_time_ms     = $7,
+            no_goal            = $8,
+            is_deleted         = $9
+        WHERE id = $10
+          AND user_id = $11
+        RETURNING id, user_id
+    )
+    UPDATE sessions
+    SET state = 0
+    WHERE user_id = (SELECT user_id FROM updated)
+      AND id != (SELECT id FROM updated)
+      AND state = 1
+	`
+
+	res, err := repo.db.ExecContext(
+		ctx,
+		query,
+		s.DailyGoalMinutes,
+		s.State,
+		s.FocusSeconds,
+		s.SessionDuration,
+		s.TimeLeft,
+		s.IsCompleted,
+		s.TargetTimeMs,
+		s.NoGoal,
+		s.IsDeleted,
+		s.Id,
+		s.UserId,
+	)
+	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", s.Id).Str("user_id", s.UserId).Msg("Failed to update session")
+		return err
+	}
+	numAffected, rowsErr := res.RowsAffected()
+	if rowsErr != nil {
+		repo.logger.Warn().Err(err).Msg("SessionUpdate: could not get rows affected")
+	} else {
+		repo.logger.Info().Msgf("SessionUpdate number of rows impacted: %d", numAffected)
+	}
+
+	return err
+}
+
+func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string) error {
+	query := `
+		UPDATE sessions
+		SET
+			focus_seconds = 0,
+			is_completed = FALSE,
+			time_left = session_duration
+		WHERE user_id = $1
+			AND is_deleted = FALSE
+	`
+	_, err := repo.db.ExecContext(ctx, query, userId)
+	if err != nil {
+		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to reset progress")
+	}
+	return err
+}

@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:17
+    container_name: my_backend_db
+    restart: always
+    environment:
+      - POSTGRES_USER=focus_app
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=focus_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,7 +1,7 @@
 ### Session
 id: number
 title: string
-initialDuration: number
+sessionDuration: number
 timeLeft: number
 isCompleted: boolean
 dailyGoalMinutes: number  // adjustable daily goal
@@ -76,7 +76,7 @@ erDiagram
         int id PK
         string user_id FK
         string title
-        int initial_duration
+        int session_duration
         int time_left
         boolean is_completed
         int daily_goal_minutes
@@ -103,7 +103,7 @@ stateDiagram-v2
         T1_Paused --> Zero_T1 : Manual Reset
 
         note right of Zero_T1
-            timeLeft = initialDuration
+            timeLeft = sessionDuration
         end note
     }
     
@@ -149,7 +149,7 @@ flowchart TD
 * dailyGoalMinutes
 * focusSeconds
 * timeLeft
-* initialDuration
+* sessionDuration
 * targetTime
 
 ##### Global

@@ -1,5 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 import {useNavigate } from "react-router-dom";
 import { CheckCircle2, MoreHorizontal, Clock, X, Menu } from "lucide-react";
 import Button from "./ui/Button";
@@ -11,8 +11,29 @@ export interface NavbarProps{
   activeSessionId: number | null,
   streak: number,
   resetTime: string,
-  handleSetResetTime: (newTime: string) => void
+  timezone: string,
+  handleSaveSettings: (newResetTime: string, newTimezone: string) => void
 }
+
+const COMMON_TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Moscow',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Asia/Shanghai',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+];
 
 const Navbar: React.FC<NavbarProps> = (props) => {
   const navigate = useNavigate();
@@ -21,7 +42,27 @@ const Navbar: React.FC<NavbarProps> = (props) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const {activeSessionTitle, activeSessionId, streak, resetTime, handleSetResetTime} = props;
+  const {activeSessionTitle, activeSessionId, streak, resetTime, timezone, handleSaveSettings} = props;
+
+  // Local state for form editing
+  const [localResetTime, setLocalResetTime] = useState(resetTime);
+  const [localTimezone, setLocalTimezone] = useState(timezone);
+
+  // Sync local state when props change (e.g., after fetching from backend)
+  useEffect(() => {
+    setLocalResetTime(resetTime);
+  }, [resetTime]);
+
+  useEffect(() => {
+    setLocalTimezone(timezone);
+  }, [timezone]);
+
+  // Check if there are unsaved changes
+  const hasChanges = localResetTime !== resetTime || localTimezone !== timezone;
+
+  const handleSave = () => {
+    handleSaveSettings(localResetTime, localTimezone);
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -31,7 +72,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
 
   return (
     <>
-      <div className="sticky top-0 z-30 w-full px-3 py-2">
+      <header className="sticky top-0 z-30 w-full px-3 py-2">
         <nav className="max-w-7xl mx-auto bg-white/60 backdrop-blur-lg border border-white/20 rounded-2xl px-4 py-2 flex items-center justify-between shadow-lg shadow-slate-200/50">
           <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-emerald-200 shadow-lg">
@@ -94,13 +135,38 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                                   <Clock size={12} /> Auto-Reset Daily Goal
                                 </label>
                                 <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
-                                <input 
-                                  type="time" 
-                                  value={resetTime} 
-                                  onChange={(e) => handleSetResetTime(e.target.value)}
+                                <input
+                                  type="time"
+                                  value={localResetTime}
+                                  onChange={(e) => setLocalResetTime(e.target.value)}
                                   className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
                                 />
                             </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+                                  Timezone
+                                </label>
+                                <select
+                                  value={localTimezone}
+                                  onChange={(e) => setLocalTimezone(e.target.value)}
+                                  className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                                >
+                                  {!COMMON_TIMEZONES.includes(localTimezone) && (
+                                    <option value={localTimezone}>{localTimezone}</option>
+                                  )}
+                                  {COMMON_TIMEZONES.map(tz => (
+                                    <option key={tz} value={tz}>{tz}</option>
+                                  ))}
+                                </select>
+                            </div>
+                            {hasChanges && (
+                              <button
+                                onClick={handleSave}
+                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                              >
+                                Save Changes
+                              </button>
+                            )}
                           </div>
                     </div>
                 </>
@@ -118,7 +184,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
         </button>
       </div>
         </nav>
-      </div>
+      </header>
 
       {/* Mobile Menu Dropdown - Outside navbar for proper backdrop */}
       {isMobileMenuOpen && (
@@ -172,17 +238,44 @@ const Navbar: React.FC<NavbarProps> = (props) => {
               {/* Settings Section */}
               <div className="pt-3 border-t border-slate-100">
                 <h4 className="font-bold text-slate-800 mb-3">Settings</h4>
-                <div className="space-y-2">
-                  <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                    <Clock size={12} /> Auto-Reset Daily Goal
-                  </label>
-                  <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
-                  <input 
-                    type="time" 
-                    value={resetTime} 
-                    onChange={(e) => handleSetResetTime(e.target.value)}
-                    className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
-                  />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                      <Clock size={12} /> Auto-Reset Daily Goal
+                    </label>
+                    <p className="text-xs text-slate-400">Progress resets at this time daily.</p>
+                    <input
+                      type="time"
+                      value={localResetTime}
+                      onChange={(e) => setLocalResetTime(e.target.value)}
+                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+                      Timezone
+                    </label>
+                    <select
+                      value={localTimezone}
+                      onChange={(e) => setLocalTimezone(e.target.value)}
+                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                    >
+                      {!COMMON_TIMEZONES.includes(localTimezone) && (
+                        <option value={localTimezone}>{localTimezone}</option>
+                      )}
+                      {COMMON_TIMEZONES.map(tz => (
+                        <option key={tz} value={tz}>{tz}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {hasChanges && (
+                    <button
+                      onClick={handleSave}
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                    >
+                      Save Changes
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
