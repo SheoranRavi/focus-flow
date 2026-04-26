@@ -94,7 +94,7 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	defer rows.Close()
 	users := make([]*entities.User, 0)
 	for rows.Next() {
 		var user entities.User
@@ -120,7 +120,7 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 		users = append(users, &user)
 	}
 
-	return users, nil
+	return users, rows.Err()
 }
 
 func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {

@@ -125,7 +125,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           timerState = TimerState.PAUSED;
           secondsLeft = s.sessionDuration;
         }
-        return { ...s, timeLeft: secondsLeft, focusSeconds: (s.focusSeconds || 0) + delta, isCompleted: secondsLeft <= 0, state: timerState };
+        return { ...s, timeLeft: secondsLeft, focusSeconds: (s.focusSeconds || 0) + delta, isCompleted: completed, state: timerState };
       });
       return {
         ...state,

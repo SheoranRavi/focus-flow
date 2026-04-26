@@ -2,6 +2,7 @@ package entities
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -81,10 +82,10 @@ func NewSession(
 	timeLeft int,
 	noGoal bool,
 	groupId int,
-) *Session {
+) (*Session, error) {
 
 	if title == "" {
-		panic("session title cannot be empty")
+		return nil, errors.New("session title cannot be empty")
 	}
 	var sqlGroupId sql.NullInt32
 	if groupId != 0 {
@@ -104,5 +105,5 @@ func NewSession(
 		TargetTimeMs:     0,
 		NoGoal:           noGoal,
 		IsDeleted:        false,
-	}
+	}, nil
 }
