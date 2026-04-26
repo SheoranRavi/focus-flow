@@ -12,12 +12,23 @@ export const getTodayDateTimeString = () => {
     hour: '2-digit',
     minute: '2-digit'
   });
-  const todayDate = now.toLocaleDateString("en-GB", { 
-    day: '2-digit', 
-    month: '2-digit',
-    year: '2-digit'
-  });
+  const todayDate = now.toISOString().slice(0, 10); // YYYY-MM-DD
   return [todayDate, currentTimeString];
+};
+
+export const normalizeDateToISO = (value: string | null): string => {
+  if (!value) return '';
+  // Already in YYYY-MM-DD.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  // Legacy DD/MM/YY format from older clients.
+  const legacyMatch = /^(\d{2})\/(\d{2})\/(\d{2})$/.exec(value);
+  if (legacyMatch) {
+    const [, dd, mm, yy] = legacyMatch;
+    return `20${yy}-${mm}-${dd}`;
+  }
+  return '';
 };
 
 // Safe number parser with fallback

@@ -471,8 +471,8 @@ describe('App Component', () => {
         await waitFor(() => {
           const lastResetDate = localStorage.getItem('lastResetDate');
           expect(lastResetDate).toBeTruthy();
-          // Should be in DD/MM/YY format
-          expect(lastResetDate).toMatch(/\d{2}\/\d{2}\/\d{2}/);
+          // Should be in YYYY-MM-DD format
+          expect(lastResetDate).toMatch(/\d{4}-\d{2}-\d{2}/);
         });
       }
     });

@@ -7,7 +7,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import { AnimatePresence } from 'framer-motion';
 import {motion} from "motion/react";
-import { parseSessionsFromStorage, getTodayDateTimeString } from './lib/utils';
+import { parseSessionsFromStorage, getTodayDateTimeString, normalizeDateToISO } from './lib/utils';
 import { useAuth } from './context/AuthContext';
 import { api } from './lib/api';
 import CreateSession from './components/CreateSession/CreateSession';
@@ -36,7 +36,7 @@ const App: React.FC = () => {
       activeSessionId,
       streak: parseInt(localStorage.getItem('streak') ?? '0', 10),
       yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
-      lastResetDate: localStorage.getItem('lastResetDate') ?? '',
+      lastResetDate: normalizeDateToISO(localStorage.getItem('lastResetDate')),
       resetTime: localStorage.getItem('resetTime') ?? '00:00',
       timezone: localStorage.getItem('timezone') ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     };

@@ -82,7 +82,6 @@ func (svc *SessionService) Delete(ctx context.Context, sessionId int64, userId s
 	return err
 }
 
-// ToDo: handle the event reset time change
 func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities.PatchInput, t EventType, userId string, sessionId int64) error {
 	session, err := svc.repo.GetForUser(ctx, userId, sessionId)
 	if err != nil {
@@ -107,6 +106,10 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 		*(patchInput).TimeLeft = session.SessionDuration
 		patchInput.IsCompleted = new(bool)
 		*(patchInput.IsCompleted) = false
+		patchInput.State = new(entities.SessionState)
+		*patchInput.State = entities.SessionPaused
+		// cancel already running timer
+		svc.CancelEvent(session)
 	}
 
 	// don't apply patch to individual session if flag not set
