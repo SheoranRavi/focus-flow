@@ -71,7 +71,8 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 		return nil, nil
 	}
 	if activeSessionId.Valid {
-		user.ActiveSessionId = activeSessionId.Int64
+		user.ActiveSessionId = new(int64)
+		*user.ActiveSessionId = activeSessionId.Int64
 	}
 
 	if err != nil {
@@ -113,7 +114,8 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 			return nil, err
 		}
 		if activeSessionId.Valid {
-			user.ActiveSessionId = activeSessionId.Int64
+			user.ActiveSessionId = new(int64)
+			*user.ActiveSessionId = activeSessionId.Int64
 		}
 		users = append(users, &user)
 	}
