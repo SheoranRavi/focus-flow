@@ -17,7 +17,7 @@ const Login: React.FC = () => {
       setError("");
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      navigate("/");
+      navigate("/app");
     } catch (err: any) {
       setError(err.message || "Failed to sign in with Google");
     } finally {
