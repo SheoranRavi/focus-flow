@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, CheckCircle2, Pencil, Play, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowRight, BarChart3, CheckCircle2, Layers3, Pencil, Play, RotateCcw, Target, Trash2 } from "lucide-react";
 import Button from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
 
@@ -22,7 +22,7 @@ const Home: React.FC = () => {
             <span className="text-xl font-bold tracking-tight">Focus Flow</span>
           </div>
 
-          <Button asChild variant="ghost">
+          <Button asChild variant="outline" className="border-slate-300 bg-white shadow-sm hover:bg-slate-100 hover:shadow-md">
             <Link to="/login">Sign in</Link>
           </Button>
         </header>
@@ -118,6 +118,38 @@ const Home: React.FC = () => {
                 Register to keep sessions and progress available across your laptop, tablet, and phone.
               </p>
             </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 pb-12 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <BarChart3 size={20} />
+            </div>
+            <h2 className="font-bold text-slate-900">Analytics coming soon</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              See how much time you spend on each activity and understand where your focus actually goes.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <Layers3 size={20} />
+            </div>
+            <h2 className="font-bold text-slate-900">Switch between tasks</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Keep multiple sessions ready and move between work, reading, study, or planning without rebuilding your timer.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+              <Target size={20} />
+            </div>
+            <h2 className="font-bold text-slate-900">Deep focus on one task</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Start one active session at a time so the app keeps your attention on the task you chose.
+            </p>
           </div>
         </section>
       </main>

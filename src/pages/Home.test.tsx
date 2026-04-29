@@ -30,6 +30,14 @@ describe("Home", () => {
     expect(screen.getByText(/sync sessions across multiple devices/i)).toBeInTheDocument();
   });
 
+  it("shows the planned and current focus features", () => {
+    renderHome();
+
+    expect(screen.getByText(/analytics coming soon/i)).toBeInTheDocument();
+    expect(screen.getByText(/switch between tasks/i)).toBeInTheDocument();
+    expect(screen.getByText(/deep focus on one task/i)).toBeInTheDocument();
+  });
+
   it("links account creation to register", () => {
     renderHome();
 
