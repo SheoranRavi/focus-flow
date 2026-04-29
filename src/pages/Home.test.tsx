@@ -1,7 +1,15 @@
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./Home";
+
+const authState = vi.hoisted(() => ({
+  user: null as unknown,
+}));
+
+vi.mock("../context/AuthContext", () => ({
+  useAuth: () => authState.user,
+}));
 
 const renderHome = () => {
   return render(
@@ -12,6 +20,10 @@ const renderHome = () => {
 };
 
 describe("Home", () => {
+  beforeEach(() => {
+    authState.user = null;
+  });
+
   it("shows the account sync benefit", () => {
     renderHome();
 
@@ -34,5 +46,20 @@ describe("Home", () => {
     renderHome();
 
     expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute("href", "/login");
+  });
+
+  it("redirects signed-in users to the app", () => {
+    authState.user = { uid: "user-1" };
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/app" element={<div>App page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("App page")).toBeInTheDocument();
   });
 });

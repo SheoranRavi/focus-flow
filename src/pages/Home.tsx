@@ -1,9 +1,16 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2, Cloud, Timer } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
+import { ArrowRight, CheckCircle2, Pencil, Play, RotateCcw, Trash2 } from "lucide-react";
 import Button from "../components/ui/Button";
+import { useAuth } from "../context/AuthContext";
 
 const Home: React.FC = () => {
+  const user = useAuth();
+
+  if (user) {
+    return <Navigate to="/app" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 md:px-8">
@@ -45,44 +52,71 @@ const Home: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/70">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-500">Today</p>
-                <h2 className="text-2xl font-bold text-slate-900">Deep Work</h2>
+          <div className="flex flex-col gap-4">
+            <div className="relative flex w-full flex-col items-center justify-between rounded-3xl border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/70 md:w-[320px] lg:ml-auto">
+              <div className="mb-4 flex w-full items-start justify-between">
+                <div className="flex max-w-[80%] items-center gap-2">
+                  <h2 className="truncate font-bold text-slate-800">Deep Work</h2>
+                </div>
+                <div className="flex gap-1">
+                  <button className="rounded-full p-1.5 text-slate-400" aria-label="Edit preview session">
+                    <Pencil size={14} />
+                  </button>
+                  <button className="rounded-full p-1.5 text-slate-400" aria-label="Delete preview session">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
-              <div className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-                3 day streak
+
+              <div className="relative my-4 flex flex-col items-center justify-center">
+                <div className="relative flex items-center justify-center">
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center [transform:scale(1.15)]">
+                    <svg height={200} width={200} className="-rotate-90">
+                      <circle stroke="#f1f5f9" strokeWidth={2} fill="transparent" r={76} cx={80} cy={100} />
+                      <circle
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        strokeDasharray="477.52 477.52"
+                        strokeDashoffset="238.76"
+                        strokeLinecap="round"
+                        fill="transparent"
+                        r={76}
+                        cx={80}
+                        cy={100}
+                      />
+                    </svg>
+                  </div>
+
+                  <div className="relative z-10 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-slate-100 bg-white">
+                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-emerald-200 opacity-50" />
+                    <div className="z-10 text-center">
+                      <div className="text-5xl font-bold tracking-tighter text-slate-800">25</div>
+                      <div className="mt-1 text-sm font-medium uppercase tracking-widest text-slate-400">00</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center gap-1 text-xs font-medium text-slate-400">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  Daily Goal: 50%
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-4">
+                <button className="flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-semibold text-white shadow-md">
+                  <Play size={20} fill="currentColor" /> Start
+                </button>
+                <button className="rounded-xl p-3 text-slate-400" title="Reset Timer" aria-label="Reset preview timer">
+                  <RotateCcw size={18} />
+                </button>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white">
-                    <Timer size={20} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">25 minute focus block</p>
-                    <p className="text-sm text-slate-500">Ready when you are</p>
-                  </div>
-                </div>
-                <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-200">
-                  <div className="h-full w-2/3 rounded-full bg-emerald-500" />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
-                <div className="flex items-start gap-3">
-                  <Cloud className="mt-0.5 text-emerald-700" size={20} />
-                  <div>
-                    <p className="font-semibold text-slate-900">Account sync</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Register to keep sessions and progress available across your laptop, tablet, and phone.
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 md:w-[320px] lg:ml-auto">
+              <p className="font-semibold text-slate-900">Account sync</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Register to keep sessions and progress available across your laptop, tablet, and phone.
+              </p>
             </div>
           </div>
         </section>
