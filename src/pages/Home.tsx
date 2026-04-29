@@ -58,13 +58,13 @@ const Home: React.FC = () => {
                 <div className="flex max-w-[80%] items-center gap-2">
                   <h2 className="truncate font-bold text-slate-800">Deep Work</h2>
                 </div>
-                <div className="flex gap-1">
-                  <button className="rounded-full p-1.5 text-slate-400" aria-label="Edit preview session">
+                <div className="flex gap-1" aria-hidden="true">
+                  <span className="rounded-full p-1.5 text-slate-400">
                     <Pencil size={14} />
-                  </button>
-                  <button className="rounded-full p-1.5 text-slate-400" aria-label="Delete preview session">
+                  </span>
+                  <span className="rounded-full p-1.5 text-slate-400">
                     <Trash2 size={14} />
-                  </button>
+                  </span>
                 </div>
               </div>
 
@@ -102,13 +102,13 @@ const Home: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-4">
-                <button className="flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-semibold text-white shadow-md">
+              <div className="mt-4 flex items-center gap-4" aria-hidden="true">
+                <span className="flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-semibold text-white shadow-md">
                   <Play size={20} fill="currentColor" /> Start
-                </button>
-                <button className="rounded-xl p-3 text-slate-400" title="Reset Timer" aria-label="Reset preview timer">
+                </span>
+                <span className="rounded-xl p-3 text-slate-400">
                   <RotateCcw size={18} />
-                </button>
+                </span>
               </div>
             </div>
 
