@@ -1,18 +1,17 @@
 # Continuation
-- Deploy backend
-- Add all timezones to dropdown
-- Handle the case of both frontend and backend triggering reset within seconds/minutes of each other.
+- Homepage
+- Analytics support
+- On SSE reconnect or page reload, fetch sessions to prevent stale data
 - Add system notification to session complete.
 - Build tests to ensure timer accuracy
-- Analytics support
 
+# Backlog
+- Add all timezones to dropdown
+- Handle the case of both frontend and backend triggering reset within seconds/minutes of each other.
 
 # UI
-- The daily reset should show a notification that the Reset has been triggered
 - Maybe allow editing the time (focusSeconds) for tasks.
-- Goalless session, update the session card.
 - Enter to save.
-- Dropdown for selecting time.
 - The audio does not happen if the tab is suspended (I think). Explore the use of a service worker or something to get around this.
   - Probably can get it working with the notifications API.
 

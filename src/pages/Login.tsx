@@ -17,7 +17,7 @@ const Login: React.FC = () => {
       setError("");
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      navigate("/");
+      navigate("/app");
     } catch (err: any) {
       setError(err.message || "Failed to sign in with Google");
     } finally {
@@ -37,7 +37,7 @@ const Login: React.FC = () => {
       setLoading(true);
       setError("");
       await signInWithEmailAndPassword(auth, email, password);
-      navigate("/");
+      navigate("/app");
     } catch (err: any) {
       setError(err.message || "Failed to sign in");
     } finally {

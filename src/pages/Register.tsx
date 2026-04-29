@@ -25,7 +25,7 @@ const Register: React.FC = () => {
       const name = result.user.displayName || '';
       const email = result.user.email || '';
       await api.sendUserEvent('registration', { timezone, name, email }).catch(e => console.error('Failed to send user details:', e));
-      navigate("/");
+      navigate("/app");
     } catch (err: any) {
       setError(err.message || "Failed to sign up with Google");
     } finally {
@@ -49,7 +49,7 @@ const Register: React.FC = () => {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const name = `${firstName} ${lastName}`;
       await api.sendUserEvent('registration', { timezone, name, email }).catch(e => console.error('Failed to send user details:', e));
-      navigate("/");
+      navigate("/app");
     } catch (err: any) {
       setError(err.message || "Failed to create account");
     } finally {
