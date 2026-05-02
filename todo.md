@@ -1,6 +1,5 @@
 # Continuation
 - Analytics support
-- On SSE reconnect or page reload, fetch sessions to prevent stale data
 - Build tests to ensure timer accuracy
 
 # Backlog
@@ -10,13 +9,10 @@
 # UI
 - Maybe allow editing the time (focusSeconds) for tasks.
 - Enter to save.
-- The audio does not happen if the tab is suspended (I think). Explore the use of a service worker or something to get around this.
-  - Probably can get it working with the notifications API.
 
 ## UI-API sessions merge
 - backend/repo errors to not flow to ui
 - Implement a frontend cache for offline use. Once connection established, update backend from the cache.
-  
 
 ## Backend
 - Performance and concurrency tests for backend
