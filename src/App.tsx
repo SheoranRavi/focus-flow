@@ -12,6 +12,7 @@ import { useAuth } from './context/AuthContext';
 import { api } from './lib/api';
 import CreateSession from './components/CreateSession/CreateSession';
 import { appReducer, AppState } from './context/reducer';
+import { notifySessionComplete, requestSessionNotificationPermission } from './lib/notifications';
 
 
 // --- Main App Component ---
@@ -47,6 +48,7 @@ const App: React.FC = () => {
   // Audio ref for timer end
   const audioRef = useRef<HTMLAudioElement>(null);
   const initialSessions = useRef(state.sessions);
+  const completedSessionIdsRef = useRef<Set<number> | null>(null);
   // Fetch sessions from API if user is logged in
   useEffect(() => {
     if (user) {
@@ -108,20 +110,32 @@ useEffect(() => {
   const totalDailyGoalMinutes = state.sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
 
   // fire up the notification for session complete
-  const completeNotification = () => {
+  const completeNotification = useCallback((session: Session) => {
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch((e: Error) => console.log("Audio play failed:", e));
     }
-  }
+    notifySessionComplete(session).then((shown) => {
+      if (!shown) {
+        console.info("Session completion notification was not shown.");
+      }
+    });
+  }, []);
 
   // fire notification by monitoring the active session complete status
   useEffect(() => {
-    const justCompleted = state.sessions.find(s => s.isCompleted && s.id !== state.activeSessionId && s.state === TimerState.RUNNING);
-    if (justCompleted) {
-      completeNotification();
+    const completedIds = new Set(state.sessions.filter(s => s.isCompleted).map(s => s.id));
+    if (completedSessionIdsRef.current === null) {
+      completedSessionIdsRef.current = completedIds;
+      return;
     }
-  }, [state.sessions, state.activeSessionId]);
+
+    const justCompleted = state.sessions.find(s => s.isCompleted && !completedSessionIdsRef.current?.has(s.id));
+    if (justCompleted) {
+      completeNotification(justCompleted);
+    }
+    completedSessionIdsRef.current = completedIds;
+  }, [state.sessions, completeNotification]);
 
   // Timer tick
   useEffect(() => {
@@ -172,6 +186,7 @@ useEffect(() => {
   }, [state.sessions]);
 
   const handleStart = (id: number) => {
+    void requestSessionNotificationPermission();
     const activeSess = state.sessions.filter((x) => x.id === id);
     const s = activeSess[0];
     const newTargetTimeMs = Date.now() + s.timeLeft*1000;

@@ -1,8 +1,6 @@
 # Continuation
-- Homepage
 - Analytics support
 - On SSE reconnect or page reload, fetch sessions to prevent stale data
-- Add system notification to session complete.
 - Build tests to ensure timer accuracy
 
 # Backlog
