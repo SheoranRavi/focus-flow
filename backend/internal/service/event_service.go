@@ -66,6 +66,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		}
 		userPatch.YesterdayMins = new(int)
 		*(userPatch.YesterdayMins) = totalFocusSeconds / 60
+		userPatch.ClearActiveSession = true
 		svc.userSvc.Update(ctx, userPatch)
 		err = svc.sessionRepo.ResetProgress(ctx, userId)
 		if err != nil {
@@ -124,13 +125,12 @@ func (svc *EventService) ReceiveEvent(
 	var err error
 	// Create the message object
 	msg := svc.constructMessage(t, sessionId, s)
-	if t == EventStart || t == EventPause {
+	if t == EventStart || t == EventPause || t == EventDeleteSession || t == EventSessionComplete || t == EventEdit || t == EventResetSession {
 		patch := entities.UserPatchInput{
 			ActiveSessionId: &sessionId,
 			UserId:          userId,
 		}
-		if t == EventPause {
-			patch.ActiveSessionId = nil
+		if t == EventPause || t == EventDeleteSession || t == EventSessionComplete || t == EventEdit || t == EventResetSession {
 			patch.ClearActiveSession = true
 		}
 		err = svc.userSvc.Update(ctx, &patch)
