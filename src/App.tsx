@@ -52,6 +52,7 @@ const App: React.FC = () => {
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
   const sessionSyncPromiseRef = useRef<Promise<void> | null>(null);
   const sseHandleRef = useRef<ReturnType<typeof api.streamEvents> | null>(null);
+  const lastResumeCheckRef = useRef(0);
   const setCompletedSessionBaseline = useCallback((sessions: Session[]) => {
     completedSessionIdsRef.current = new Set(sessions.filter(s => s.isCompleted).map(s => s.id));
   }, []);
@@ -299,15 +300,57 @@ const App: React.FC = () => {
   // Reconnect SSE when tab becomes visible again (e.g. mobile browser returning from background)
   useEffect(() => {
     if (!user) return;
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !sseHandleRef.current?.hasActiveConnection()) {
-        console.log('visibility change detected without active SSE connection');
+    const handleResume = (trigger: string) => {
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastResumeCheckRef.current < 1000) {
+        return;
+      }
+      lastResumeCheckRef.current = now;
+
+      syncStateFromApi().catch((error) => {
+        console.error(`Failed to sync state after ${trigger}:`, error);
+      });
+
+      if (!sseHandleRef.current?.hasActiveConnection()) {
+        console.log(`resume detected from ${trigger} without open SSE connection`);
         setSseKey(k => k + 1);
       }
     };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleResume('visibilitychange');
+      }
+    };
+
+    const handlePageShow = () => {
+      handleResume('pageshow');
+    };
+
+    const handleWindowFocus = () => {
+      handleResume('focus');
+    };
+
+    const handleOnline = () => {
+      handleResume('online');
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [user]);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [user, syncStateFromApi]);
 
   // subscribe to events
   useEffect(() => {
