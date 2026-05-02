@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Pause, Trash2, RotateCcw, CheckCircle2, Pencil } from 'lucide-react';
-import { SessionCardProps } from '@/types';
+import { SessionCardProps, TimerState } from '@/types';
 
 const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, onPause, onDelete, onUpdate, onReset }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -98,12 +98,15 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
               >
                 <Pencil size={14} />
               </button>
-              <button 
-                onClick={() => onDelete(session.id)}
-                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
+              {
+                session.state !== TimerState.RUNNING &&
+                <button 
+                  onClick={() => onDelete(session.id)}
+                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              }
             </div>
           </>
         )}

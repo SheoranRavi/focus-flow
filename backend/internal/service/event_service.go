@@ -66,7 +66,6 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		}
 		userPatch.YesterdayMins = new(int)
 		*(userPatch.YesterdayMins) = totalFocusSeconds / 60
-		userPatch.ClearActiveSession = true
 		svc.userSvc.Update(ctx, userPatch)
 		err = svc.sessionRepo.ResetProgress(ctx, userId)
 		if err != nil {
@@ -125,12 +124,12 @@ func (svc *EventService) ReceiveEvent(
 	var err error
 	// Create the message object
 	msg := svc.constructMessage(t, sessionId, s)
-	if t == EventStart || t == EventPause || t == EventDeleteSession || t == EventSessionComplete || t == EventEdit || t == EventResetSession {
+	if t == EventStart || t == EventPause || t == EventSessionComplete || t == EventEdit || t == EventResetSession {
 		patch := entities.UserPatchInput{
 			ActiveSessionId: &sessionId,
 			UserId:          userId,
 		}
-		if t == EventPause || t == EventDeleteSession || t == EventSessionComplete || t == EventEdit || t == EventResetSession {
+		if t == EventPause || t == EventSessionComplete || t == EventEdit || t == EventResetSession {
 			patch.ClearActiveSession = true
 		}
 		err = svc.userSvc.Update(ctx, &patch)
@@ -214,6 +213,7 @@ func (svc *EventService) RemoveClientConnection(connId string, userId string) {
 	delete(svc.userConnections[userId], connId)
 }
 
+// ToDo: merge this into ReceiveEvent, we should not have multiple methods for doing same thing
 func (svc *EventService) SendCompletion(session *SessionSchedule) {
 	completionObj := struct {
 		SessionId    int64 `json:"sessionId"`

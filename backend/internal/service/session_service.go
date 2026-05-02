@@ -263,8 +263,10 @@ func (svc *SessionService) handleCompletion(ctx context.Context, session *entiti
 	}
 	// broadcast the session completion to clients
 	svc.logger.Info().Msgf("Session %d is complete, updating DB and clients.", session.Id)
-	svc.eventSvc.SendCompletion(sessionSched)
+	userPatch := &entities.UserPatchInput{ClearActiveSession: true, UserId: session.UserId}
+	svc.userSvc.Update(ctx, userPatch)
 	svc.repo.Update(ctx, session)
+	svc.eventSvc.SendCompletion(sessionSched)
 	// remove this ticker from map
 	svc.timerMu.Lock()
 	delete(svc.userTimers, session.UserId)

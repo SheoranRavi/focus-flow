@@ -97,7 +97,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_SESSION':
       return {
         ...state,
-        activeSessionId: null, // since we're setting timer state to paused
+        activeSessionId: state.activeSessionId === action.id ? null : state.activeSessionId,
         sessions: state.sessions.map(s => {
           if (s.id !== action.id) return s;
           const updated = { ...s, ...action.changes, isCompleted: false, state: TimerState.PAUSED };
