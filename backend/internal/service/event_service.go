@@ -124,13 +124,22 @@ func (svc *EventService) ReceiveEvent(
 	var err error
 	// Create the message object
 	msg := svc.constructMessage(t, sessionId, s)
-	if t == EventStart || t == EventPause || t == EventSessionComplete || t == EventEdit || t == EventResetSession {
+	if t == EventStart || t == EventPause || t == EventEdit {
 		patch := entities.UserPatchInput{
 			ActiveSessionId: &sessionId,
 			UserId:          userId,
 		}
-		if t == EventPause || t == EventSessionComplete || t == EventEdit || t == EventResetSession {
+		switch t {
+		case EventPause:
 			patch.ClearActiveSession = true
+		case EventEdit:
+			user, err := svc.userSvc.GetUserDetails(ctx, userId)
+			if err != nil {
+				return err
+			}
+			if *user.ActiveSessionId == sessionId {
+				patch.ClearActiveSession = true
+			}
 		}
 		err = svc.userSvc.Update(ctx, &patch)
 	}
