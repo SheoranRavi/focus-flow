@@ -36,7 +36,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         streak: action.user.streak ?? 0,
         resetTime: action.user.sessionsResetTime ?? state.resetTime,
         timezone: action.user.timezone ?? state.timezone,
-        activeSessionId: action.user.activeSessionId ?? state.activeSessionId,
+        activeSessionId:
+          action.user.activeSessionId === undefined
+            ? state.activeSessionId
+            : action.user.activeSessionId,
       };
 
     case 'LOAD_SESSIONS':
