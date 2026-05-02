@@ -177,6 +177,8 @@ func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionI
 }
 
 func (repo *SessionRepo) Delete(ctx context.Context, sessionId int64, userId string) error {
+	// ToDo: On delete, update the daily time for this session
+	// ToDo: Running session can't be deleted
 	query := `
 		Update sessions
 		SET is_deleted = TRUE
@@ -221,13 +223,14 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
             is_deleted         = $9
         WHERE id = $10
           AND user_id = $11
-        RETURNING id, user_id
+				RETURNING id, user_id, state
     )
     UPDATE sessions
     SET state = 0
     WHERE user_id = (SELECT user_id FROM updated)
       AND id != (SELECT id FROM updated)
       AND state = 1
+	  AND (SELECT state FROM updated) = 1
 	`
 
 	res, err := repo.db.ExecContext(

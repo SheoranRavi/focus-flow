@@ -124,14 +124,24 @@ func (svc *EventService) ReceiveEvent(
 	var err error
 	// Create the message object
 	msg := svc.constructMessage(t, sessionId, s)
-	if t == EventStart || t == EventPause {
+	if t == EventStart || t == EventPause || t == EventEdit || t == EventResetSession {
 		patch := entities.UserPatchInput{
-			ActiveSessionId: &sessionId,
-			UserId:          userId,
+			UserId: userId,
 		}
-		if t == EventPause {
-			patch.ActiveSessionId = nil
+		switch t {
+		case EventStart:
+			patch.ActiveSessionId = new(int64)
+			*patch.ActiveSessionId = sessionId
+		case EventPause:
 			patch.ClearActiveSession = true
+		case EventEdit, EventResetSession:
+			user, err := svc.userSvc.GetUserDetails(ctx, userId)
+			if err != nil {
+				return err
+			}
+			if user.ActiveSessionId != nil && *user.ActiveSessionId == sessionId {
+				patch.ClearActiveSession = true
+			}
 		}
 		err = svc.userSvc.Update(ctx, &patch)
 	}
@@ -214,6 +224,7 @@ func (svc *EventService) RemoveClientConnection(connId string, userId string) {
 	delete(svc.userConnections[userId], connId)
 }
 
+// ToDo: merge this into ReceiveEvent, we should not have multiple methods for doing same thing
 func (svc *EventService) SendCompletion(session *SessionSchedule) {
 	completionObj := struct {
 		SessionId    int64 `json:"sessionId"`
