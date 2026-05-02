@@ -1,29 +1,3 @@
-self.addEventListener("message", (event) => {
-  const message = event.data;
-  if (!message || message.type !== "SESSION_COMPLETE") {
-    return;
-  }
-
-  const payload = message.payload || {};
-  const title = payload.title || "Focus session complete";
-  const options = {
-    body: payload.body || "Your focus session is done.",
-    icon: payload.icon || "/icon.svg",
-    badge: payload.badge || "/icon.svg",
-    tag: payload.tag || "session-complete",
-    renotify: true,
-    data: {
-      url: payload.url || "/app",
-      sessionId: payload.sessionId,
-    },
-  };
-
-  const showNotification = self.registration.showNotification(title, options);
-  if (typeof event.waitUntil === "function") {
-    event.waitUntil(showNotification);
-  }
-});
-
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
@@ -31,11 +5,18 @@ self.addEventListener("notificationclick", (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
+      const targetClient = clientList.find((client) => client.url === targetUrl);
+      if (targetClient && "focus" in targetClient) {
+        return targetClient.focus();
+      }
+
+      const sameOriginClient = clientList.find((client) => {
         const clientUrl = new URL(client.url);
-        if (clientUrl.origin === self.location.origin && "focus" in client) {
-          return client.focus();
-        }
+        return clientUrl.origin === self.location.origin;
+      });
+
+      if (sameOriginClient && "navigate" in sameOriginClient) {
+        return sameOriginClient.navigate(targetUrl).then((client) => client?.focus());
       }
 
       if (self.clients.openWindow) {

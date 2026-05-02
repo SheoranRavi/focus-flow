@@ -49,6 +49,10 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const initialSessions = useRef(state.sessions);
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
+  const setCompletedSessionBaseline = useCallback((sessions: Session[]) => {
+    completedSessionIdsRef.current = new Set(sessions.filter(s => s.isCompleted).map(s => s.id));
+  }, []);
+
   // Fetch sessions from API if user is logged in
   useEffect(() => {
     if (user) {
@@ -56,6 +60,7 @@ const App: React.FC = () => {
         .then(fetchedSessions => {
           if (fetchedSessions && fetchedSessions.length > 0) {
             console.log(`fetched sessions: ${JSON.stringify(fetchedSessions)}`);
+            setCompletedSessionBaseline(fetchedSessions);
             dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions});
             const runningSess = fetchedSessions.filter((s) => s.state === TimerState.RUNNING)
             if (runningSess && runningSess.length > 0){
@@ -73,6 +78,7 @@ const App: React.FC = () => {
 
               if (createdSessions.length > 0){
                 console.log(`Created sessions: ${JSON.stringify(createdSessions)}`);
+                setCompletedSessionBaseline(createdSessions);
                 dispatch({type: 'LOAD_SESSIONS', sessions: createdSessions});
               }
               
@@ -91,7 +97,7 @@ const App: React.FC = () => {
           // Keep using localStorage sessions on error
         });
     }
-  }, [user]);
+  }, [user, setCompletedSessionBaseline]);
 
 // fetch user details if user is logged in
 useEffect(() => {

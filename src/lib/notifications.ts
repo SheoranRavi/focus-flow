@@ -41,6 +41,7 @@ export function registerNotificationServiceWorker(): Promise<ServiceWorkerRegist
       .then((registration) => registration)
       .catch((error) => {
         console.error("Failed to register notification service worker:", error);
+        serviceWorkerRegistrationPromise = null;
         return null;
       });
   }
@@ -71,15 +72,12 @@ async function showServiceWorkerNotification(session: Session): Promise<boolean>
   }
 
   const registration = await registerNotificationServiceWorker();
-  const readyRegistration = await navigator.serviceWorker.ready.catch(() => registration);
-  const notificationRegistration = readyRegistration ?? registration;
-
-  if (!notificationRegistration || !("showNotification" in notificationRegistration)) {
+  if (!registration || !("showNotification" in registration)) {
     return false;
   }
 
   try {
-    await notificationRegistration.showNotification(notificationTitle(session), notificationOptions(session));
+    await registration.showNotification(notificationTitle(session), notificationOptions(session));
     return true;
   } catch (error) {
     console.error("Failed to show service worker notification:", error);
