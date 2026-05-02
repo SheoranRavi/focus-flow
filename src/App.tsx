@@ -49,68 +49,83 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const initialSessions = useRef(state.sessions);
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
+  const sessionSyncPromiseRef = useRef<Promise<void> | null>(null);
   const setCompletedSessionBaseline = useCallback((sessions: Session[]) => {
     completedSessionIdsRef.current = new Set(sessions.filter(s => s.isCompleted).map(s => s.id));
   }, []);
 
-  // Fetch sessions from API if user is logged in
-  useEffect(() => {
-    if (user) {
-      api.getSessions()
-        .then(fetchedSessions => {
-          if (fetchedSessions && fetchedSessions.length > 0) {
-            console.log(`fetched sessions: ${JSON.stringify(fetchedSessions)}`);
-            setCompletedSessionBaseline(fetchedSessions);
-            dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions});
-            const runningSess = fetchedSessions.filter((s) => s.state === TimerState.RUNNING)
-            if (runningSess && runningSess.length > 0){
-              // ToDo: Figure out a better way
-              const targetTime = runningSess[0].targetTimeMs !== undefined ? runningSess[0].targetTimeMs : Date.now();
-              dispatch({type: 'START_SESSION', id: runningSess[0].id, targetTimeMs: targetTime});
-            }
-          } else{
-            Promise.allSettled(
-              initialSessions.current.map(session => api.createSession(session))
-            ).then(results => {
-              const createdSessions = results
-                .filter((result): result is PromiseFulfilledResult<Session> => result.status === 'fulfilled')
-                .map(result => result.value);
+  const syncSessionsFromApi = useCallback(async () => {
+    if (!user) return;
+    if (sessionSyncPromiseRef.current) {
+      return sessionSyncPromiseRef.current;
+    }
 
-              if (createdSessions.length > 0){
-                console.log(`Created sessions: ${JSON.stringify(createdSessions)}`);
-                setCompletedSessionBaseline(createdSessions);
-                dispatch({type: 'LOAD_SESSIONS', sessions: createdSessions});
-              }
-              
-              // log failures
-              const failures = results.filter(r => r.status === 'rejected');
-              if (failures.length > 0){
-                console.error(`Failed to upload ${failures.length} sessions:`, failures);
-              }
-            }).catch(error => {
-              console.error('Failed to upload local sessions:', error);
-            });
-          }
-        })
-        .catch(error => {
-          console.error('Failed to fetch sessions from API:', error);
-          // Keep using localStorage sessions on error
-        });
+    sessionSyncPromiseRef.current = (async () => {
+      const fetchedSessions = await api.getSessions();
+      if (fetchedSessions && fetchedSessions.length > 0) {
+        console.log(`fetched sessions: ${JSON.stringify(fetchedSessions)}`);
+        setCompletedSessionBaseline(fetchedSessions);
+        dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions});
+        const runningSess = fetchedSessions.filter((s) => s.state === TimerState.RUNNING)
+        if (runningSess && runningSess.length > 0){
+          // ToDo: Figure out a better way
+          const targetTime = runningSess[0].targetTimeMs !== undefined ? runningSess[0].targetTimeMs : Date.now();
+          dispatch({type: 'START_SESSION', id: runningSess[0].id, targetTimeMs: targetTime});
+        }
+      } else{
+        const results = await Promise.allSettled(
+          initialSessions.current.map(session => api.createSession(session))
+        );
+        const createdSessions = results
+          .filter((result): result is PromiseFulfilledResult<Session> => result.status === 'fulfilled')
+          .map(result => result.value);
+
+        if (createdSessions.length > 0){
+          console.log(`Created sessions: ${JSON.stringify(createdSessions)}`);
+          setCompletedSessionBaseline(createdSessions);
+          dispatch({type: 'LOAD_SESSIONS', sessions: createdSessions});
+        }
+        
+        // log failures
+        const failures = results.filter(r => r.status === 'rejected');
+        if (failures.length > 0){
+          console.error(`Failed to upload ${failures.length} sessions:`, failures);
+        }
+      }
+    })();
+
+    try {
+      await sessionSyncPromiseRef.current;
+    } catch (error) {
+      console.error('Failed to sync sessions from API:', error);
+      // Keep using localStorage sessions on error.
+    } finally {
+      sessionSyncPromiseRef.current = null;
     }
   }, [user, setCompletedSessionBaseline]);
 
-// fetch user details if user is logged in
-useEffect(() => {
-  const fetchUser = async () => {
+  const syncUserFromApi = useCallback(async () => {
+    if (!user) return;
+
     const userObj = await api.getUser();
     if (userObj != null){
       dispatch({type: "LOAD_USER", user: userObj});
     }
-  }
-  if (user){
-    fetchUser()
-  }
-}, [user])
+  }, [user]);
+
+  const syncStateFromApi = useCallback(async () => {
+    await Promise.allSettled([
+      syncSessionsFromApi(),
+      syncUserFromApi(),
+    ]);
+  }, [syncSessionsFromApi, syncUserFromApi]);
+
+  // Fetch sessions and user details from API if user is logged in
+  useEffect(() => {
+    if (user){
+      syncStateFromApi();
+    }
+  }, [user, syncStateFromApi])
   
   // Derived State: Calculate total daily goal from individual session goals
   const totalDailyGoalMinutes = state.sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
@@ -282,10 +297,10 @@ useEffect(() => {
   // subscribe to events
   useEffect(() => {
     if (user){
-      const cleanup = api.streamEvents(dispatch);
+      const cleanup = api.streamEvents(dispatch, syncStateFromApi);
       return cleanup;
     }
-  }, [user])
+  }, [user, syncStateFromApi])
 
   // Derived State for UI
   const activeSessionTitle = state.sessions.find(s => s.id === state.activeSessionId)?.title || "Ready to Focus";

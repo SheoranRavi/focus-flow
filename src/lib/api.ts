@@ -124,7 +124,8 @@ export const api = {
   },
 
   streamEvents(
-    dispatch: React.Dispatch<AppAction>
+    dispatch: React.Dispatch<AppAction>,
+    onOpen?: () => void | Promise<void>
   ): () => void {
     let eventSrc: EventSource | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -143,6 +144,11 @@ export const api = {
         eventSrc.onopen = () => {
           console.log('SSE connection established');
           reconnectDelay = 1000;
+          if (onOpen) {
+            Promise.resolve(onOpen()).catch((error) => {
+              console.error('Failed to sync after SSE connection:', error);
+            });
+          }
         };
 
         // Handle "new_session" event
