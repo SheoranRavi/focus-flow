@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const user = useAuth();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [sseKey, setSseKey] = useState(0);
 
   function initState(): AppState {
     const fallbackSessions: Session[] = [
@@ -50,6 +51,7 @@ const App: React.FC = () => {
   const initialSessions = useRef(state.sessions);
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
   const sessionSyncPromiseRef = useRef<Promise<void> | null>(null);
+  const sseHandleRef = useRef<ReturnType<typeof api.streamEvents> | null>(null);
   const setCompletedSessionBaseline = useCallback((sessions: Session[]) => {
     completedSessionIdsRef.current = new Set(sessions.filter(s => s.isCompleted).map(s => s.id));
   }, []);
@@ -294,13 +296,33 @@ const App: React.FC = () => {
     }
   };
 
+  // Reconnect SSE when tab becomes visible again (e.g. mobile browser returning from background)
+  useEffect(() => {
+    if (!user) return;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !sseHandleRef.current?.hasActiveConnection()) {
+        console.log('visibility change detected without active SSE connection');
+        setSseKey(k => k + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user]);
+
   // subscribe to events
   useEffect(() => {
     if (user){
-      const cleanup = api.streamEvents(dispatch, syncStateFromApi);
-      return cleanup;
+      const handle = api.streamEvents(dispatch, syncStateFromApi);
+      sseHandleRef.current = handle;
+
+      return () => {
+        if (sseHandleRef.current === handle) {
+          sseHandleRef.current = null;
+        }
+        handle.cleanup();
+      };
     }
-  }, [user, syncStateFromApi])
+  }, [user, syncStateFromApi, sseKey])
 
   // Derived State for UI
   const activeSessionTitle = state.sessions.find(s => s.id === state.activeSessionId)?.title || "Ready to Focus";
