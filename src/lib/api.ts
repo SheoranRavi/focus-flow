@@ -59,6 +59,11 @@ export interface BackendSession {
   isDeleted: boolean;
 }
 
+export interface StreamEventsHandle {
+  cleanup: () => void;
+  hasActiveConnection: () => boolean;
+}
+
 // Convert backend session format to frontend format
 function mapBackendToFrontend(backendSession: BackendSession): Session {
   return {
@@ -126,12 +131,20 @@ export const api = {
   streamEvents(
     dispatch: React.Dispatch<AppAction>,
     onOpen?: () => void | Promise<void>
-  ): () => void {
+  ): StreamEventsHandle {
     let eventSrc: EventSource | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let reconnectDelay = 1000; // Start with 1 second
     const maxReconnectDelay = 30000; // Max 30 seconds
     let isClosed = false;
+
+    const hasActiveConnection = () => {
+      if (isClosed || !eventSrc) {
+        return false;
+      }
+
+      return eventSrc.readyState !== EventSource.CLOSED;
+    };
 
     const connect = async () => {
       if (isClosed) return;
@@ -283,15 +296,17 @@ export const api = {
 
     connect();
 
-    // Return cleanup function
-    return () => {
-      isClosed = true;
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-      if (eventSrc) {
-        eventSrc.close();
-      }
+    return {
+      hasActiveConnection,
+      cleanup: () => {
+        isClosed = true;
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+        }
+        if (eventSrc) {
+          eventSrc.close();
+        }
+      },
     };
   },
 
