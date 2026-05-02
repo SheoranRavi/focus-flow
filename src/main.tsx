@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import { AuthProvider } from './context/AuthContext';
 import Home from './pages/Home';
+import { registerNotificationServiceWorker } from './lib/notifications';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
@@ -37,3 +38,5 @@ createRoot(rootElement).render(
     </AuthProvider>
   </StrictMode>,
 )
+
+void registerNotificationServiceWorker();
