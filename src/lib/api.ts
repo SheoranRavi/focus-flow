@@ -143,7 +143,7 @@ export const api = {
         return false;
       }
 
-      return eventSrc.readyState !== EventSource.CLOSED;
+      return eventSrc.readyState === EventSource.OPEN;
     };
 
     const connect = async () => {

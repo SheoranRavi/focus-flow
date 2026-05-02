@@ -43,6 +43,9 @@ func (h *SSEHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 	connection := h.eventSvc.AddUserConnection(userId)
 	eventChan := connection.EventC
 	h.logger.Info().Str("user_id", userId).Str("conn_id", connection.ConnId).Msg("Subscribed to events")
+	fmt.Fprintf(rw, "event: heartbeat\n")
+	fmt.Fprintf(rw, "data: heartbeat\n\n")
+	flusher.Flush()
 
 	for {
 		select {
