@@ -36,6 +36,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         streak: action.user.streak ?? 0,
         resetTime: action.user.sessionsResetTime ?? state.resetTime,
         timezone: action.user.timezone ?? state.timezone,
+        activeSessionId: action.user.activeSessionId ?? state.activeSessionId,
       };
 
     case 'LOAD_SESSIONS':
@@ -113,7 +114,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (!state.activeSessionId) return state;
       let completed = false;
       const sessions = state.sessions.map(s => {
-        if (s.id !== state.activeSessionId || !s.targetTimeMs) return s;
+        if (s.id !== state.activeSessionId || !s.targetTimeMs || s.state !== TimerState.RUNNING) return s;
         let secondsLeft = Math.max(0, Math.ceil((s.targetTimeMs - action.now) / 1000));
         const delta = Math.max(0, s.timeLeft - secondsLeft);
         let timerState = TimerState.RUNNING;
