@@ -179,6 +179,13 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 		session.FocusSeconds += session.TimeLeft   // we can assume that timeLeft seconds passed
 		session.TimeLeft = session.SessionDuration // reset
 		svc.repo.Update(ctx, session)
+		// also need to set active session id to null here
+		userPatch := &entities.UserPatchInput{ClearActiveSession: true, UserId: session.UserId}
+		err := svc.userSvc.Update(ctx, userPatch)
+		if err != nil {
+			svc.logger.Error().Msgf("Not able to update the user active session id for user: %s", session.UserId)
+			return err
+		}
 		return fmt.Errorf("Target time passed for user: %s, session: %d", session.UserId, session.Id)
 	}
 	ticker := time.NewTicker(time.Second)
