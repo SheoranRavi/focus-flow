@@ -178,12 +178,19 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 		session.State = entities.SessionPaused
 		session.FocusSeconds += session.TimeLeft   // we can assume that timeLeft seconds passed
 		session.TimeLeft = session.SessionDuration // reset
-		svc.repo.Update(ctx, session)
+		if err := svc.repo.Update(ctx, session); err != nil {
+			svc.logger.Error().Err(err).Msgf("Not able to update session state for user: %s, session: %d", session.UserId, session.Id)
+			return err
+		}
 		// also need to set active session id to null here
 		userPatch := &entities.UserPatchInput{ClearActiveSession: true, UserId: session.UserId}
 		err := svc.userSvc.Update(ctx, userPatch)
 		if err != nil {
-			svc.logger.Error().Msgf("Not able to update the user active session id for user: %s", session.UserId)
+			svc.logger.Error().
+				Err(err).
+				Str("user_id", session.UserId).
+				Interface("session_id", session.Id).
+				Msg("Not able to update the user active session id")
 			return err
 		}
 		return fmt.Errorf("Target time passed for user: %s, session: %d", session.UserId, session.Id)
@@ -296,8 +303,11 @@ func (svc *SessionService) processEvent(ctx context.Context,
 	// schedule the event for regular updates
 	switch t {
 	case EventStart:
-		// ToDo: Handle error
-		svc.ScheduleEvent(ctx, s)
+		err := svc.ScheduleEvent(ctx, s)
+		if err != nil {
+			svc.logger.Error().Err(err).Msg("Unable to start event")
+			return err
+		}
 	case EventPause:
 		svc.CancelEvent(s)
 	}
