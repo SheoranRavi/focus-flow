@@ -13,6 +13,7 @@ import { api } from './lib/api';
 import CreateSession from './components/CreateSession/CreateSession';
 import { appReducer, AppState } from './context/reducer';
 import { notifySessionComplete, requestSessionNotificationPermission } from './lib/notifications';
+import { sortSessionsForDisplay } from './lib/utils';
 
 
 // --- Main App Component ---
@@ -21,6 +22,7 @@ const App: React.FC = () => {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [sseKey, setSseKey] = useState(0);
+  const [resetStateReady, setResetStateReady] = useState(false);
 
   function initState(): AppState {
     const fallbackSessions: Session[] = [
@@ -29,7 +31,10 @@ const App: React.FC = () => {
       { id: 3, title: 'Emails', sessionDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0, state: TimerState.PAUSED },
     ];
 
-    const sessions = parseSessionsFromStorage(localStorage.getItem('sessions'), fallbackSessions);
+    const storedSessions = localStorage.getItem('sessions');
+    const sessions = storedSessions
+      ? sortSessionsForDisplay(parseSessionsFromStorage(storedSessions, fallbackSessions))
+      : fallbackSessions;
 
     const activeSessionId = sessions.find(s => s.state === TimerState.RUNNING)?.id ?? null;
 
@@ -73,7 +78,12 @@ const App: React.FC = () => {
         if (runningSess && runningSess.length > 0){
           // ToDo: Figure out a better way
           const targetTime = runningSess[0].targetTimeMs !== undefined ? runningSess[0].targetTimeMs : Date.now();
-          dispatch({type: 'START_SESSION', id: runningSess[0].id, targetTimeMs: targetTime});
+          dispatch({
+            type: 'START_SESSION',
+            id: runningSess[0].id,
+            targetTimeMs: targetTime,
+            updatedAt: runningSess[0].updatedAt ?? new Date().toISOString(),
+          });
         }
       } else{
         const results = await Promise.allSettled(
@@ -113,6 +123,7 @@ const App: React.FC = () => {
     const userObj = await api.getUser();
     if (userObj != null){
       dispatch({type: "LOAD_USER", user: userObj});
+      localStorage.setItem('lastResetDate', userObj.lastResetDate);
     }
   }, [user]);
 
@@ -125,9 +136,26 @@ const App: React.FC = () => {
 
   // Fetch sessions and user details from API if user is logged in
   useEffect(() => {
-    if (user){
-      syncStateFromApi();
+    let cancelled = false;
+    if (!user){
+      setResetStateReady(true);
+      return;
     }
+
+    setResetStateReady(false);
+    syncStateFromApi()
+      .catch((error) => {
+        console.error('Failed to sync initial state from API:', error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setResetStateReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, syncStateFromApi])
   
   // Derived State: Calculate total daily goal from individual session goals
@@ -184,6 +212,9 @@ const App: React.FC = () => {
 
   // Effect for Auto-Reset Logic
   useEffect(() => {
+    if (!resetStateReady) {
+      return;
+    }
     const checkResetTime = setInterval(() => {
       const [todayDate, currentTimeString] = getTodayDateTimeString();
 
@@ -195,7 +226,7 @@ const App: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(checkResetTime);
-  }, [state.resetTime, state.lastResetDate, handleResetDailyProgress]);
+  }, [resetStateReady, state.resetTime, state.lastResetDate, handleResetDailyProgress]);
 
   // update sessions in localStorage (only if not logged in)
   useEffect(() => {
@@ -214,7 +245,7 @@ const App: React.FC = () => {
     const activeSess = state.sessions.filter((x) => x.id === id);
     const s = activeSess[0];
     const newTargetTimeMs = Date.now() + s.timeLeft*1000;
-    dispatch({type: 'START_SESSION', id: id, targetTimeMs: newTargetTimeMs});
+    dispatch({type: 'START_SESSION', id: id, targetTimeMs: newTargetTimeMs, updatedAt: new Date().toISOString()});
     if(user)
       api.sendSessionEvent(id, 'start', {targetTimeMs: newTargetTimeMs}).catch(e => console.error(e));
   };
@@ -277,6 +308,7 @@ const App: React.FC = () => {
       focusSeconds: 0,
       state: TimerState.PAUSED,
       noGoal: sessionData.noGoal,
+      updatedAt: new Date().toISOString(),
     };
     console.log(`new session created with local id: ${newId}`);
 

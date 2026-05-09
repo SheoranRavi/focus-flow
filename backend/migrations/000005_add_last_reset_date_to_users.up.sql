@@ -1,0 +1,2 @@
+ALTER TABLE users
+ADD COLUMN last_reset_date VARCHAR(10) NOT NULL DEFAULT '';

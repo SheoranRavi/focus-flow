@@ -105,6 +105,105 @@ describe('App Component', () => {
       expect(screen.getByText('Test Session')).toBeInTheDocument();
     });
 
+    it('should render running sessions first and keep newest sessions ahead of older ones', () => {
+      const mockSessions = [
+        {
+          id: 1,
+          title: 'Older Task',
+          sessionDuration: 1500,
+          timeLeft: 1500,
+          isCompleted: false,
+          dailyGoalMinutes: 25,
+          focusSeconds: 0,
+          state: TimerState.PAUSED,
+          updatedAt: '2025-05-01T08:00:00.000Z',
+        },
+        {
+          id: 2,
+          title: 'Active Task',
+          sessionDuration: 1500,
+          timeLeft: 900,
+          isCompleted: false,
+          dailyGoalMinutes: 25,
+          focusSeconds: 600,
+          state: TimerState.RUNNING,
+          targetTimeMs: Date.now() + 900000,
+          updatedAt: '2025-05-01T10:00:00.000Z',
+        },
+        {
+          id: 3,
+          title: 'Newest Task',
+          sessionDuration: 1500,
+          timeLeft: 1500,
+          isCompleted: false,
+          dailyGoalMinutes: 25,
+          focusSeconds: 0,
+          state: TimerState.PAUSED,
+          updatedAt: '2025-05-01T09:00:00.000Z',
+        },
+      ];
+      localStorage.setItem('sessions', JSON.stringify(mockSessions));
+
+      renderApp();
+
+      const sessionHeadings = screen.getAllByRole('heading', { level: 3 });
+      expect(sessionHeadings[0]).toHaveTextContent('Active Task');
+      expect(sessionHeadings[1]).toHaveTextContent('Newest Task');
+      expect(sessionHeadings[2]).toHaveTextContent('Older Task');
+    });
+
+    it('should move a started session to the top of the list', async () => {
+      const user = userEvent.setup();
+      const mockSessions = [
+        {
+          id: 1,
+          title: 'First Task',
+          sessionDuration: 1500,
+          timeLeft: 1500,
+          isCompleted: false,
+          dailyGoalMinutes: 25,
+          focusSeconds: 0,
+          state: TimerState.PAUSED,
+          updatedAt: '2025-05-01T10:00:00.000Z',
+        },
+        {
+          id: 2,
+          title: 'Second Task',
+          sessionDuration: 1500,
+          timeLeft: 1500,
+          isCompleted: false,
+          dailyGoalMinutes: 25,
+          focusSeconds: 0,
+          state: TimerState.PAUSED,
+          updatedAt: '2025-05-01T09:00:00.000Z',
+        },
+        {
+          id: 3,
+          title: 'Third Task',
+          sessionDuration: 1500,
+          timeLeft: 1500,
+          isCompleted: false,
+          dailyGoalMinutes: 25,
+          focusSeconds: 0,
+          state: TimerState.PAUSED,
+          updatedAt: '2025-05-01T08:00:00.000Z',
+        },
+      ];
+      localStorage.setItem('sessions', JSON.stringify(mockSessions));
+
+      renderApp();
+
+      const startButtons = screen.getAllByRole('button', { name: /start/i });
+      expect(startButtons.length).toBeGreaterThanOrEqual(3);
+
+      await user.click(startButtons[2]);
+
+      await waitFor(() => {
+        const sessionHeadings = screen.getAllByRole('heading', { level: 3 });
+        expect(sessionHeadings[0]).toHaveTextContent('Third Task');
+      });
+    });
+
     it('should handle corrupted localStorage data gracefully', () => {
       localStorage.setItem('sessions', 'invalid json');
       
@@ -119,6 +218,12 @@ describe('App Component', () => {
 
       const addButton = screen.getByRole('button', { name: /new session/i });
       await user.click(addButton);
+
+      const titleInput = await screen.findByLabelText('Session Title');
+      await user.type(titleInput, 'Test Session');
+
+      const createButton = screen.getByRole('button', { name: /add session/i });
+      await user.click(createButton);
 
       await waitFor(() => {
         const stored = localStorage.getItem('sessions');
@@ -225,10 +330,12 @@ describe('App Component', () => {
         if (timeInput) {
           await user.clear(timeInput);
           await user.type(timeInput, '09:00');
+          const saveButton = screen.getByRole('button', { name: /save changes/i });
+          await user.click(saveButton);
 
           await waitFor(() => {
             const stored = localStorage.getItem('resetTime');
-            expect(stored).toContain('09');
+            expect(stored).toBe('09:00');
           });
         }
       }
@@ -372,8 +479,11 @@ describe('App Component', () => {
 
       const addButton = screen.getByRole('button', { name: /new session/i });
       
-      // Add first session
       await user.click(addButton);
+      const titleInput = await screen.findByLabelText('Session Title');
+      await user.type(titleInput, 'Generated Session');
+      const createButton = screen.getByRole('button', { name: /add session/i });
+      await user.click(createButton);
       
       await waitFor(() => {
         const stored1 = localStorage.getItem('sessions');
@@ -438,10 +548,12 @@ describe('App Component', () => {
         if (timeInput) {
           await user.clear(timeInput);
           await user.type(timeInput, '08:30');
+          const saveButton = screen.getByRole('button', { name: /save changes/i });
+          await user.click(saveButton);
 
           await waitFor(() => {
             const stored = localStorage.getItem('resetTime');
-            expect(stored).toContain('08');
+            expect(stored).toBe('08:30');
           });
         }
       }

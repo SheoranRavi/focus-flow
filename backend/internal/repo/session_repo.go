@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
@@ -24,11 +25,11 @@ func NewSessionRepo(db *sql.DB) *SessionRepo {
 func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*entities.Session, error) {
 	query := `
 		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration, 
-			is_completed, target_time_ms, no_goal, created_at, is_deleted, time_left
+			is_completed, target_time_ms, no_goal, created_at, updated_at, is_deleted, time_left
 		FROM sessions
 		WHERE user_id = $1
 		AND is_deleted = FALSE
-		ORDER BY created_at DESC
+		ORDER BY updated_at DESC, created_at DESC
 	`
 	rows, err := repo.db.QueryContext(ctx, query, userId)
 	if err != nil {
@@ -54,6 +55,7 @@ func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 			&s.TargetTimeMs,
 			&s.NoGoal,
 			&s.CreatedAt,
+			&s.UpdatedAt,
 			&s.IsDeleted,
 			&s.TimeLeft,
 		); err != nil {
@@ -69,7 +71,7 @@ func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 	query := `
 		INSERT INTO sessions (user_id, title, daily_goal_minutes, session_duration, time_left, no_goal, group_id, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, now())
-		RETURNING id, created_at
+		RETURNING id, created_at, updated_at
 	`
 	err := repo.db.QueryRowContext(
 		ctx,
@@ -81,7 +83,7 @@ func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 		session.TimeLeft,
 		session.NoGoal,
 		session.GroupId,
-	).Scan(&session.Id, &session.CreatedAt)
+	).Scan(&session.Id, &session.CreatedAt, &session.UpdatedAt)
 
 	if err != nil {
 		repo.logger.Error().Err(err).Str("user_id", session.UserId).Str("title", session.Title).Msg("Failed to create session")
@@ -93,11 +95,11 @@ func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 func (repo *SessionRepo) GetAllActiveSessions(ctx context.Context) ([]*entities.Session, error) {
 	query := `
 		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration, 
-			is_completed, target_time_ms, no_goal, created_at, is_deleted, time_left
+			is_completed, target_time_ms, no_goal, created_at, updated_at, is_deleted, time_left
 		FROM sessions
 		WHERE state= 1
 		AND is_deleted = FALSE
-		ORDER BY created_at DESC
+		ORDER BY updated_at DESC, created_at DESC
 	`
 
 	rows, err := repo.db.QueryContext(ctx, query)
@@ -124,6 +126,7 @@ func (repo *SessionRepo) GetAllActiveSessions(ctx context.Context) ([]*entities.
 			&s.TargetTimeMs,
 			&s.NoGoal,
 			&s.CreatedAt,
+			&s.UpdatedAt,
 			&s.IsDeleted,
 			&s.TimeLeft,
 		); err != nil {
@@ -138,7 +141,7 @@ func (repo *SessionRepo) GetAllActiveSessions(ctx context.Context) ([]*entities.
 func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionId int64) (*entities.Session, error) {
 	query := `
 		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration, time_left,
-		       is_completed, target_time_ms, no_goal, created_at, is_deleted
+		       is_completed, target_time_ms, no_goal, created_at, updated_at, is_deleted
 		FROM sessions
 		WHERE id = $1
 		  AND user_id = $2
@@ -161,6 +164,7 @@ func (repo *SessionRepo) GetForUser(ctx context.Context, userId string, sessionI
 		&s.TargetTimeMs,
 		&s.NoGoal,
 		&s.CreatedAt,
+		&s.UpdatedAt,
 		&s.IsDeleted,
 	)
 
@@ -207,7 +211,7 @@ func (repo *SessionRepo) Delete(ctx context.Context, sessionId int64, userId str
 	return nil
 }
 
-func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error {
+func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session, touchUpdatedAt bool) error {
 	query := `
 		WITH updated AS (
         UPDATE sessions
@@ -220,7 +224,8 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
             is_completed       = $6,
             target_time_ms     = $7,
             no_goal            = $8,
-            is_deleted         = $9
+            is_deleted         = $9,
+            updated_at         = CASE WHEN $12 THEN now() ELSE updated_at END
         WHERE id = $10
           AND user_id = $11
 				RETURNING id, user_id, state
@@ -247,10 +252,14 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session) error 
 		s.IsDeleted,
 		s.Id,
 		s.UserId,
+		touchUpdatedAt,
 	)
 	if err != nil {
 		repo.logger.Error().Err(err).Int64("session_id", s.Id).Str("user_id", s.UserId).Msg("Failed to update session")
 		return err
+	}
+	if touchUpdatedAt {
+		s.UpdatedAt = time.Now().UTC()
 	}
 	numAffected, rowsErr := res.RowsAffected()
 	if rowsErr != nil {

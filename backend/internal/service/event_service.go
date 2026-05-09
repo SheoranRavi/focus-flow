@@ -47,6 +47,11 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		if err != nil {
 			return err
 		}
+		loc, locErr := time.LoadLocation(user.Timezone)
+		if locErr != nil {
+			loc = time.UTC
+		}
+		todayDate := time.Now().In(loc).Format("2006-01-02")
 		// calculate yesterdayMins and streak
 		totalFocusSeconds := 0
 		totalGoalMinutes := 0
@@ -66,6 +71,8 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		}
 		userPatch.YesterdayMins = new(int)
 		*(userPatch.YesterdayMins) = totalFocusSeconds / 60
+		userPatch.LastResetDate = new(string)
+		*(userPatch.LastResetDate) = todayDate
 		svc.userSvc.Update(ctx, userPatch)
 		err = svc.sessionRepo.ResetProgress(ctx, userId)
 		if err != nil {
@@ -74,6 +81,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		userData.YesterdayMins = *userPatch.YesterdayMins
 		userData.Streak = *userPatch.Streak
 		userData.TotalGoalMinutes = totalGoalMinutes
+		userData.LastResetDate = todayDate
 	case EventAutoResetTimeChange:
 		if userPatch.SessionsResetTime == nil || userPatch.Timezone == nil {
 			return fmt.Errorf("SessionsResetTime and Timezone needs to be supplied")
@@ -161,10 +169,12 @@ func (svc *EventService) ReceiveUserEvent(ctx context.Context, userId string, us
 			YesterdayMins    int `json:"yesterdayMins"`
 			Streak           int `json:"streak"`
 			TotalGoalMinutes int `json:"totalGoalMinutes"`
+			LastResetDate    string `json:"lastResetDate"`
 		}{
 			YesterdayMins:    userData.YesterdayMins,
 			Streak:           userData.Streak,
 			TotalGoalMinutes: userData.TotalGoalMinutes,
+			LastResetDate:    userData.LastResetDate,
 		}
 	case EventAutoResetTimeChange:
 		msg.Object = struct {
@@ -310,11 +320,13 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 	switch t {
 	case EventStart:
 		msg.Object = struct {
-			Id           int64 `json:"id"`
-			TargetTimeMs int64 `json:"targetTimeMs"`
+			Id           int64     `json:"id"`
+			TargetTimeMs int64     `json:"targetTimeMs"`
+			UpdatedAt    time.Time `json:"updatedAt"`
 		}{
 			Id:           sessionId,
 			TargetTimeMs: s.TargetTimeMs,
+			UpdatedAt:    s.UpdatedAt,
 		}
 	case EventPause, EventSessionComplete:
 		msg.Object = struct {
@@ -353,6 +365,7 @@ type UserEventData struct {
 	YesterdayMins    int
 	Streak           int
 	SessionResetTime string
+	LastResetDate    string
 	Timezone         string
 	TotalGoalMinutes int
 }

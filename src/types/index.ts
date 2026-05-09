@@ -9,6 +9,8 @@ export interface Session {
   targetTimeMs?: number; // the target timestamp at which this timer is supposed to complete
   state: TimerState;
   noGoal?: boolean; // whether this is a no-goal session (just tracking time)
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BackendUser{
@@ -16,6 +18,7 @@ export interface BackendUser{
   name: string;
   email: string;
   sessionsResetTime: string;
+  lastResetDate: string;
   activeSessionId: number | null;
   yesterdayMins: number;
   streak: number;

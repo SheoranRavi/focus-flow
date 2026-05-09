@@ -128,7 +128,8 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	// don't apply patch to individual session if flag not set
 	if applyPatch {
 		session.ApplyPatch(patchInput)
-		err = svc.repo.Update(ctx, session)
+		touchUpdatedAt := t == EventStart
+		err = svc.repo.Update(ctx, session, touchUpdatedAt)
 	}
 
 	if err == nil {
@@ -178,7 +179,7 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 		session.State = entities.SessionPaused
 		session.FocusSeconds += session.TimeLeft   // we can assume that timeLeft seconds passed
 		session.TimeLeft = session.SessionDuration // reset
-		if err := svc.repo.Update(ctx, session); err != nil {
+			if err := svc.repo.Update(ctx, session, false); err != nil {
 			svc.logger.Error().Err(err).Msgf("Not able to update session state for user: %s, session: %d", session.UserId, session.Id)
 			return err
 		}
@@ -259,7 +260,7 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 				svc.handleCompletion(ctx, session)
 				return
 			}
-			svc.repo.Update(ctx, session)
+			svc.repo.Update(ctx, session, false)
 		case <-t.CancelChan:
 			t.Ticker.Stop()
 			svc.logger.Info().Msgf("Stopping ticker for session %d", session.Id)
@@ -283,7 +284,7 @@ func (svc *SessionService) handleCompletion(ctx context.Context, session *entiti
 	svc.logger.Info().Msgf("Session %d is complete, updating DB and clients.", session.Id)
 	userPatch := &entities.UserPatchInput{ClearActiveSession: true, UserId: session.UserId}
 	svc.userSvc.Update(ctx, userPatch)
-	svc.repo.Update(ctx, session)
+	svc.repo.Update(ctx, session, false)
 	svc.eventSvc.SendCompletion(sessionSched)
 	// remove this ticker from map
 	svc.timerMu.Lock()
