@@ -97,6 +97,9 @@ export function migrateLegacySession(obj: any, defaults?: Partial<Session>): Ses
     defaults?.targetTimeMs ?? NaN
   )
 
+  const createdAt = typeof obj.createdAt === "string" ? obj.createdAt : defaults?.createdAt
+  const updatedAt = typeof obj.updatedAt === "string" ? obj.updatedAt : defaults?.updatedAt
+
   const state = normalizeState(obj.state ?? obj.status, obj.isRunning)
 
   const session: Session = {
@@ -108,6 +111,8 @@ export function migrateLegacySession(obj: any, defaults?: Partial<Session>): Ses
     dailyGoalMinutes,
     focusSeconds,
     state,
+    ...(createdAt ? { createdAt } : {}),
+    ...(updatedAt ? { updatedAt } : {}),
     ...(Number.isFinite(targetTimeMs) ? { targetTimeMs } : {})
   }
 
@@ -133,4 +138,28 @@ export function parseSessionsFromStorage(stored: string | null, fallback: Sessio
     console.error("Error parsing sessions from localStorage:", e)
   }
   return fallback
+}
+
+export function sortSessionsForDisplay(sessions: Session[]): Session[] {
+  const toTime = (value?: string): number | null => {
+    if (!value) return null;
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  return [...sessions].sort((a, b) => {
+    const aTime = toTime(a.updatedAt ?? a.createdAt);
+    const bTime = toTime(b.updatedAt ?? b.createdAt);
+
+    if (aTime !== null && bTime !== null) {
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
+      return b.id - a.id;
+    }
+
+    if (aTime !== null) return -1;
+    if (bTime !== null) return 1;
+    return b.id - a.id;
+  });
 }

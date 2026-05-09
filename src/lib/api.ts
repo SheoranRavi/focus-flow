@@ -56,6 +56,7 @@ export interface BackendSession {
   targetTimeMs: number;
   noGoal: boolean;
   createdAt: string;
+  updatedAt: string;
   isDeleted: boolean;
 }
 
@@ -77,7 +78,16 @@ function mapBackendToFrontend(backendSession: BackendSession): Session {
     targetTimeMs: backendSession.targetTimeMs,
     state: backendSession.state,
     noGoal: backendSession.noGoal,
+    createdAt: backendSession.createdAt,
+    updatedAt: backendSession.updatedAt || backendSession.createdAt,
   };
+}
+
+function normalizeLastResetDate(value: string | undefined | null): string {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  return getTodayDateTimeString()[0];
 }
 
 // Convert frontend session format to backend format
@@ -214,7 +224,12 @@ export const api = {
             const frontEndSession = mapBackendToFrontend(session);
             // ToDo: Figure out a better way
             const targetTime = frontEndSession.targetTimeMs !== undefined ? frontEndSession.targetTimeMs : Date.now();
-            dispatch({type: 'START_SESSION', id: frontEndSession.id, targetTimeMs: targetTime});
+            dispatch({
+              type: 'START_SESSION',
+              id: frontEndSession.id,
+              targetTimeMs: targetTime,
+              updatedAt: frontEndSession.updatedAt ?? new Date().toISOString(),
+            });
           } catch (error) {
             console.error('Error handling start event:', error);
           }
@@ -263,9 +278,9 @@ export const api = {
             const data = JSON.parse(e.data);
             const yesterdayMins = data.yesterdayMins;
             const streak = data.streak;
-            const [todayDate, _] = getTodayDateTimeString();
+            const resetDate = normalizeLastResetDate(data.lastResetDate);
             console.log(`From API yesterdayMins: ${yesterdayMins}, streak: ${streak}`);
-            dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate: todayDate});
+            dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate});
           } catch (error) {
             console.error('Error handling reset_progress event:', error);
           }
@@ -340,6 +355,7 @@ export const api = {
   async getUser(): Promise<BackendUser | null> {
     const response = await fetchWithAuth(`/users/me`);
     const user: BackendUser = await response.json();
+    user.lastResetDate = normalizeLastResetDate(user.lastResetDate);
     console.log(`fetched user: ${JSON.stringify(user)}`);
     return user
   },

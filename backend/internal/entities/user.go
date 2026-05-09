@@ -10,6 +10,7 @@ type User struct {
 	Email             string    `json:"email"`
 	CreatedAt         time.Time `json:"createdAt"`
 	SessionsResetTime string    `json:"sessionsResetTime"`
+	LastResetDate     string    `json:"lastResetDate"`
 	ActiveSessionId   *int64    `json:"activeSessionId"`
 	YesterdayMins     int       `json:"yesterdayMins"`
 	Streak            int       `json:"streak"`
@@ -19,6 +20,7 @@ type User struct {
 type UserPatchInput struct {
 	ActiveSessionId    *int64
 	SessionsResetTime  *string
+	LastResetDate      *string
 	YesterdayMins      *int
 	Streak             *int
 	Timezone           *string
@@ -37,6 +39,10 @@ func (user *User) ApplyPatch(in *UserPatchInput) {
 
 	if in.SessionsResetTime != nil {
 		user.SessionsResetTime = *in.SessionsResetTime
+	}
+
+	if in.LastResetDate != nil {
+		user.LastResetDate = *in.LastResetDate
 	}
 
 	if in.YesterdayMins != nil {

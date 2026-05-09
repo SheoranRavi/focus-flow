@@ -1,5 +1,6 @@
 // reducer.ts
 import { BackendUser, Session, TimerState } from '../types';
+import { sortSessionsForDisplay } from '../lib/utils';
 
 export type AppState = {
   sessions: Session[];
@@ -12,7 +13,7 @@ export type AppState = {
 };
 
 export type AppAction =
-  | { type: 'START_SESSION'; id: number; targetTimeMs: number }
+  | { type: 'START_SESSION'; id: number; targetTimeMs: number; updatedAt: string }
   | { type: 'PAUSE_SESSION'; id: number; timeLeft: number }
   | { type: 'RESET_SESSION'; id: number }
   | { type: 'DELETE_SESSION'; id: number }
@@ -35,6 +36,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         yesterdayMinutes: action.user.yesterdayMins ?? 0,
         streak: action.user.streak ?? 0,
         resetTime: action.user.sessionsResetTime ?? state.resetTime,
+        lastResetDate: action.user.lastResetDate ?? state.lastResetDate,
         timezone: action.user.timezone ?? state.timezone,
         activeSessionId:
           action.user.activeSessionId === undefined
@@ -43,75 +45,69 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case 'LOAD_SESSIONS':
-      return { ...state, sessions: action.sessions };
+      return { ...state, sessions: sortSessionsForDisplay(action.sessions) };
 
     case 'ADD_SESSION':
       if (state.sessions.some(s => s.id === action.session.id)) {
         return state;
       }
-      return { ...state, sessions: [...state.sessions, action.session] };
+      return { ...state, sessions: sortSessionsForDisplay([...state.sessions, action.session]) };
 
     case 'DELETE_SESSION':
       return {
         ...state,
-        sessions: state.sessions.filter(s => s.id !== action.id),
+        sessions: sortSessionsForDisplay(state.sessions.filter(s => s.id !== action.id)),
         activeSessionId: state.activeSessionId === action.id ? null : state.activeSessionId,
       };
 
     case 'START_SESSION': {
-      // Move started session to top
-      const idx = state.sessions.findIndex(s => s.id === action.id);
       const updated = state.sessions.map(s => {
-        if (s.id === action.id) return { ...s, state: TimerState.RUNNING, targetTimeMs: action.targetTimeMs };
+        if (s.id === action.id) return { ...s, state: TimerState.RUNNING, targetTimeMs: action.targetTimeMs, updatedAt: action.updatedAt };
         // if any other session was running then set it to paused
         if (s.id === state.activeSessionId) return { ...s, state: TimerState.PAUSED };
         return s;
       });
-      if (idx !== -1) {
-        const [session] = updated.splice(idx, 1);
-        updated.unshift(session);
-      }
-      return { ...state, sessions: updated, activeSessionId: action.id };
+      return { ...state, sessions: sortSessionsForDisplay(updated), activeSessionId: action.id };
     }
 
     case 'PAUSE_SESSION':
       return {
         ...state,
         activeSessionId: state.activeSessionId === action.id ? null : state.activeSessionId,
-        sessions: state.sessions.map(s =>
+        sessions: sortSessionsForDisplay(state.sessions.map(s =>
           s.id === action.id ? { ...s, state: TimerState.PAUSED, timeLeft: action.timeLeft } : s
-        ),
+        )),
       };
 
     case 'RESET_SESSION':
       return {
         ...state,
         activeSessionId: state.activeSessionId === action.id ? null : state.activeSessionId,
-        sessions: state.sessions.map(s =>
+        sessions: sortSessionsForDisplay(state.sessions.map(s =>
           s.id === action.id
             ? { ...s, timeLeft: s.sessionDuration, isCompleted: false, state: TimerState.PAUSED }
             : s
-        ),
+        )),
       };
 
     case 'UPDATE_SESSION':
       return {
         ...state,
         activeSessionId: state.activeSessionId === action.id ? null : state.activeSessionId,
-        sessions: state.sessions.map(s => {
+        sessions: sortSessionsForDisplay(state.sessions.map(s => {
           if (s.id !== action.id) return s;
           const updated = { ...s, ...action.changes, isCompleted: false, state: TimerState.PAUSED };
           return updated;
-        }),
+        })),
       };
 
     case 'COMPLETE_SESSION':
       return {
         ...state,
         activeSessionId: null,
-        sessions: state.sessions.map(s =>
+        sessions: sortSessionsForDisplay(state.sessions.map(s =>
           s.id === action.id ? { ...s, isCompleted: true, focusSeconds: action.focusSeconds, timeLeft: s.sessionDuration, state: TimerState.PAUSED } : s
-        ),
+        )),
       };
 
     case 'TICK': {
@@ -131,7 +127,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       });
       return {
         ...state,
-        sessions,
+        sessions: sessions,
         activeSessionId: completed ? null : state.activeSessionId,
       };
     }
@@ -156,7 +152,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       console.log(`Setting yesterdayMins: ${yesterdayMins}, streak: ${newStreak}`);
       return {
         ...state,
-        sessions: state.sessions.map(s => ({ ...s, focusSeconds: 0 })),
+        sessions: sortSessionsForDisplay(state.sessions.map(s => ({ ...s, focusSeconds: 0 }))),
         yesterdayMinutes: yesterdayMins,
         lastResetDate: action.resetDate,
         streak: newStreak,

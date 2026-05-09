@@ -21,6 +21,7 @@ type Session struct {
 	UserId           string        `json:"userId"`
 	TimeLeft         int           `json:"timeLeft"` // in seconds
 	CreatedAt        time.Time     `json:"createdAt"`
+	UpdatedAt        time.Time     `json:"updatedAt"`
 }
 
 type SessionState int16

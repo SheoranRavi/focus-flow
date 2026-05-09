@@ -23,8 +23,8 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 
 func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entities.User, error) {
 	query := `
-		INSERT INTO users (id, name, email, created_at, sessions_reset_time, active_session_id)
-		VALUES ($1, $2, $3, now(), $4, $5)
+		INSERT INTO users (id, name, email, created_at, sessions_reset_time, last_reset_date, active_session_id)
+		VALUES ($1, $2, $3, now(), $4, $5, $6)
 		RETURNING id, created_at
 	`
 	err := repo.db.QueryRowContext(
@@ -34,6 +34,7 @@ func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entitie
 		user.Name,
 		user.Email,
 		user.SessionsResetTime,
+		user.LastResetDate,
 		user.ActiveSessionId,
 	).Scan(&user.Id, &user.CreatedAt)
 
@@ -46,7 +47,7 @@ func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entitie
 
 func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, error) {
 	query := `
-		SELECT id, name, email, created_at, sessions_reset_time, active_session_id, yesterday_mins, streak, timezone from users 
+		SELECT id, name, email, created_at, sessions_reset_time, last_reset_date, active_session_id, yesterday_mins, streak, timezone from users 
 		WHERE id = $1
 	`
 	var user entities.User
@@ -61,6 +62,7 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 		&user.Email,
 		&user.CreatedAt,
 		&user.SessionsResetTime,
+		&user.LastResetDate,
 		&activeSessionId,
 		&user.YesterdayMins,
 		&user.Streak,
@@ -84,7 +86,7 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 
 func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 	query := `
-		SELECT id, name, email, created_at, sessions_reset_time, active_session_id, yesterday_mins, streak, timezone from users 
+		SELECT id, name, email, created_at, sessions_reset_time, last_reset_date, active_session_id, yesterday_mins, streak, timezone from users 
 	`
 	rows, err := repo.db.QueryContext(ctx, query)
 
@@ -105,6 +107,7 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 			&user.Email,
 			&user.CreatedAt,
 			&user.SessionsResetTime,
+			&user.LastResetDate,
 			&activeSessionId,
 			&user.YesterdayMins,
 			&user.Streak,
@@ -128,17 +131,19 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 		UPDATE users
 		SET
 			sessions_reset_time = $1,
-			active_session_id  = $2,
-			yesterday_mins = $3,
-			streak = $4,
-			timezone = $5
-		WHERE id = $6
+			last_reset_date = $2,
+			active_session_id  = $3,
+			yesterday_mins = $4,
+			streak = $5,
+			timezone = $6
+		WHERE id = $7
 	`
 
 	_, err := repo.db.ExecContext(
 		ctx,
 		query,
 		u.SessionsResetTime,
+		u.LastResetDate,
 		u.ActiveSessionId,
 		u.YesterdayMins,
 		u.Streak,
