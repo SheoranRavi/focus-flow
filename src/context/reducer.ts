@@ -127,7 +127,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       });
       return {
         ...state,
-        sessions: sortSessionsForDisplay(sessions),
+        sessions: sessions,
         activeSessionId: completed ? null : state.activeSessionId,
       };
     }

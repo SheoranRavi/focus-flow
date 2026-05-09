@@ -160,6 +160,6 @@ export function sortSessionsForDisplay(sessions: Session[]): Session[] {
 
     if (aTime !== null) return -1;
     if (bTime !== null) return 1;
-    return 0;
+    return b.id - a.id;
   });
 }
