@@ -38,17 +38,17 @@ const App: React.FC = () => {
 
     const activeSessionId = sessions.find(s => s.state === TimerState.RUNNING)?.id ?? null;
 
-      return {
-        sessions,
-        activeSessionId,
-        streak: parseInt(localStorage.getItem('streak') ?? '0', 10),
-        yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
-        lastResetDate: normalizeDateToISO(localStorage.getItem('lastResetDate')),
-        lastAutoResetDate: normalizeDateToISO(localStorage.getItem('lastAutoResetDate')),
-        resetTime: localStorage.getItem('resetTime') ?? '00:00',
-        timezone: localStorage.getItem('timezone') ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-      };
+    return {
+      sessions,
+      activeSessionId,
+      streak: parseInt(localStorage.getItem('streak') ?? '0', 10),
+      yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
+      lastResetDate: normalizeDateToISO(localStorage.getItem('lastResetDate')),
+      lastAutoResetDate: normalizeDateToISO(localStorage.getItem('lastAutoResetDate')),
+      resetTime: localStorage.getItem('resetTime') ?? '00:00',
+      timezone: localStorage.getItem('timezone') ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
+  };
 
   const [state, dispatch] = useReducer(appReducer, undefined, initState);
 
@@ -226,9 +226,10 @@ const App: React.FC = () => {
     }
     const checkResetTime = setInterval(() => {
       const [todayDate, currentTimeString] = getTodayDateTimeString(state.timezone);
+      const hasLastAutoResetDate = /^\d{4}-\d{2}-\d{2}$/.test(state.lastAutoResetDate);
 
       // If time matches preference
-      if (state.resetTime !== null && currentTimeString >= state.resetTime && state.lastAutoResetDate !== null && todayDate > state.lastAutoResetDate){
+      if (state.resetTime !== null && currentTimeString >= state.resetTime && hasLastAutoResetDate && todayDate > state.lastAutoResetDate){
         handleResetDailyProgress(todayDate, "auto");
         console.log("Daily progress auto-reset triggered.");
       }
