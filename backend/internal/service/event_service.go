@@ -47,11 +47,8 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		if err != nil {
 			return err
 		}
-		loc, locErr := time.LoadLocation(user.Timezone)
-		if locErr != nil {
-			loc = time.UTC
-		}
-		todayDate := time.Now().In(loc).Format("2006-01-02")
+		today := dateInTimezone(user.Timezone)
+		todayDate := today.Format("2006-01-02")
 		// calculate yesterdayMins and streak
 		totalFocusSeconds := 0
 		totalGoalMinutes := 0
@@ -74,7 +71,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		userPatch.LastResetDate = new(string)
 		*(userPatch.LastResetDate) = todayDate
 		svc.userSvc.Update(ctx, userPatch)
-		err = svc.sessionRepo.ResetProgress(ctx, userId)
+		err = svc.sessionRepo.ResetProgress(ctx, userId, todayDate)
 		if err != nil {
 			return err
 		}
@@ -166,9 +163,9 @@ func (svc *EventService) ReceiveUserEvent(ctx context.Context, userId string, us
 	switch t {
 	case EventResetProgress:
 		msg.Object = struct {
-			YesterdayMins    int `json:"yesterdayMins"`
-			Streak           int `json:"streak"`
-			TotalGoalMinutes int `json:"totalGoalMinutes"`
+			YesterdayMins    int    `json:"yesterdayMins"`
+			Streak           int    `json:"streak"`
+			TotalGoalMinutes int    `json:"totalGoalMinutes"`
 			LastResetDate    string `json:"lastResetDate"`
 		}{
 			YesterdayMins:    userData.YesterdayMins,

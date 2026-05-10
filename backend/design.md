@@ -13,15 +13,6 @@
   - Time spent per task per unit of time (day, week, month)
 - Store data
 
-# ToDo
-- TimeLeft update should not be triggered by the frontend.
-  - The backend should have this logic.
-  - Schedule a event to fire at TargetTimeMs if the session in running state.
-  - If in pause state, then do not fire this event
-- Get all sessions request, if the user does not exist in DB then create it
-- Frontend needs to send the sessions to backend if it finds nothing from backend.
-- Add logging to the service
-
 ## Schema
 ```mermaid
 ---
@@ -74,21 +65,14 @@ Group ||--o{ Session : has
 
 ```
 
-## Start and Pause events
-- Start sends targetTimeMs against which all calculations are performed
-  - Backend should calculate against it
-  - All UIs should calculate against it. So UIs should all be aligned at all times. ii desu ne?
-- Pause event happens
-  - Time lag b/w the client and backend
-  - This causes discrepancy
-  - Soln: Client sends the timeLeft field.
-  - Backend explicitly sets values based on it.
-  - 
 ## Computing analytics
 #### Requirements:
 - Time spent on each goal by day
-- 
 
+### Updates
+- On reset, store time for each session in the task_daily_time table
+- Handler, fetch the task daily times by time period, yesterday, last week, last month, custom.
+- UI -> Analytics page for showing the results
 
 ### Notes
 - targetTimeMs: milliseconds since epoch when this session is supposed to finish (only meaningful when the session is running)

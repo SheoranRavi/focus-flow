@@ -130,6 +130,14 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 		session.ApplyPatch(patchInput)
 		touchUpdatedAt := t == EventStart
 		err = svc.repo.Update(ctx, session, touchUpdatedAt)
+		if err == nil && t == EventEdit && patchInput.DailyGoalMinutes != nil {
+			user, userErr := svc.userSvc.GetUserDetails(ctx, userId)
+			if userErr != nil {
+				return userErr
+			}
+			today := dateInTimezone(user.Timezone).Format("2006-01-02")
+			err = svc.repo.UpdateTaskDailyTimeGoal(ctx, session.Id, today, *patchInput.DailyGoalMinutes)
+		}
 	}
 
 	if err == nil {
@@ -179,7 +187,7 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 		session.State = entities.SessionPaused
 		session.FocusSeconds += session.TimeLeft   // we can assume that timeLeft seconds passed
 		session.TimeLeft = session.SessionDuration // reset
-			if err := svc.repo.Update(ctx, session, false); err != nil {
+		if err := svc.repo.Update(ctx, session, false); err != nil {
 			svc.logger.Error().Err(err).Msgf("Not able to update session state for user: %s, session: %d", session.UserId, session.Id)
 			return err
 		}

@@ -1,6 +1,9 @@
 # Continuation
 - Analytics support
+- Add better logging
+  - Log each event
 - Build tests to ensure timer accuracy
+- SSE should send heartbeat events, client should reconnect if heartbeats not being received
 
 # Backlog
 - Add all timezones to dropdown
