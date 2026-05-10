@@ -126,10 +126,13 @@ const Home: React.FC = () => {
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <BarChart3 size={20} />
             </div>
-            <h2 className="font-bold text-slate-900">Analytics coming soon</h2>
+            <h2 className="font-bold text-slate-900">Analytics dashboard</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              See how much time you spend on each activity and understand where your focus actually goes.
+              See how much time you spend on each session over the last week, month, and more.
             </p>
+            <Button asChild variant="outline" className="mt-4 border-slate-300 bg-white">
+              <Link to="/analytics">Open analytics</Link>
+            </Button>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

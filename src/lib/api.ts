@@ -1,6 +1,6 @@
 import { AppAction } from '@/context/reducer';
 import React from "react";
-import { Session, BackendUser } from '../types';
+import { Session, BackendUser, BackendAnalyticsEntry } from '../types';
 import { getTodayDateTimeString } from './utils';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -36,7 +36,8 @@ async function fetchWithAuth(url: string, options: FetchOptions = {}): Promise<R
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.statusText}`);
+    const errorText = await response.text().catch(() => '');
+    throw new Error(errorText || `API error: ${response.statusText}`);
   }
 
   return response;
@@ -358,5 +359,15 @@ export const api = {
     user.lastResetDate = normalizeLastResetDate(user.lastResetDate);
     console.log(`fetched user: ${JSON.stringify(user)}`);
     return user
+  },
+
+  async getAnalytics(startDate: string, endDate: string, includeDeleted = false): Promise<BackendAnalyticsEntry[]> {
+    const params = new URLSearchParams({
+      startDate,
+      endDate,
+      includeDeleted: String(includeDeleted),
+    });
+    const response = await fetchWithAuth(`/analytics?${params.toString()}`);
+    return response.json();
   },
 };

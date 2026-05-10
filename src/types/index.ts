@@ -25,6 +25,14 @@ export interface BackendUser{
   timezone: string;
 }
 
+export interface BackendAnalyticsEntry {
+  id: number;
+  name: string;
+  date: string;
+  timeSpentMinutes: number;
+  goalMinutes: number;
+}
+
 // Component Props
 export interface ProgressRingProps {
   radius: number;

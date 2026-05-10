@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import React, {useState, useEffect} from "react";
 import {useNavigate } from "react-router-dom";
-import { CheckCircle2, MoreHorizontal, Clock, X, Menu } from "lucide-react";
+import { CheckCircle2, MoreHorizontal, Clock, X, Menu, BarChart3 } from "lucide-react";
 import Button from "./ui/Button";
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -106,7 +106,13 @@ const Navbar: React.FC<NavbarProps> = (props) => {
               <Button onClick={() => navigate("/login")} variant="outline">Login</Button>
               <Button onClick={() => navigate("/register")} variant="secondary">Signup</Button>
             </> :
-              <Button onClick={handleLogout} variant="ghost">Logout</Button>
+              <>
+                <Button onClick={() => navigate("/analytics")} variant="ghost" className="text-slate-600">
+                  <BarChart3 size={16} />
+                  Analytics
+                </Button>
+                <Button onClick={handleLogout} variant="ghost">Logout</Button>
+              </>
           }
           
           <div className="h-8 w-px bg-slate-200"></div>
@@ -232,8 +238,24 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                   >
                     Logout
                   </Button>
-                )}
-              </div>
+                  )}
+                </div>
+
+              {isLoggedIn && (
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => {
+                      navigate("/analytics");
+                      setIsMobileMenuOpen(false);
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <BarChart3 size={16} />
+                    Analytics
+                  </Button>
+                </div>
+              )}
 
               {/* Settings Section */}
               <div className="pt-3 border-t border-slate-100">
