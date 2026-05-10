@@ -38,16 +38,17 @@ const App: React.FC = () => {
 
     const activeSessionId = sessions.find(s => s.state === TimerState.RUNNING)?.id ?? null;
 
-    return {
-      sessions,
-      activeSessionId,
-      streak: parseInt(localStorage.getItem('streak') ?? '0', 10),
-      yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
-      lastResetDate: normalizeDateToISO(localStorage.getItem('lastResetDate')),
-      resetTime: localStorage.getItem('resetTime') ?? '00:00',
-      timezone: localStorage.getItem('timezone') ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      return {
+        sessions,
+        activeSessionId,
+        streak: parseInt(localStorage.getItem('streak') ?? '0', 10),
+        yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
+        lastResetDate: normalizeDateToISO(localStorage.getItem('lastResetDate')),
+        lastAutoResetDate: normalizeDateToISO(localStorage.getItem('lastAutoResetDate')),
+        resetTime: localStorage.getItem('resetTime') ?? '00:00',
+        timezone: localStorage.getItem('timezone') ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
     };
-  };
 
   const [state, dispatch] = useReducer(appReducer, undefined, initState);
 
@@ -124,6 +125,7 @@ const App: React.FC = () => {
     if (userObj != null){
       dispatch({type: "LOAD_USER", user: userObj});
       localStorage.setItem('lastResetDate', userObj.lastResetDate);
+      localStorage.setItem('lastAutoResetDate', userObj.lastAutoResetDate ?? '');
     }
   }, [user]);
 
@@ -199,10 +201,17 @@ const App: React.FC = () => {
   }, [state.activeSessionId])
 
   // handler for resetting the total daily progress
-  const handleResetDailyProgress = useCallback((resetDate: string) => {
-    dispatch({type: 'RESET_DAILY_PROGRESS', resetDate: resetDate, fromApi: false, yesterdayMins: 0, streak: 0});
-    if (user){
-      api.sendUserEvent('reset_progress').catch(err => {
+  const handleResetDailyProgress = useCallback((resetDate: string, source: "manual" | "auto") => {
+    dispatch({
+      type: 'RESET_DAILY_PROGRESS',
+      resetDate: resetDate,
+      fromApi: false,
+      yesterdayMins: 0,
+      streak: 0,
+      autoReset: source === "auto",
+    });
+    if (user && source === "manual"){
+      api.sendUserEvent('reset_progress', { manualReset: true }).catch(err => {
         console.error(err);
       });
     }
@@ -216,17 +225,17 @@ const App: React.FC = () => {
       return;
     }
     const checkResetTime = setInterval(() => {
-      const [todayDate, currentTimeString] = getTodayDateTimeString();
+      const [todayDate, currentTimeString] = getTodayDateTimeString(state.timezone);
 
       // If time matches preference
-      if (state.resetTime !== null && currentTimeString >= state.resetTime && state.lastResetDate !== null && todayDate > state.lastResetDate){
-        handleResetDailyProgress(todayDate);
+      if (state.resetTime !== null && currentTimeString >= state.resetTime && state.lastAutoResetDate !== null && todayDate > state.lastAutoResetDate){
+        handleResetDailyProgress(todayDate, "auto");
         console.log("Daily progress auto-reset triggered.");
       }
     }, 1000);
 
     return () => clearInterval(checkResetTime);
-  }, [resetStateReady, state.resetTime, state.lastResetDate, handleResetDailyProgress]);
+  }, [resetStateReady, state.resetTime, state.lastAutoResetDate, state.timezone, handleResetDailyProgress]);
 
   // update sessions in localStorage (only if not logged in)
   useEffect(() => {
@@ -483,11 +492,11 @@ const App: React.FC = () => {
                 <div className="w-full flex justify-between items-center mb-6 h-8">
                    <h3 className="font-bold text-lg text-slate-800">Daily Progress</h3>
                    <div className="flex gap-1">
-                       <button 
-                           onClick={() => {
-                              const [todayDate, _] = getTodayDateTimeString();
-                              handleResetDailyProgress(todayDate);
-                            }}
+                       <button
+                         onClick={() => {
+                           const [todayDate] = getTodayDateTimeString(state.timezone);
+                           handleResetDailyProgress(todayDate, "manual");
+                         }}
                            className="p-1 rounded-full hover:bg-slate-100 transition-colors"
                            title="Start New Day (Reset Progress)"
                        >

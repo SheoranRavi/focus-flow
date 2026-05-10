@@ -319,11 +319,11 @@ func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string, reset
 	}
 
 	const upsertDailyTimeQuery = `
-		INSERT INTO task_daily_time (session_id, date, num_minutes_spent, goal_minutes)
+		INSERT INTO task_daily_time (session_id, date, num_seconds_spent, goal_minutes)
 		VALUES ($1, $2::date, $3, $4)
 		ON CONFLICT (session_id, date)
 		DO UPDATE SET
-			num_minutes_spent = task_daily_time.num_minutes_spent + EXCLUDED.num_minutes_spent,
+			num_seconds_spent = task_daily_time.num_seconds_spent + EXCLUDED.num_seconds_spent,
 			goal_minutes = EXCLUDED.goal_minutes
 	`
 	for _, row := range sessionRows {
@@ -332,7 +332,7 @@ func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string, reset
 			upsertDailyTimeQuery,
 			row.sessionId,
 			resetDate,
-			row.focusSeconds/60,
+			row.focusSeconds,
 			row.goalMinutes,
 		)
 		if err != nil {

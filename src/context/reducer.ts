@@ -7,6 +7,7 @@ export type AppState = {
   streak: number;
   yesterdayMinutes: number;
   lastResetDate: string;
+  lastAutoResetDate: string;
   resetTime: string;
   timezone: string;
   activeSessionId: number | null;
@@ -21,7 +22,7 @@ export type AppAction =
   | { type: 'ADD_SESSION'; session: Session }
   | { type: 'COMPLETE_SESSION'; id: number; focusSeconds: number }
   | { type: 'TICK'; now: number }
-  | { type: 'RESET_DAILY_PROGRESS'; yesterdayMins: number; streak: number; resetDate: string; fromApi: boolean }
+  | { type: 'RESET_DAILY_PROGRESS'; yesterdayMins: number; streak: number; resetDate: string; fromApi: boolean; autoReset: boolean }
   | { type: 'SET_RESET_TIME'; time: string }
   | { type: 'SET_TIMEZONE'; timezone: string }
   | { type: 'LOAD_SESSIONS'; sessions: Session[] }
@@ -37,6 +38,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         streak: action.user.streak ?? 0,
         resetTime: action.user.sessionsResetTime ?? state.resetTime,
         lastResetDate: action.user.lastResetDate ?? state.lastResetDate,
+        lastAutoResetDate: action.user.lastAutoResetDate ?? state.lastAutoResetDate,
         timezone: action.user.timezone ?? state.timezone,
         activeSessionId:
           action.user.activeSessionId === undefined
@@ -147,6 +149,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         newStreak = action.streak;
       }
       localStorage.setItem('lastResetDate', action.resetDate);
+      if (action.autoReset) {
+        localStorage.setItem('lastAutoResetDate', action.resetDate);
+      }
       localStorage.setItem('yesterdayMins', (yesterdayMins).toString());
       localStorage.setItem('streak', newStreak === undefined ? '0' : newStreak.toString());
       console.log(`Setting yesterdayMins: ${yesterdayMins}, streak: ${newStreak}`);
@@ -155,6 +160,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         sessions: sortSessionsForDisplay(state.sessions.map(s => ({ ...s, focusSeconds: 0 }))),
         yesterdayMinutes: yesterdayMins,
         lastResetDate: action.resetDate,
+        lastAutoResetDate: action.autoReset ? action.resetDate : state.lastAutoResetDate,
         streak: newStreak,
       };
     }

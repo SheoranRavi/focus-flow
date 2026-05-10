@@ -41,7 +41,7 @@ func (h *AnalyticsHandler) Get(rw http.ResponseWriter, req *http.Request) {
 		includeDeleted, err = strconv.ParseBool(includeDeletedRaw)
 		if err != nil {
 			h.logger.Error().Str("userId", userId).Msg("includeDeleted not formatted correctly")
-			http.Error(rw, "includeDeleted boolean flag missing", http.StatusBadRequest)
+			http.Error(rw, "includeDeleted must be a boolean", http.StatusBadRequest)
 			return
 		}
 	}

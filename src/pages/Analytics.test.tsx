@@ -40,6 +40,7 @@ describe("Analytics page", () => {
       email: "user@example.com",
       sessionsResetTime: "00:00",
       lastResetDate: "2026-05-07",
+      lastAutoResetDate: "2026-05-07",
       activeSessionId: 1,
       yesterdayMins: 120,
       streak: 4,
@@ -75,6 +76,21 @@ describe("Analytics page", () => {
 
     await waitFor(() => {
       expect(mockApi.getAnalytics).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("sends includeDeleted to the backend when toggled", async () => {
+    const user = userEvent.setup();
+
+    renderPage();
+
+    await screen.findByText("Deep Work", { selector: "p" });
+    expect(mockApi.getAnalytics).toHaveBeenCalledWith(expect.any(String), expect.any(String), false);
+
+    await user.click(screen.getByRole("checkbox", { name: /include deleted sessions/i }));
+
+    await waitFor(() => {
+      expect(mockApi.getAnalytics).toHaveBeenLastCalledWith(expect.any(String), expect.any(String), true);
     });
   });
 });

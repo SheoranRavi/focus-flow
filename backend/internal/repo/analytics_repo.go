@@ -25,7 +25,7 @@ func (repo *AnalyticsRepo) ComputeAnalytics(ctx context.Context, userId string, 
 			t.session_id,
 			s.title,
 			t.date,
-			t.num_minutes_spent,
+			ROUND(t.num_seconds_spent / 60.0)::int,
 			t.goal_minutes
 		FROM task_daily_time t
 		INNER JOIN sessions s ON s.id = t.session_id

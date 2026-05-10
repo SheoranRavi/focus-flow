@@ -23,8 +23,8 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 
 func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entities.User, error) {
 	query := `
-		INSERT INTO users (id, name, email, created_at, sessions_reset_time, last_reset_date, active_session_id)
-		VALUES ($1, $2, $3, now(), $4, $5, $6)
+		INSERT INTO users (id, name, email, created_at, sessions_reset_time, last_reset_date, last_auto_reset_date, active_session_id)
+		VALUES ($1, $2, $3, now(), $4, $5, $6, $7)
 		RETURNING id, created_at
 	`
 	err := repo.db.QueryRowContext(
@@ -35,6 +35,7 @@ func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entitie
 		user.Email,
 		user.SessionsResetTime,
 		user.LastResetDate,
+		user.LastAutoResetDate,
 		user.ActiveSessionId,
 	).Scan(&user.Id, &user.CreatedAt)
 
@@ -47,7 +48,7 @@ func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entitie
 
 func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, error) {
 	query := `
-		SELECT id, name, email, created_at, sessions_reset_time, last_reset_date, active_session_id, yesterday_mins, streak, timezone from users 
+		SELECT id, name, email, created_at, sessions_reset_time, last_reset_date, last_auto_reset_date, active_session_id, yesterday_mins, streak, timezone from users 
 		WHERE id = $1
 	`
 	var user entities.User
@@ -63,6 +64,7 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 		&user.CreatedAt,
 		&user.SessionsResetTime,
 		&user.LastResetDate,
+		&user.LastAutoResetDate,
 		&activeSessionId,
 		&user.YesterdayMins,
 		&user.Streak,
@@ -86,7 +88,7 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 
 func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 	query := `
-		SELECT id, name, email, created_at, sessions_reset_time, last_reset_date, active_session_id, yesterday_mins, streak, timezone from users 
+		SELECT id, name, email, created_at, sessions_reset_time, last_reset_date, last_auto_reset_date, active_session_id, yesterday_mins, streak, timezone from users 
 	`
 	rows, err := repo.db.QueryContext(ctx, query)
 
@@ -108,6 +110,7 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 			&user.CreatedAt,
 			&user.SessionsResetTime,
 			&user.LastResetDate,
+			&user.LastAutoResetDate,
 			&activeSessionId,
 			&user.YesterdayMins,
 			&user.Streak,
@@ -132,11 +135,12 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 		SET
 			sessions_reset_time = $1,
 			last_reset_date = $2,
-			active_session_id  = $3,
-			yesterday_mins = $4,
-			streak = $5,
-			timezone = $6
-		WHERE id = $7
+			last_auto_reset_date = $3,
+			active_session_id  = $4,
+			yesterday_mins = $5,
+			streak = $6,
+			timezone = $7
+		WHERE id = $8
 	`
 
 	_, err := repo.db.ExecContext(
@@ -144,6 +148,7 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 		query,
 		u.SessionsResetTime,
 		u.LastResetDate,
+		u.LastAutoResetDate,
 		u.ActiveSessionId,
 		u.YesterdayMins,
 		u.Streak,

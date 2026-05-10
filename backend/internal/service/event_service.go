@@ -39,16 +39,33 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 	if err != nil {
 		return err
 	}
+	if userPatch == nil {
+		userPatch = &entities.UserPatchInput{}
+	}
 	var userData UserEventData
 	switch t {
 	case EventResetProgress:
-		// return yesterdayMins, streak.
+		manualReset := userPatch.ManualReset != nil && *userPatch.ManualReset
 		sessions, err := svc.sessionRepo.GetAllForUser(ctx, userId)
 		if err != nil {
 			return err
 		}
 		today := dateInTimezone(user.Timezone)
 		todayDate := today.Format("2006-01-02")
+		closedDate := todayDate
+		if !manualReset {
+			if user.LastAutoResetDate == todayDate {
+				svc.logger.Info().Str("user_id", userId).Msg("Skipping auto reset because today's auto reset already ran")
+				return nil
+			}
+			closedDate = user.LastAutoResetDate
+			if closedDate == "" {
+				closedDate, err = previousISODate(todayDate)
+				if err != nil {
+					return err
+				}
+			}
+		}
 		// calculate yesterdayMins and streak
 		totalFocusSeconds := 0
 		totalGoalMinutes := 0
@@ -68,10 +85,17 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		}
 		userPatch.YesterdayMins = new(int)
 		*(userPatch.YesterdayMins) = totalFocusSeconds / 60
+		err = svc.sessionRepo.ResetProgress(ctx, userId, closedDate)
+		if err != nil {
+			return err
+		}
 		userPatch.LastResetDate = new(string)
 		*(userPatch.LastResetDate) = todayDate
-		svc.userSvc.Update(ctx, userPatch)
-		err = svc.sessionRepo.ResetProgress(ctx, userId, todayDate)
+		if !manualReset {
+			userPatch.LastAutoResetDate = new(string)
+			*(userPatch.LastAutoResetDate) = todayDate
+		}
+		err = svc.userSvc.Update(ctx, userPatch)
 		if err != nil {
 			return err
 		}
@@ -79,6 +103,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		userData.Streak = *userPatch.Streak
 		userData.TotalGoalMinutes = totalGoalMinutes
 		userData.LastResetDate = todayDate
+		userData.AutoReset = !manualReset
 	case EventAutoResetTimeChange:
 		if userPatch.SessionsResetTime == nil || userPatch.Timezone == nil {
 			return fmt.Errorf("SessionsResetTime and Timezone needs to be supplied")
@@ -167,11 +192,13 @@ func (svc *EventService) ReceiveUserEvent(ctx context.Context, userId string, us
 			Streak           int    `json:"streak"`
 			TotalGoalMinutes int    `json:"totalGoalMinutes"`
 			LastResetDate    string `json:"lastResetDate"`
+			AutoReset        bool   `json:"autoReset"`
 		}{
 			YesterdayMins:    userData.YesterdayMins,
 			Streak:           userData.Streak,
 			TotalGoalMinutes: userData.TotalGoalMinutes,
 			LastResetDate:    userData.LastResetDate,
+			AutoReset:        userData.AutoReset,
 		}
 	case EventAutoResetTimeChange:
 		msg.Object = struct {
@@ -266,7 +293,9 @@ func (svc *EventService) ScheduleSessionReset(ctx context.Context) error {
 func (svc *EventService) handleResetTrigger(userId string) {
 	ctx := context.Background()
 	svc.logger.Info().Msgf("Reset triggered for user: %s", userId)
-	svc.HandleEvent(ctx, EventResetProgress, userId, &entities.UserPatchInput{})
+	if err := svc.HandleEvent(ctx, EventResetProgress, userId, &entities.UserPatchInput{}); err != nil {
+		svc.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to auto reset progress")
+	}
 	user, err := svc.userSvc.GetUserDetails(ctx, userId)
 	if err != nil {
 		svc.logger.Error().Msgf("Error retreiving user: %s", userId)
@@ -363,6 +392,7 @@ type UserEventData struct {
 	Streak           int
 	SessionResetTime string
 	LastResetDate    string
+	AutoReset        bool
 	Timezone         string
 	TotalGoalMinutes int
 }

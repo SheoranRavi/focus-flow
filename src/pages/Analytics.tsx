@@ -44,6 +44,7 @@ const AnalyticsPage: React.FC = () => {
   const [profile, setProfile] = useState<BackendUser | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [range, setRange] = useState<AnalyticsRangeKey>("7d");
+  const [includeDeleted, setIncludeDeleted] = useState(false);
   const [analyticsRows, setAnalyticsRows] = useState<BackendAnalyticsEntry[]>([]);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
@@ -97,7 +98,7 @@ const AnalyticsPage: React.FC = () => {
 
     const { startDate, endDate } = getAnalyticsRangeWindow(range, profile.timezone);
 
-    api.getAnalytics(startDate, endDate, false)
+    api.getAnalytics(startDate, endDate, includeDeleted)
       .then((rows) => {
         if (!cancelled) {
           setAnalyticsRows(rows);
@@ -118,7 +119,7 @@ const AnalyticsPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [user, profile, range]);
+  }, [user, profile, range, includeDeleted]);
 
   const handleSaveSettings = useCallback(async (newResetTime: string, newTimezone: string) => {
     setProfile((current) => {
@@ -171,7 +172,7 @@ const AnalyticsPage: React.FC = () => {
 
       <main className="mx-auto max-w-7xl px-6 py-8 md:px-8">
         <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-white to-emerald-50/50 p-6 shadow-sm md:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
               <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">
                 <BarChart3 size={16} />
@@ -185,7 +186,16 @@ const AnalyticsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3 lg:mt-1">
+              <label className="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={includeDeleted}
+                  onChange={(event) => setIncludeDeleted(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                Include deleted sessions
+              </label>
               <Button asChild variant="outline" className="border-slate-300 bg-white">
                 <Link to="/app">
                   <ArrowLeft size={16} />

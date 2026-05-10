@@ -18,6 +18,10 @@ interface FetchOptions {
   body?: string;
 }
 
+type UserEventPayload = Partial<BackendUser> & {
+  manualReset?: boolean;
+};
+
 async function fetchWithAuth(url: string, options: FetchOptions = {}): Promise<Response> {
   const token = await getAuthToken();
   if (!token) {
@@ -280,8 +284,9 @@ export const api = {
             const yesterdayMins = data.yesterdayMins;
             const streak = data.streak;
             const resetDate = normalizeLastResetDate(data.lastResetDate);
+            const autoReset = Boolean(data.autoReset);
             console.log(`From API yesterdayMins: ${yesterdayMins}, streak: ${streak}`);
-            dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate});
+            dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate, autoReset});
           } catch (error) {
             console.error('Error handling reset_progress event:', error);
           }
@@ -343,7 +348,7 @@ export const api = {
   // Send user events (progress reset, autoreset time change)
   async sendUserEvent(
     eventType: string,
-    payload: Partial<BackendUser> = {}
+    payload: UserEventPayload = {}
   ): Promise<void> {
     await fetchWithAuth(`/users/event?type=${eventType}`, {
       method: 'POST',
@@ -357,6 +362,9 @@ export const api = {
     const response = await fetchWithAuth(`/users/me`);
     const user: BackendUser = await response.json();
     user.lastResetDate = normalizeLastResetDate(user.lastResetDate);
+    user.lastAutoResetDate = typeof user.lastAutoResetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(user.lastAutoResetDate)
+      ? user.lastAutoResetDate
+      : '';
     console.log(`fetched user: ${JSON.stringify(user)}`);
     return user
   },
