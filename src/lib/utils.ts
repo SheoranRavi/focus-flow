@@ -6,16 +6,30 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export const getTodayDateTimeString = () => {
+export const getTodayDateTimeString = (timeZone?: string) => {
   const now = new Date();
-  const currentTimeString = now.toLocaleTimeString("en-GB", {
-    hour: '2-digit',
-    minute: '2-digit'
+  const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+    ...(timeZone ? { timeZone } : {}),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   });
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const todayDate = `${yyyy}-${mm}-${dd}`; // local YYYY-MM-DD
+  const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+    ...(timeZone ? { timeZone } : {}),
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const dateParts = Object.fromEntries(
+    dateFormatter.formatToParts(now).map((part) => [part.type, part.value])
+  ) as Record<string, string>;
+  const timeParts = Object.fromEntries(
+    timeFormatter.formatToParts(now).map((part) => [part.type, part.value])
+  ) as Record<string, string>;
+
+  const todayDate = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+  const currentTimeString = `${timeParts.hour}:${timeParts.minute}`;
   return [todayDate, currentTimeString];
 };
 

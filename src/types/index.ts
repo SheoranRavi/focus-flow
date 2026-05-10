@@ -19,10 +19,19 @@ export interface BackendUser{
   email: string;
   sessionsResetTime: string;
   lastResetDate: string;
+  lastAutoResetDate: string;
   activeSessionId: number | null;
   yesterdayMins: number;
   streak: number;
   timezone: string;
+}
+
+export interface BackendAnalyticsEntry {
+  id: number;
+  name: string;
+  date: string;
+  timeSpentMinutes: number;
+  goalMinutes: number;
 }
 
 // Component Props

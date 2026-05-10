@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import { AuthProvider } from './context/AuthContext';
 import Home from './pages/Home';
+import AnalyticsPage from './pages/Analytics';
 import { registerNotificationServiceWorker } from './lib/notifications';
 
 const rootElement = document.getElementById('root');
@@ -20,6 +21,10 @@ const router = createBrowserRouter([
   {
     path: "/app",
     element: <App/>,
+  },
+  {
+    path: "/analytics",
+    element: <AnalyticsPage/>,
   },
   {
     path: "/login",

@@ -271,19 +271,126 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session, touchU
 	return err
 }
 
-func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string) error {
-	query := `
-		UPDATE sessions
-		SET
-			focus_seconds = 0,
-			is_completed = FALSE,
-			time_left = session_duration
-		WHERE user_id = $1
-			AND is_deleted = FALSE
+func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string, resetDate string) error {
+	tx, err := repo.db.BeginTx(ctx, nil)
+	if err != nil {
+		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to begin reset transaction")
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	rows, err := tx.QueryContext(
+		ctx,
+		`
+			SELECT id, focus_seconds, daily_goal_minutes
+			FROM sessions
+			WHERE user_id = $1
+				AND is_deleted = FALSE
+			FOR UPDATE
+		`,
+		userId,
+	)
+	if err != nil {
+		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to load sessions for reset")
+		return err
+	}
+	defer rows.Close()
+
+	type dailyTimeRow struct {
+		sessionId    int64
+		focusSeconds int
+		goalMinutes  int
+	}
+
+	sessionRows := make([]dailyTimeRow, 0)
+	for rows.Next() {
+		var row dailyTimeRow
+		if err := rows.Scan(&row.sessionId, &row.focusSeconds, &row.goalMinutes); err != nil {
+			repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to scan session row for reset")
+			return err
+		}
+		sessionRows = append(sessionRows, row)
+	}
+	if err := rows.Err(); err != nil {
+		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to iterate session rows for reset")
+		return err
+	}
+
+	const upsertDailyTimeQuery = `
+		INSERT INTO task_daily_time (session_id, date, num_seconds_spent, goal_minutes)
+		VALUES ($1, $2::date, $3, $4)
+		ON CONFLICT (session_id, date)
+		DO UPDATE SET
+			num_seconds_spent = task_daily_time.num_seconds_spent + EXCLUDED.num_seconds_spent,
+			goal_minutes = EXCLUDED.goal_minutes
 	`
-	_, err := repo.db.ExecContext(ctx, query, userId)
+	for _, row := range sessionRows {
+		_, err = tx.ExecContext(
+			ctx,
+			upsertDailyTimeQuery,
+			row.sessionId,
+			resetDate,
+			row.focusSeconds,
+			row.goalMinutes,
+		)
+		if err != nil {
+			repo.logger.Error().Err(err).Int64("session_id", row.sessionId).Str("user_id", userId).Msg("Failed to upsert task daily time")
+			return err
+		}
+	}
+
+	_, err = tx.ExecContext(
+		ctx,
+		`
+			UPDATE sessions
+			SET
+				focus_seconds = 0,
+				is_completed = FALSE,
+				time_left = session_duration
+			WHERE user_id = $1
+				AND is_deleted = FALSE
+		`,
+		userId,
+	)
 	if err != nil {
 		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to reset progress")
+		return err
 	}
-	return err
+
+	if err = tx.Commit(); err != nil {
+		repo.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to commit reset transaction")
+		return err
+	}
+	return nil
+}
+
+func (repo *SessionRepo) UpdateTaskDailyTimeGoal(ctx context.Context, sessionId int64, date string, goalMinutes int) error {
+	res, err := repo.db.ExecContext(
+		ctx,
+		`
+			UPDATE task_daily_time
+			SET goal_minutes = $1
+			WHERE session_id = $2
+				AND date = $3::date
+		`,
+		goalMinutes,
+		sessionId,
+		date,
+	)
+	if err != nil {
+		repo.logger.Error().Err(err).Int64("session_id", sessionId).Str("date", date).Msg("Failed to update task daily time goal")
+		return err
+	}
+
+	rowsAffected, rowsErr := res.RowsAffected()
+	if rowsErr != nil {
+		repo.logger.Warn().Err(rowsErr).Int64("session_id", sessionId).Msg("Failed to read rows affected for task daily time goal update")
+		return nil
+	}
+	if rowsAffected == 0 {
+		repo.logger.Debug().Int64("session_id", sessionId).Str("date", date).Msg("No task daily time row found to update")
+	}
+	return nil
 }

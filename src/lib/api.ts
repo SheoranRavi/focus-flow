@@ -1,6 +1,6 @@
 import { AppAction } from '@/context/reducer';
 import React from "react";
-import { Session, BackendUser } from '../types';
+import { Session, BackendUser, BackendAnalyticsEntry } from '../types';
 import { getTodayDateTimeString } from './utils';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -17,6 +17,10 @@ interface FetchOptions {
   headers?: Record<string, string>;
   body?: string;
 }
+
+type UserEventPayload = Partial<BackendUser> & {
+  manualReset?: boolean;
+};
 
 async function fetchWithAuth(url: string, options: FetchOptions = {}): Promise<Response> {
   const token = await getAuthToken();
@@ -36,7 +40,8 @@ async function fetchWithAuth(url: string, options: FetchOptions = {}): Promise<R
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.statusText}`);
+    const errorText = await response.text().catch(() => '');
+    throw new Error(errorText || `API error: ${response.statusText}`);
   }
 
   return response;
@@ -279,8 +284,9 @@ export const api = {
             const yesterdayMins = data.yesterdayMins;
             const streak = data.streak;
             const resetDate = normalizeLastResetDate(data.lastResetDate);
+            const autoReset = Boolean(data.autoReset);
             console.log(`From API yesterdayMins: ${yesterdayMins}, streak: ${streak}`);
-            dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate});
+            dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate, autoReset});
           } catch (error) {
             console.error('Error handling reset_progress event:', error);
           }
@@ -342,7 +348,7 @@ export const api = {
   // Send user events (progress reset, autoreset time change)
   async sendUserEvent(
     eventType: string,
-    payload: Partial<BackendUser> = {}
+    payload: UserEventPayload = {}
   ): Promise<void> {
     await fetchWithAuth(`/users/event?type=${eventType}`, {
       method: 'POST',
@@ -356,7 +362,20 @@ export const api = {
     const response = await fetchWithAuth(`/users/me`);
     const user: BackendUser = await response.json();
     user.lastResetDate = normalizeLastResetDate(user.lastResetDate);
+    user.lastAutoResetDate = typeof user.lastAutoResetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(user.lastAutoResetDate)
+      ? user.lastAutoResetDate
+      : '';
     console.log(`fetched user: ${JSON.stringify(user)}`);
     return user
+  },
+
+  async getAnalytics(startDate: string, endDate: string, includeDeleted = false): Promise<BackendAnalyticsEntry[]> {
+    const params = new URLSearchParams({
+      startDate,
+      endDate,
+      includeDeleted: String(includeDeleted),
+    });
+    const response = await fetchWithAuth(`/analytics?${params.toString()}`);
+    return response.json();
   },
 };

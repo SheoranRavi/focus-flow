@@ -63,12 +63,14 @@ func main() {
 
 	// Initialize repositories
 	sessionRepo := repo.NewSessionRepo(database)
+	analyticsRepo := repo.NewAnalyticRepo(database)
 	userRepo := repo.NewUserRepo(database)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, authClient)
 	eventService := service.NewEventService(userService, sessionRepo)
 	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
+	analyticsService := service.NewAnalyticService(sessionService, analyticsRepo)
 
 	// Schedule events
 	schedErr := sessionService.ScheduleEvents(ctx)
@@ -88,6 +90,7 @@ func main() {
 	// Initialize router
 	r := server.NewRouter(
 		sessionService,
+		analyticsService,
 		eventService,
 		userService,
 		authMiddleware,
