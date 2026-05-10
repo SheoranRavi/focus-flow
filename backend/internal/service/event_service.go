@@ -58,7 +58,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 				svc.logger.Info().Str("user_id", userId).Msg("Skipping auto reset because today's auto reset already ran")
 				return nil
 			}
-			closedDate = user.LastAutoResetDate
+			closedDate = user.LastResetDate
 			if closedDate == "" {
 				closedDate, err = previousISODate(todayDate)
 				if err != nil {
