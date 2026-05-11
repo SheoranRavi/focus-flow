@@ -153,6 +153,7 @@ const App: React.FC = () => {
     ]);
 
     if (sessionsResult.status === 'fulfilled' && userResult.status === 'fulfilled') {
+      setStartupError(null);
       return;
     }
 
