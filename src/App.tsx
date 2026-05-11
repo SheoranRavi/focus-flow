@@ -152,13 +152,38 @@ const App: React.FC = () => {
       syncUserFromApi(),
     ]);
 
-    const rejectedResult = [sessionsResult, userResult].find(
-      (result): result is PromiseRejectedResult => result.status === 'rejected'
-    );
+    if (sessionsResult.status === 'fulfilled' && userResult.status === 'fulfilled') {
+      return;
+    }
 
-    if (rejectedResult) {
-      const error = rejectedResult.reason;
-      throw error instanceof Error ? error : new Error('Failed to sync initial state from API');
+    const localFallbackState = buildLocalStorageState();
+    const failedSources: string[] = [];
+
+    if (sessionsResult.status === 'rejected') {
+      console.error('Failed to sync sessions from API:', sessionsResult.reason);
+      failedSources.push('sessions');
+      dispatch({type: 'LOAD_SESSIONS', sessions: localFallbackState.sessions});
+    }
+
+    if (userResult.status === 'rejected') {
+      console.error('Failed to sync user from API:', userResult.reason);
+      failedSources.push('user');
+      dispatch({
+        type: 'LOAD_USER',
+        user: {
+          streak: localFallbackState.streak,
+          yesterdayMins: localFallbackState.yesterdayMinutes,
+          sessionsResetTime: localFallbackState.resetTime,
+          lastResetDate: localFallbackState.lastResetDate,
+          lastAutoResetDate: localFallbackState.lastAutoResetDate,
+          timezone: localFallbackState.timezone,
+          activeSessionId: localFallbackState.activeSessionId,
+        },
+      });
+    }
+
+    if (failedSources.length > 0) {
+      setStartupError(`Failed to sync ${failedSources.join(' and ')} from the server. Loaded local data where needed.`);
     }
   }, [syncSessionsFromApi, syncUserFromApi]);
 
@@ -175,23 +200,9 @@ const App: React.FC = () => {
     setStartupError(null);
     syncStateFromApi()
       .catch((error) => {
-        console.error('Failed to sync initial state from API:', error);
+        console.error('Unexpected error while syncing initial state from API:', error);
         if (!cancelled) {
-          const localFallbackState = buildLocalStorageState();
           setStartupError(error instanceof Error ? error.message : 'Failed to load your account from the server');
-          dispatch({type: 'LOAD_SESSIONS', sessions: localFallbackState.sessions});
-          dispatch({
-            type: 'LOAD_USER',
-            user: {
-              streak: localFallbackState.streak,
-              yesterdayMins: localFallbackState.yesterdayMinutes,
-              sessionsResetTime: localFallbackState.resetTime,
-              lastResetDate: localFallbackState.lastResetDate,
-              lastAutoResetDate: localFallbackState.lastAutoResetDate,
-              timezone: localFallbackState.timezone,
-              activeSessionId: localFallbackState.activeSessionId,
-            },
-          });
         }
       })
       .finally(() => {
