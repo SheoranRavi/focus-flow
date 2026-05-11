@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';
-import { Plus, RotateCcw } from 'lucide-react';
+import { AlertCircle, Loader2, Plus, RotateCcw } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
 import { Session, TimerState } from './types';
@@ -15,6 +15,45 @@ import { appReducer, AppState } from './context/reducer';
 import { notifySessionComplete, requestSessionNotificationPermission } from './lib/notifications';
 import { sortSessionsForDisplay } from './lib/utils';
 
+const DEFAULT_SESSIONS: Session[] = [
+  { id: 1, title: 'Deep Work', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
+  { id: 2, title: 'Reading', sessionDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0, state: TimerState.PAUSED },
+  { id: 3, title: 'Emails', sessionDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0, state: TimerState.PAUSED },
+];
+
+function buildLocalStorageState(): AppState {
+  const storedSessions = localStorage.getItem('sessions');
+  const sessions = storedSessions
+    ? sortSessionsForDisplay(parseSessionsFromStorage(storedSessions, DEFAULT_SESSIONS))
+    : DEFAULT_SESSIONS;
+
+  const activeSessionId = sessions.find(s => s.state === TimerState.RUNNING)?.id ?? null;
+
+  return {
+    sessions,
+    activeSessionId,
+    streak: parseInt(localStorage.getItem('streak') ?? '0', 10),
+    yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
+    lastResetDate: normalizeDateToISO(localStorage.getItem('lastResetDate')),
+    lastAutoResetDate: normalizeDateToISO(localStorage.getItem('lastAutoResetDate')),
+    resetTime: localStorage.getItem('resetTime') ?? '00:00',
+    timezone: localStorage.getItem('timezone') ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+}
+
+function buildBlankAuthenticatedState(): AppState {
+  return {
+    sessions: [],
+    activeSessionId: null,
+    streak: 0,
+    yesterdayMinutes: 0,
+    lastResetDate: '',
+    lastAutoResetDate: '',
+    resetTime: '00:00',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+}
+
 
 // --- Main App Component ---
 const App: React.FC = () => {
@@ -23,38 +62,19 @@ const App: React.FC = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [sseKey, setSseKey] = useState(0);
   const [resetStateReady, setResetStateReady] = useState(false);
+  const [startupError, setStartupError] = useState<string | null>(null);
 
-  function initState(): AppState {
-    const fallbackSessions: Session[] = [
-      { id: 1, title: 'Deep Work', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
-      { id: 2, title: 'Reading', sessionDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0, state: TimerState.PAUSED },
-      { id: 3, title: 'Emails', sessionDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0, state: TimerState.PAUSED },
-    ];
-
-    const storedSessions = localStorage.getItem('sessions');
-    const sessions = storedSessions
-      ? sortSessionsForDisplay(parseSessionsFromStorage(storedSessions, fallbackSessions))
-      : fallbackSessions;
-
-    const activeSessionId = sessions.find(s => s.state === TimerState.RUNNING)?.id ?? null;
-
-    return {
-      sessions,
-      activeSessionId,
-      streak: parseInt(localStorage.getItem('streak') ?? '0', 10),
-      yesterdayMinutes: parseFloat(localStorage.getItem('yesterdayMins') ?? '0'),
-      lastResetDate: normalizeDateToISO(localStorage.getItem('lastResetDate')),
-      lastAutoResetDate: normalizeDateToISO(localStorage.getItem('lastAutoResetDate')),
-      resetTime: localStorage.getItem('resetTime') ?? '00:00',
-      timezone: localStorage.getItem('timezone') ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-    };
-  };
-
-  const [state, dispatch] = useReducer(appReducer, undefined, initState);
+  const [state, dispatch] = useReducer(appReducer, undefined, () => (
+    user ? buildBlankAuthenticatedState() : buildLocalStorageState()
+  ));
 
   // Audio ref for timer end
   const audioRef = useRef<HTMLAudioElement>(null);
-  const initialSessions = useRef(state.sessions);
+  const initialSessions = useRef<Session[]>(
+    user
+      ? DEFAULT_SESSIONS.map((session) => ({ ...session }))
+      : state.sessions.map((session) => ({ ...session }))
+  );
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
   const sessionSyncPromiseRef = useRef<Promise<void> | null>(null);
   const sseHandleRef = useRef<ReturnType<typeof api.streamEvents> | null>(null);
@@ -110,9 +130,6 @@ const App: React.FC = () => {
 
     try {
       await sessionSyncPromiseRef.current;
-    } catch (error) {
-      console.error('Failed to sync sessions from API:', error);
-      // Keep using localStorage sessions on error.
     } finally {
       sessionSyncPromiseRef.current = null;
     }
@@ -130,10 +147,45 @@ const App: React.FC = () => {
   }, [user]);
 
   const syncStateFromApi = useCallback(async () => {
-    await Promise.allSettled([
+    const [sessionsResult, userResult] = await Promise.allSettled([
       syncSessionsFromApi(),
       syncUserFromApi(),
     ]);
+
+    if (sessionsResult.status === 'fulfilled' && userResult.status === 'fulfilled') {
+      setStartupError(null);
+      return;
+    }
+
+    const localFallbackState = buildLocalStorageState();
+    const failedSources: string[] = [];
+
+    if (sessionsResult.status === 'rejected') {
+      console.error('Failed to sync sessions from API:', sessionsResult.reason);
+      failedSources.push('sessions');
+      dispatch({type: 'LOAD_SESSIONS', sessions: localFallbackState.sessions});
+    }
+
+    if (userResult.status === 'rejected') {
+      console.error('Failed to sync user from API:', userResult.reason);
+      failedSources.push('user');
+      dispatch({
+        type: 'LOAD_USER',
+        user: {
+          streak: localFallbackState.streak,
+          yesterdayMins: localFallbackState.yesterdayMinutes,
+          sessionsResetTime: localFallbackState.resetTime,
+          lastResetDate: localFallbackState.lastResetDate,
+          lastAutoResetDate: localFallbackState.lastAutoResetDate,
+          timezone: localFallbackState.timezone,
+          activeSessionId: localFallbackState.activeSessionId,
+        },
+      });
+    }
+
+    if (failedSources.length > 0) {
+      setStartupError(`Failed to sync ${failedSources.join(' and ')} from the server. Loaded local data where needed.`);
+    }
   }, [syncSessionsFromApi, syncUserFromApi]);
 
   // Fetch sessions and user details from API if user is logged in
@@ -141,13 +193,18 @@ const App: React.FC = () => {
     let cancelled = false;
     if (!user){
       setResetStateReady(true);
+      setStartupError(null);
       return;
     }
 
     setResetStateReady(false);
+    setStartupError(null);
     syncStateFromApi()
       .catch((error) => {
-        console.error('Failed to sync initial state from API:', error);
+        console.error('Unexpected error while syncing initial state from API:', error);
+        if (!cancelled) {
+          setStartupError(error instanceof Error ? error.message : 'Failed to load your account from the server');
+        }
       })
       .finally(() => {
         if (!cancelled) {
@@ -159,7 +216,9 @@ const App: React.FC = () => {
       cancelled = true;
     };
   }, [user, syncStateFromApi])
-  
+
+  const loadingView = user && !resetStateReady;
+
   // Derived State: Calculate total daily goal from individual session goals
   const totalDailyGoalMinutes = state.sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
 
@@ -412,6 +471,20 @@ const App: React.FC = () => {
   // Derived State for UI
   const activeSessionTitle = state.sessions.find(s => s.id === state.activeSessionId)?.title || "Ready to Focus";
 
+  if (loadingView) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-emerald-100 flex items-center justify-center px-6">
+        <div className="flex flex-col items-center gap-4 rounded-3xl border border-slate-200 bg-white px-8 py-10 shadow-sm">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+          <div className="text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Loading workspace</p>
+            <p className="mt-2 text-sm text-slate-600">Fetching your sessions and settings from the server.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-emerald-100">
       <Navbar
@@ -423,6 +496,17 @@ const App: React.FC = () => {
         handleSaveSettings={handleSaveSettings}
       />
       <main className="max-w-7xl mx-auto p-6 md:p-8">
+        {startupError && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold">Loaded local data after server sync failed</p>
+                <p className="text-sm text-amber-800">{startupError}</p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Hidden Audio Element */}
         <audio 
             ref={audioRef} 
