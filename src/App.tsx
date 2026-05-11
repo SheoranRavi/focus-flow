@@ -70,7 +70,11 @@ const App: React.FC = () => {
 
   // Audio ref for timer end
   const audioRef = useRef<HTMLAudioElement>(null);
-  const initialSessions = useRef<Session[]>(DEFAULT_SESSIONS.map((session) => ({ ...session })));
+  const initialSessions = useRef<Session[]>(
+    user
+      ? DEFAULT_SESSIONS.map((session) => ({ ...session }))
+      : state.sessions.map((session) => ({ ...session }))
+  );
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
   const sessionSyncPromiseRef = useRef<Promise<void> | null>(null);
   const sseHandleRef = useRef<ReturnType<typeof api.streamEvents> | null>(null);
