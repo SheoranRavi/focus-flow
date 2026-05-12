@@ -45,6 +45,7 @@ func (svc *UserService) Update(ctx context.Context, patch *entities.UserPatchInp
 }
 
 func (svc *UserService) GetUserDetails(ctx context.Context, userId string) (*entities.User, error) {
+	svc.logger.Debug().Str("user_id", userId).Msg("Getting user details")
 	err := svc.EnsureUserExists(ctx, userId)
 	if err != nil {
 		return nil, err
