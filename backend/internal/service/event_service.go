@@ -40,7 +40,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		return err
 	}
 	if userPatch == nil {
-		userPatch = &entities.UserPatchInput{}
+		userPatch = &entities.UserPatchInput{UserId: userId}
 	}
 	var userData UserEventData
 	switch t {
@@ -293,7 +293,7 @@ func (svc *EventService) ScheduleSessionReset(ctx context.Context) error {
 func (svc *EventService) handleResetTrigger(userId string) {
 	ctx := context.Background()
 	svc.logger.Info().Msgf("Reset triggered for user: %s", userId)
-	if err := svc.HandleEvent(ctx, EventResetProgress, userId, &entities.UserPatchInput{}); err != nil {
+	if err := svc.HandleEvent(ctx, EventResetProgress, userId, &entities.UserPatchInput{UserId: userId}); err != nil {
 		svc.logger.Error().Err(err).Str("user_id", userId).Msg("Failed to auto reset progress")
 	}
 	user, err := svc.userSvc.GetUserDetails(ctx, userId)

@@ -45,6 +45,7 @@ func (svc *UserService) Update(ctx context.Context, patch *entities.UserPatchInp
 }
 
 func (svc *UserService) GetUserDetails(ctx context.Context, userId string) (*entities.User, error) {
+	svc.logger.Info().Msgf("Getting user details for userId: %s", userId)
 	err := svc.EnsureUserExists(ctx, userId)
 	if err != nil {
 		return nil, err
@@ -66,6 +67,7 @@ func (svc *UserService) GetAllUsers(ctx context.Context) ([]*entities.User, erro
 
 func (svc *UserService) EnsureUserExists(ctx context.Context, userId string) error {
 	var email, name string
+	svc.logger.Info().Msgf("EnsureUserExists userId: %s", userId)
 
 	if v := ctx.Value(middleware.AuthUserKey); v != nil {
 		if authUser, ok := v.(middleware.AuthUser); ok {
