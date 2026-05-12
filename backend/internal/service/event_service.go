@@ -40,8 +40,9 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		return err
 	}
 	if userPatch == nil {
-		userPatch = &entities.UserPatchInput{UserId: userId}
+		userPatch = &entities.UserPatchInput{}
 	}
+	userPatch.UserId = userId
 	var userData UserEventData
 	switch t {
 	case EventResetProgress:
