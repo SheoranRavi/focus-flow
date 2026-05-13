@@ -46,4 +46,27 @@ describe("analytics helpers", () => {
     expect(viewModel.totalMinutesSpent).toBe(90);
     expect(viewModel.sessionTotals.map((session) => session.sessionName)).toEqual(["Deep Work", "Writing"]);
   });
+
+  it("keeps 30 day buckets in chronological order", () => {
+    const now = new Date("2026-05-07T12:00:00Z");
+    const rows = [
+      { id: 1, name: "Deep Work", date: "2026-04-08", timeSpentMinutes: 25, goalMinutes: 60 },
+      { id: 1, name: "Deep Work", date: "2026-05-07", timeSpentMinutes: 35, goalMinutes: 60 },
+    ];
+
+    const viewModel = buildAnalyticsViewModel(rows, "30d", "UTC", now);
+
+    expect(viewModel.bucketMode).toBe("day");
+    expect(viewModel.buckets).toHaveLength(30);
+    expect(viewModel.buckets[0]).toMatchObject({
+      startDate: "2026-04-08",
+      endDate: "2026-04-08",
+    });
+    expect(viewModel.buckets[viewModel.buckets.length - 1]).toMatchObject({
+      startDate: "2026-05-07",
+      endDate: "2026-05-07",
+    });
+    expect(viewModel.buckets[0].totalMinutes).toBe(25);
+    expect(viewModel.buckets[viewModel.buckets.length - 1].totalMinutes).toBe(35);
+  });
 });

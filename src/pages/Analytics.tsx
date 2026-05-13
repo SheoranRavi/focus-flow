@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import {
   AlertCircle,
@@ -49,6 +49,7 @@ const AnalyticsPage: React.FC = () => {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const chartScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -155,6 +156,23 @@ const AnalyticsPage: React.FC = () => {
   const loading = isLoadingProfile || isLoadingAnalytics;
   const hasRows = analyticsRows.length > 0;
 
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const element = chartScrollRef.current;
+    if (!element) {
+      return;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      element.scrollLeft = element.scrollWidth;
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [loading, viewModel.buckets.length]);
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -246,7 +264,7 @@ const AnalyticsPage: React.FC = () => {
             icon={<Clock3 size={18} />}
           />
           <MetricCard
-            label="Goal minutes"
+            label="Accumulated Goal"
             value={loading && !hasRows ? "Loading..." : formatMinutes(viewModel.totalGoalMinutes)}
             helper={`${Math.round(viewModel.completionPercent)}% of target`}
             icon={<Target size={18} />}
@@ -309,7 +327,7 @@ const AnalyticsPage: React.FC = () => {
                     <span>0 min</span>
                   </div>
 
-                  <div className="h-[360px] overflow-x-auto">
+                  <div ref={chartScrollRef} className="h-[360px] overflow-x-auto">
                     <div className="flex h-full min-w-max items-end gap-3 pb-2">
                       {viewModel.buckets.map((bucket) => (
                         <div key={bucket.key} className="flex w-16 flex-1 min-w-[64px] flex-col justify-end">
