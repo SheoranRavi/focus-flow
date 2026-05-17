@@ -126,9 +126,9 @@ const Home: React.FC = () => {
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
               <BarChart3 size={20} />
             </div>
-            <h2 className="font-bold text-slate-900">Analytics dashboard</h2>
+            <h2 className="font-bold text-slate-900">Pro analytics dashboard</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              See how much time you spend on each session over the last week, month, and more.
+              Unlock the session-by-session analytics view with weekly, monthly, and quarterly breakdowns.
             </p>
             <Button asChild variant="outline" className="mt-4 border-slate-300 bg-white">
               <Link to="/analytics">Open analytics</Link>

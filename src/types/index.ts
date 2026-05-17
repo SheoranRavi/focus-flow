@@ -24,6 +24,16 @@ export interface BackendUser{
   yesterdayMins: number;
   streak: number;
   timezone: string;
+  subscriptionTier: string;
+  subscriptionStatus: string;
+  subscriptionInterval?: string | null;
+  razorpayCustomerId?: string | null;
+  razorpaySubscriptionId?: string | null;
+  subscriptionStartedAt?: string | null;
+  subscriptionCurrentPeriodEnd?: string | null;
+  subscriptionCancelAtPeriodEnd: boolean;
+  subscriptionCancelledAt?: string | null;
+  subscriptionUpdatedAt: string;
 }
 
 export interface BackendAnalyticsEntry {

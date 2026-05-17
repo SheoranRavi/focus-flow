@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	firebase "firebase.google.com/go/v4"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -68,6 +69,13 @@ func main() {
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, authClient)
+	paymentService := service.NewPaymentService(userService, service.PaymentConfig{
+		KeyID:               os.Getenv("RAZORPAY_KEY_ID"),
+		KeySecret:           os.Getenv("RAZORPAY_KEY_SECRET"),
+		CheckoutAmountPaise: paymentCheckoutAmountFromEnv(),
+		Currency:            "INR",
+		APIBaseURL:          os.Getenv("RAZORPAY_API_BASE_URL"),
+	})
 	eventService := service.NewEventService(userService, sessionRepo)
 	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
 	analyticsService := service.NewAnalyticService(sessionService, analyticsRepo)
@@ -91,6 +99,7 @@ func main() {
 	r := server.NewRouter(
 		sessionService,
 		analyticsService,
+		paymentService,
 		eventService,
 		userService,
 		authMiddleware,
@@ -107,4 +116,14 @@ func main() {
 	if err := http.ListenAndServe("0.0.0.0:"+port, r); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
+}
+
+func paymentCheckoutAmountFromEnv() int {
+	amount := 19900
+	if raw := os.Getenv("RAZORPAY_CHECKOUT_AMOUNT_PAISE"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			amount = parsed
+		}
+	}
+	return amount
 }

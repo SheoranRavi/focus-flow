@@ -70,6 +70,18 @@ export interface StreamEventsHandle {
   hasActiveConnection: () => boolean;
 }
 
+export interface RazorpayCreateOrderResponse {
+  order_id: string;
+  amount: number;
+  currency: string;
+}
+
+export interface RazorpayVerifyPaymentRequest {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
 // Convert backend session format to frontend format
 function mapBackendToFrontend(backendSession: BackendSession): Session {
   return {
@@ -141,6 +153,22 @@ export const api = {
     await fetchWithAuth(`/sessions/${sessionId}`, {
       method: 'DELETE',
     });
+  },
+
+  async createRazorpayOrder(): Promise<RazorpayCreateOrderResponse> {
+    const response = await fetchWithAuth('/payments/create-order', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    return response.json();
+  },
+
+  async verifyRazorpayPayment(payload: RazorpayVerifyPaymentRequest): Promise<{ success: boolean }> {
+    const response = await fetchWithAuth('/payments/verify-payment', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.json();
   },
 
   streamEvents(
@@ -365,6 +393,9 @@ export const api = {
     user.lastAutoResetDate = typeof user.lastAutoResetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(user.lastAutoResetDate)
       ? user.lastAutoResetDate
       : '';
+    user.subscriptionTier = user.subscriptionTier ?? 'free';
+    user.subscriptionStatus = user.subscriptionStatus ?? 'inactive';
+    user.subscriptionCancelAtPeriodEnd = user.subscriptionCancelAtPeriodEnd ?? false;
     console.log(`fetched user: ${JSON.stringify(user)}`);
     return user
   },

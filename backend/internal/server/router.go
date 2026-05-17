@@ -13,6 +13,7 @@ import (
 func NewRouter(
 	sessionSvc *service.SessionService,
 	analyticsSvc *service.AnalyticsService,
+	paymentSvc *service.PaymentService,
 	eventSvc *service.EventService,
 	userSvc *service.UserService,
 	authMiddleware func(http.Handler) http.Handler,
@@ -43,7 +44,8 @@ func NewRouter(
 	})
 
 	sessionHandler := handlers.NewSessionHandler(sessionSvc, eventSvc)
-	analyticsHandler := handlers.NewAnalyticHandler(analyticsSvc)
+	analyticsHandler := handlers.NewAnalyticHandler(analyticsSvc, userSvc)
+	paymentHandler := handlers.NewPaymentHandler(paymentSvc)
 
 	r.Route("/sessions", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -59,6 +61,12 @@ func NewRouter(
 	r.Route("/analytics", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Get("/", analyticsHandler.Get)
+	})
+
+	r.Route("/payments", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Post("/create-order", paymentHandler.CreateOrder)
+		r.Post("/verify-payment", paymentHandler.VerifyPayment)
 	})
 
 	sseHandler := handlers.NewSSEHandler(eventSvc)
