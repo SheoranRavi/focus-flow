@@ -75,15 +75,15 @@ const Navbar: React.FC<NavbarProps> = (props) => {
       <header className="sticky top-0 z-30 w-full px-3 py-2">
         <nav className="max-w-7xl mx-auto bg-white/60 backdrop-blur-lg border border-white/20 rounded-2xl px-4 py-2 flex items-center justify-between shadow-lg shadow-slate-200/50">
           <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-emerald-200 shadow-lg">
+          <div className="brand-gradient shadow-brand w-10 h-10 rounded-xl flex items-center justify-center text-white">
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <h1 className="font-bold text-xl tracking-tight text-slate-900">Focus Flow</h1>
+            <h1 className="font-bold text-xl tracking-tight text-slate-900">Task Quota</h1>
             <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
               {activeSessionId ? (
-                <span className="flex items-center gap-1 text-emerald-600 animate-pulse">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Focusing on {activeSessionTitle}
+                <span className="flex items-center gap-1 text-brand animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-brand"></span> Focusing on {activeSessionTitle}
                 </span>
               ) : "No active session"}
             </p>
@@ -145,7 +145,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                                   type="time"
                                   value={localResetTime}
                                   onChange={(e) => setLocalResetTime(e.target.value)}
-                                  className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                                  className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft w-full"
                                 />
                             </div>
                             <div className="flex flex-col gap-2">
@@ -155,7 +155,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                                 <select
                                   value={localTimezone}
                                   onChange={(e) => setLocalTimezone(e.target.value)}
-                                  className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                                  className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft w-full"
                                 >
                                   {!COMMON_TIMEZONES.includes(localTimezone) && (
                                     <option value={localTimezone}>{localTimezone}</option>
@@ -168,7 +168,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                             {hasChanges && (
                               <button
                                 onClick={handleSave}
-                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                                className="w-full bg-brand hover:bg-brand/90 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
                               >
                                 Save Changes
                               </button>
@@ -270,7 +270,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                       type="time"
                       value={localResetTime}
                       onChange={(e) => setLocalResetTime(e.target.value)}
-                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft w-full"
                     />
                   </div>
                   <div className="space-y-2">
@@ -280,7 +280,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                     <select
                       value={localTimezone}
                       onChange={(e) => setLocalTimezone(e.target.value)}
-                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-full"
+                      className="border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft w-full"
                     >
                       {!COMMON_TIMEZONES.includes(localTimezone) && (
                         <option value={localTimezone}>{localTimezone}</option>
@@ -293,7 +293,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                   {hasChanges && (
                     <button
                       onClick={handleSave}
-                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                      className="w-full bg-brand hover:bg-brand/90 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
                     >
                       Save Changes
                     </button>

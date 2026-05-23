@@ -41,7 +41,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
     <div className={`
       relative flex flex-col items-center justify-between p-6 rounded-3xl bg-white shadow-sm border
       transition-all duration-300 w-full md:w-[320px] flex-shrink-0 snap-center
-      ${isActive ? 'border-emerald-400 ring-2 ring-emerald-100 shadow-lg m-1 scale-[1.02]' : 'border-slate-100 hover:border-slate-200'}
+      ${isActive ? 'border-brand ring-2 ring-brand-soft shadow-lg m-1 scale-[1.02]' : 'border-slate-100 hover:border-slate-200'}
     `}>
       
       {/* Header / Edit Mode */}
@@ -77,14 +77,14 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
             </div>
 
             <div className="flex gap-2 mt-2">
-              <button onClick={handleSave} className="text-xs bg-emerald-500 text-white px-2 py-1 rounded">Save</button>
+              <button onClick={handleSave} className="text-xs bg-brand text-white px-2 py-1 rounded">Save</button>
               <button onClick={() => setIsEditing(false)} className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Cancel</button>
             </div>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-2 max-w-[80%]">
-               {session.isCompleted ? <CheckCircle2 size={20} className="text-emerald-500" /> : null}
+               {session.isCompleted ? <CheckCircle2 size={20} className="text-brand" /> : null}
                <h3 className="font-bold text-slate-800 truncate" title={session.title}>{session.title}</h3>
             </div>
             <div className="flex gap-1">
@@ -94,7 +94,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
                   setEditDailyGoal(session.dailyGoalMinutes);
                   setIsEditing(true);
                 }}
-                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+                className="p-1.5 text-slate-400 hover:text-brand hover:bg-brand-soft rounded-full transition-colors"
               >
                 <Pencil size={14} />
               </button>
@@ -128,7 +128,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
                     cy={100}
                   />
                   <circle
-                    stroke="#3b82f6" // blue-500
+                    stroke="var(--brand)"
                     strokeWidth={outerStroke}
                     strokeDasharray={outerCircumference + ' ' + outerCircumference}
                     style={{ strokeDashoffset: outerStrokeDashoffset, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
@@ -145,7 +145,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
             <div className="w-40 h-40 rounded-full border-4 border-slate-100 flex items-center justify-center relative overflow-hidden z-10 bg-white">
                 {/* Progress Fill Overlay */}
                 <div 
-                  className="absolute bottom-0 left-0 right-0 bg-emerald-200 transition-all duration-1000 ease-linear opacity-50"
+                  className="absolute bottom-0 left-0 right-0 bg-brand-soft transition-all duration-1000 ease-linear opacity-50"
                   style={{ height: `${progressPercent * 100}%` }}
                 />
                 <div className="z-10 text-center">
@@ -161,7 +161,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
          
          {/* Goal Progress Text */}
          <div className="mt-2 text-xs font-medium text-slate-400 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span className="w-2 h-2 rounded-full bg-brand"></span>
             Daily Goal: {Math.round(goalProgressPercent * 100)}%
          </div>
       </div>
@@ -171,7 +171,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
         {isActive ? (
            <button 
              onClick={() => onPause(session.id)}
-             className="flex items-center gap-2 bg-emerald-100 text-emerald-700 px-6 py-3 rounded-xl font-semibold hover:bg-emerald-200 transition-colors"
+             className="flex items-center gap-2 bg-brand-soft text-brand px-6 py-3 rounded-xl font-semibold hover:bg-brand-soft/80 transition-colors"
            >
              <Pause size={20} fill="currentColor" /> Pause
            </button>
@@ -200,13 +200,13 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
 
       {session.isCompleted && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] rounded-3xl flex items-center justify-center z-20">
-          <div className="bg-white p-6 rounded-2xl shadow-xl border border-emerald-100 text-center transform animate-in zoom-in duration-200">
-            <CheckCircle2 size={48} className="text-emerald-500 mx-auto mb-3" />
+          <div className="bg-white p-6 rounded-2xl shadow-xl border border-brand-soft text-center transform animate-in zoom-in duration-200">
+            <CheckCircle2 size={48} className="text-brand mx-auto mb-3" />
             <h3 className="font-bold text-xl text-slate-800">Session Complete!</h3>
             <p className="text-slate-500 mb-4">Great focus.</p>
             <button 
               onClick={() => onReset(session.id)}
-              className="bg-emerald-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-600 w-full"
+              className="bg-brand text-white px-4 py-2 rounded-lg font-medium hover:bg-brand/90 w-full"
             >
               Reset Session
             </button>

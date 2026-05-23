@@ -26,7 +26,7 @@ const ProgressRing: React.FC<ProgressRingProps> = ({ radius, stroke, progress, t
           cy={radius}
         />
         <circle
-          stroke="#10b981" // emerald-500
+          stroke="var(--brand)"
           strokeWidth={stroke}
           strokeDasharray={circumference + ' ' + circumference}
           style={{ strokeDashoffset }}

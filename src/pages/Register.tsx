@@ -124,7 +124,7 @@ const Register: React.FC = () => {
                     required
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                    className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-brand focus:border-brand focus:z-10 sm:text-sm"
                     placeholder="First Name"
                   />
                 </div>
@@ -139,7 +139,7 @@ const Register: React.FC = () => {
                     required
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                    className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-brand focus:border-brand focus:z-10 sm:text-sm"
                     placeholder="Last Name"
                   />
                 </div>
@@ -157,7 +157,7 @@ const Register: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-brand focus:border-brand focus:z-10 sm:text-sm"
                   placeholder="Email address"
                 />
               </div>
@@ -174,7 +174,7 @@ const Register: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-brand focus:border-brand focus:z-10 sm:text-sm"
                   placeholder="Password (min. 6 characters)"
                   minLength={6}
                 />
@@ -185,7 +185,7 @@ const Register: React.FC = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-brand text-white hover:bg-brand/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Creating account..." : "Sign up"}
               </Button>
@@ -194,7 +194,7 @@ const Register: React.FC = () => {
             <div className="text-center">
               <p className="text-sm text-gray-600">
                 Already have an account?{" "}
-                <a href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+                <a href="/login" className="font-medium text-brand hover:text-brand/80">
                   Sign in
                 </a>
               </p>

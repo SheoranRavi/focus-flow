@@ -178,7 +178,7 @@ const AnalyticsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-emerald-100">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-brand-soft">
       <Navbar
         activeSessionTitle={activeSessionTitle}
         activeSessionId={activeSessionId}
@@ -189,10 +189,10 @@ const AnalyticsPage: React.FC = () => {
       />
 
       <main className="mx-auto max-w-7xl px-6 py-8 md:px-8">
-        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-white to-emerald-50/50 p-6 shadow-sm md:p-8">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-white to-brand-soft/50 p-6 shadow-sm md:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
-              <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">
+              <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-brand">
                 <BarChart3 size={16} />
                 Analytics
               </div>
@@ -210,7 +210,7 @@ const AnalyticsPage: React.FC = () => {
                   type="checkbox"
                   checked={includeDeleted}
                   onChange={(event) => setIncludeDeleted(event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
                 />
                 Include deleted sessions
               </label>
@@ -308,7 +308,7 @@ const AnalyticsPage: React.FC = () => {
             ) : viewModel.sessionTotals.length === 0 ? (
               <div className="mt-6 flex min-h-[320px] items-center justify-center rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 px-6 text-center">
                 <div className="max-w-sm">
-                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-brand">
                     <BarChart3 size={20} />
                   </div>
                   <h3 className="text-base font-semibold text-slate-900">No analytics yet</h3>
@@ -374,7 +374,7 @@ const AnalyticsPage: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Total</div>
-                  <div className="text-lg font-bold text-emerald-600">{formatMinutes(viewModel.totalMinutesSpent)}</div>
+                  <div className="text-lg font-bold text-brand">{formatMinutes(viewModel.totalMinutesSpent)}</div>
                 </div>
               </div>
 
@@ -455,7 +455,7 @@ function MetricCard({
           <p className="text-sm font-medium text-slate-500">{label}</p>
           <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{value}</p>
         </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-soft text-brand">
           {icon}
         </div>
       </div>

@@ -95,7 +95,7 @@ const CreateSession: React.FC<CreateSessionProps> = ({ open, onOpenChange, onAdd
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Deep Work, Reading, Exercise"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
             />
           </div>
 
@@ -113,7 +113,7 @@ const CreateSession: React.FC<CreateSessionProps> = ({ open, onOpenChange, onAdd
                   id="duration-hours"
                   value={durationHours}
                   onChange={(e) => setDurationHours(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                 >
                   {hourOptions.map((hour) => (
                     <option key={hour} value={hour}>
@@ -130,7 +130,7 @@ const CreateSession: React.FC<CreateSessionProps> = ({ open, onOpenChange, onAdd
                   id="duration-minutes"
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                 >
                   {minuteOptions.map((minute) => (
                     <option key={minute} value={minute}>
@@ -149,7 +149,7 @@ const CreateSession: React.FC<CreateSessionProps> = ({ open, onOpenChange, onAdd
               type="checkbox"
               checked={noGoal}
               onChange={(e) => setNoGoal(e.target.checked)}
-              className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
+              className="w-4 h-4 text-brand border-slate-300 rounded focus:ring-2 focus:ring-brand"
             />
             <label htmlFor="no-goal" className="text-sm font-medium text-slate-700 cursor-pointer">
               No Goal (Just track time)
@@ -171,7 +171,7 @@ const CreateSession: React.FC<CreateSessionProps> = ({ open, onOpenChange, onAdd
                     id="goal-hours"
                     value={goalHours}
                     onChange={(e) => setGoalHours(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                   >
                     {hourOptions.map((hour) => (
                       <option key={hour} value={hour}>
@@ -188,7 +188,7 @@ const CreateSession: React.FC<CreateSessionProps> = ({ open, onOpenChange, onAdd
                     id="goal-minutes"
                     value={goalMinutes}
                     onChange={(e) => setGoalMinutes(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                   >
                     {minuteOptions.map((minute) => (
                       <option key={minute} value={minute}>

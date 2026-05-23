@@ -10,9 +10,9 @@ const Footer: React.FC = () => {
           
           {/* Brand Section */}
           <div className="space-y-3">
-            <h3 className="font-bold text-lg text-slate-800">Focus Flow</h3>
+            <h3 className="font-bold text-lg text-slate-800">Task Quota</h3>
             <p className="text-sm text-slate-600">
-              Stay focused, track your progress, and achieve your goals with our productivity timer.
+              Measure how you spend time across tasks, then use the data to improve your schedule.
             </p>
           </div>
 
@@ -25,7 +25,7 @@ const Footer: React.FC = () => {
                   href="https://merchant.razorpay.com/policy/RxL6gyEm0EewW8/terms"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-slate-600 hover:text-emerald-600 transition-colors"
+                  className="text-sm text-slate-600 hover:text-brand transition-colors"
                 >
                   Terms & Conditions
                 </a>
@@ -35,7 +35,7 @@ const Footer: React.FC = () => {
                   href="https://merchant.razorpay.com/policy/RxL6gyEm0EewW8/refund"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-slate-600 hover:text-emerald-600 transition-colors"
+                  className="text-sm text-slate-600 hover:text-brand transition-colors"
                 >
                   Cancellation & Refund Policy
                 </a>
@@ -45,7 +45,7 @@ const Footer: React.FC = () => {
                   href="https://merchant.razorpay.com/policy/RxL6gyEm0EewW8/shipping"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-slate-600 hover:text-emerald-600 transition-colors"
+                  className="text-sm text-slate-600 hover:text-brand transition-colors"
                 >
                   Shipping & Delivery Policy
                 </a>
@@ -65,7 +65,7 @@ const Footer: React.FC = () => {
         {/* Bottom Bar */}
         <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-slate-500">
-            © {currentYear} Focus Flow. All rights reserved.
+            © {currentYear} Task Quota. All rights reserved.
           </p>
           {/* <p className="text-sm text-slate-500 flex items-center gap-1">
             Made with <Heart size={14} className="text-red-500 fill-red-500" /> for productivity
