@@ -244,8 +244,10 @@ describe("Analytics page", () => {
 
     renderPage();
 
+    await user.click(await screen.findByRole("button", { name: /open settings/i }));
     const cancelNowButton = await screen.findByRole("button", { name: /cancel now/i });
     await user.click(cancelNowButton);
+    await user.click(await screen.findByRole("button", { name: /confirm cancellation/i }));
 
     await waitFor(() => {
       expect(mockApi.cancelRazorpaySubscription).toHaveBeenCalledWith({
@@ -259,8 +261,10 @@ describe("Analytics page", () => {
 
     renderPage();
 
+    await user.click(await screen.findByRole("button", { name: /open settings/i }));
     const cancelLaterButton = await screen.findByRole("button", { name: /cancel at period end/i });
     await user.click(cancelLaterButton);
+    await user.click(await screen.findByRole("button", { name: /confirm cancellation/i }));
 
     await waitFor(() => {
       expect(mockApi.cancelRazorpaySubscription).toHaveBeenCalledWith({

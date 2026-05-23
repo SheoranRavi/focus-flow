@@ -296,6 +296,10 @@ const AnalyticsPage: React.FC = () => {
         resetTime={resetTime}
         timezone={timezone}
         handleSaveSettings={handleSaveSettings}
+        subscriptionStatus={profile?.subscriptionStatus}
+        subscriptionCancelAtPeriodEnd={profile?.subscriptionCancelAtPeriodEnd}
+        isCancellingSubscription={isCancellingSubscription}
+        onCancelSubscription={handleCancelSubscription}
       />
 
       <main className="mx-auto max-w-7xl px-6 py-8 md:px-8">
@@ -406,47 +410,6 @@ const AnalyticsPage: React.FC = () => {
                 helper={`Data grouped by ${viewModel.bucketMode}`}
                 icon={<RefreshCw size={18} />}
               />
-            </section>
-
-            <section className="mt-6 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Subscription</p>
-                  <h2 className="mt-1 text-lg font-bold text-slate-900">Task Quota Pro</h2>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {subscriptionPrice} · {profile?.subscriptionStatus}
-                    {profile?.subscriptionCancelAtPeriodEnd ? " · Cancels at period end" : " · Renews monthly"}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    variant="outline"
-                    className="border-slate-300 bg-white"
-                    onClick={() => handleCancelSubscription(true)}
-                    disabled={isCancellingSubscription || !profile?.razorpaySubscriptionId}
-                  >
-                    {isCancellingSubscription ? "Working..." : "Cancel at period end"}
-                  </Button>
-                  <Button
-                    onClick={() => handleCancelSubscription(false)}
-                    disabled={isCancellingSubscription || !profile?.razorpaySubscriptionId}
-                    className="bg-slate-950 text-white hover:bg-slate-800"
-                  >
-                    {isCancellingSubscription ? "Working..." : "Cancel now"}
-                  </Button>
-                </div>
-              </div>
-              {(checkoutMessage || checkoutError) && (
-                <div
-                  className={`mt-4 rounded-[1.25rem] border p-4 text-sm ${
-                    checkoutError
-                      ? "border-rose-200 bg-rose-50 text-rose-700"
-                      : "border-brand-soft bg-brand-soft text-brand"
-                  }`}
-                >
-                  {checkoutError ?? checkoutMessage}
-                </div>
-              )}
             </section>
 
             <section className="mt-6 grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">

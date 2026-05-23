@@ -3,6 +3,7 @@ import React, {useState, useEffect} from "react";
 import {useNavigate } from "react-router-dom";
 import { CheckCircle2, MoreHorizontal, Clock, X, Menu, BarChart3 } from "lucide-react";
 import Button from "./ui/Button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/Dialog";
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -12,7 +13,11 @@ export interface NavbarProps{
   streak: number,
   resetTime: string,
   timezone: string,
-  handleSaveSettings: (newResetTime: string, newTimezone: string) => void
+  handleSaveSettings: (newResetTime: string, newTimezone: string) => void,
+  subscriptionStatus?: string,
+  subscriptionCancelAtPeriodEnd?: boolean,
+  isCancellingSubscription?: boolean,
+  onCancelSubscription?: (cancelAtPeriodEnd: boolean) => void,
 }
 
 const COMMON_TIMEZONES = [
@@ -41,8 +46,20 @@ const Navbar: React.FC<NavbarProps> = (props) => {
   const isLoggedIn = !!user;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingCancelAtPeriodEnd, setPendingCancelAtPeriodEnd] = useState<boolean | null>(null);
 
-  const {activeSessionTitle, activeSessionId, streak, resetTime, timezone, handleSaveSettings} = props;
+  const {
+    activeSessionTitle,
+    activeSessionId,
+    streak,
+    resetTime,
+    timezone,
+    handleSaveSettings,
+    subscriptionStatus,
+    subscriptionCancelAtPeriodEnd,
+    isCancellingSubscription = false,
+    onCancelSubscription,
+  } = props;
 
   // Local state for form editing
   const [localResetTime, setLocalResetTime] = useState(resetTime);
@@ -69,6 +86,58 @@ const Navbar: React.FC<NavbarProps> = (props) => {
     navigate("/login");
     setIsMobileMenuOpen(false);
   }
+
+  const openCancelConfirmation = (cancelAtPeriodEnd: boolean) => {
+    setPendingCancelAtPeriodEnd(cancelAtPeriodEnd);
+  };
+
+  const closeCancelConfirmation = () => {
+    setPendingCancelAtPeriodEnd(null);
+  };
+
+  const confirmCancellation = () => {
+    if (pendingCancelAtPeriodEnd === null || !onCancelSubscription) {
+      return;
+    }
+
+    onCancelSubscription(pendingCancelAtPeriodEnd);
+    closeCancelConfirmation();
+    setIsMenuOpen(false);
+    setIsMobileMenuOpen(false);
+  };
+
+  const subscriptionCancellationSection = onCancelSubscription && subscriptionStatus === "active" ? (
+    <div className="pt-3 border-t border-slate-100 space-y-3">
+      <div>
+        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Subscription</p>
+        <p className="text-sm text-slate-600 mt-1">
+          {subscriptionCancelAtPeriodEnd
+            ? "Cancellation scheduled for the end of the current billing period."
+            : "Your subscription renews monthly."}
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-center border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+          onClick={() => openCancelConfirmation(true)}
+          disabled={isCancellingSubscription}
+        >
+          {isCancellingSubscription ? "Working..." : "Cancel at period end"}
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          className="w-full justify-center"
+          onClick={() => openCancelConfirmation(false)}
+          disabled={isCancellingSubscription}
+        >
+          {isCancellingSubscription ? "Working..." : "Cancel now"}
+        </Button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -120,6 +189,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
           <div className="relative">
             <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label="Open settings"
                 className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100 text-slate-500'}`}
             >
                 <MoreHorizontal size={20} />
@@ -173,6 +243,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                                 Save Changes
                               </button>
                             )}
+                            {subscriptionCancellationSection}
                           </div>
                     </div>
                 </>
@@ -298,12 +369,38 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                       Save Changes
                     </button>
                   )}
+                  {subscriptionCancellationSection}
                 </div>
               </div>
             </div>
           </div>
         </>
       )}
+
+      <Dialog open={pendingCancelAtPeriodEnd !== null} onOpenChange={(open) => {
+        if (!open) {
+          closeCancelConfirmation();
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm cancellation</DialogTitle>
+            <DialogDescription>
+              {pendingCancelAtPeriodEnd
+                ? "This will schedule your subscription to end at the close of the current billing period."
+                : "This will cancel your subscription immediately."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={closeCancelConfirmation}>
+              Keep subscription
+            </Button>
+            <Button type="button" variant="destructive" className="w-full sm:w-auto" onClick={confirmCancellation}>
+              Confirm cancellation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
