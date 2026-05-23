@@ -9,8 +9,9 @@ const mockApi = vi.hoisted(() => ({
   getSessions: vi.fn(),
   getAnalytics: vi.fn(),
   sendUserEvent: vi.fn(),
-  createRazorpayOrder: vi.fn(),
-  verifyRazorpayPayment: vi.fn(),
+  createRazorpaySubscription: vi.fn(),
+  verifyRazorpaySubscription: vi.fn(),
+  cancelRazorpaySubscription: vi.fn(),
 }));
 
 const razorpayState = vi.hoisted(() => ({
@@ -22,7 +23,7 @@ const razorpayState = vi.hoisted(() => ({
   options: null as null | {
     handler?: (payload: {
       razorpay_payment_id: string;
-      razorpay_order_id: string;
+      razorpay_subscription_id: string;
       razorpay_signature: string;
     }) => void | Promise<void>;
   },
@@ -75,6 +76,9 @@ describe("Analytics page", () => {
       timezone: "UTC",
       subscriptionTier: "pro",
       subscriptionStatus: "active",
+      subscriptionCurrency: "USD",
+      razorpaySubscriptionId: "sub_123",
+      razorpayPlanId: "plan_123",
       subscriptionCancelAtPeriodEnd: false,
       subscriptionUpdatedAt: "2026-05-07T00:00:00.000Z",
     });
@@ -94,12 +98,19 @@ describe("Analytics page", () => {
       { id: 1, name: "Deep Work", date: "2026-05-07", timeSpentMinutes: 45, goalMinutes: 60 },
     ]);
     mockApi.sendUserEvent.mockResolvedValue(undefined);
-    mockApi.createRazorpayOrder.mockResolvedValue({
-      order_id: "order_123",
-      amount: 19900,
-      currency: "INR",
+    mockApi.createRazorpaySubscription.mockResolvedValue({
+      subscription_id: "sub_123",
+      plan_id: "plan_123",
+      status: "created",
+      currency: "USD",
     });
-    mockApi.verifyRazorpayPayment.mockResolvedValue({ success: true });
+    mockApi.verifyRazorpaySubscription.mockResolvedValue({ success: true });
+    mockApi.cancelRazorpaySubscription.mockResolvedValue({
+      subscription_id: "sub_123",
+      plan_id: "plan_123",
+      status: "cancelled",
+      currency: "USD",
+    });
   });
 
   it("renders analytics data and refetches when the range changes", async () => {
@@ -146,6 +157,7 @@ describe("Analytics page", () => {
       timezone: "UTC",
       subscriptionTier: "free",
       subscriptionStatus: "inactive",
+      subscriptionCurrency: "USD",
       subscriptionCancelAtPeriodEnd: false,
       subscriptionUpdatedAt: "2026-05-07T00:00:00.000Z",
     });
@@ -173,6 +185,7 @@ describe("Analytics page", () => {
         timezone: "UTC",
         subscriptionTier: "free",
         subscriptionStatus: "inactive",
+        subscriptionCurrency: "USD",
         subscriptionCancelAtPeriodEnd: false,
         subscriptionUpdatedAt: "2026-05-07T00:00:00.000Z",
       })
@@ -189,16 +202,19 @@ describe("Analytics page", () => {
         timezone: "UTC",
         subscriptionTier: "pro",
         subscriptionStatus: "active",
+        subscriptionCurrency: "USD",
+        razorpaySubscriptionId: "sub_123",
+        razorpayPlanId: "plan_123",
         subscriptionCancelAtPeriodEnd: false,
         subscriptionUpdatedAt: "2026-05-07T00:00:00.000Z",
       });
 
     renderPage();
 
-    const upgradeButton = await screen.findByRole("button", { name: /upgrade with razorpay/i });
+    const upgradeButton = await screen.findByRole("button", { name: /start .*subscription/i });
     await user.click(upgradeButton);
 
-    expect(mockApi.createRazorpayOrder).toHaveBeenCalledTimes(1);
+    expect(mockApi.createRazorpaySubscription).toHaveBeenCalledTimes(1);
     expect(razorpayState.constructor).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(razorpayState.instance.open).toHaveBeenCalledTimes(1);
@@ -207,19 +223,49 @@ describe("Analytics page", () => {
     await act(async () => {
       await razorpayState.options?.handler?.({
         razorpay_payment_id: "pay_123",
-        razorpay_order_id: "order_123",
+        razorpay_subscription_id: "sub_123",
         razorpay_signature: "signature_123",
       });
     });
 
-    expect(mockApi.verifyRazorpayPayment).toHaveBeenCalledWith({
+    expect(mockApi.verifyRazorpaySubscription).toHaveBeenCalledWith({
       razorpay_payment_id: "pay_123",
-      razorpay_order_id: "order_123",
+      razorpay_subscription_id: "sub_123",
       razorpay_signature: "signature_123",
     });
     await waitFor(() => {
       expect(mockApi.getAnalytics).toHaveBeenCalled();
     });
     expect(await screen.findByText(/focus time/i)).toBeInTheDocument();
+  });
+
+  it("calls the cancel endpoint when cancel now is chosen", async () => {
+    const user = userEvent.setup();
+
+    renderPage();
+
+    const cancelNowButton = await screen.findByRole("button", { name: /cancel now/i });
+    await user.click(cancelNowButton);
+
+    await waitFor(() => {
+      expect(mockApi.cancelRazorpaySubscription).toHaveBeenCalledWith({
+        cancel_at_period_end: false,
+      });
+    });
+  });
+
+  it("calls the cancel endpoint when cancel at period end is chosen", async () => {
+    const user = userEvent.setup();
+
+    renderPage();
+
+    const cancelLaterButton = await screen.findByRole("button", { name: /cancel at period end/i });
+    await user.click(cancelLaterButton);
+
+    await waitFor(() => {
+      expect(mockApi.cancelRazorpaySubscription).toHaveBeenCalledWith({
+        cancel_at_period_end: true,
+      });
+    });
   });
 });

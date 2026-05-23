@@ -14,6 +14,7 @@ import Button from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { openRazorpayCheckout, RazorpaySuccessPayload } from "@/lib/razorpay";
+import { formatSubscriptionPrice, resolveSubscriptionCurrency } from "@/lib/subscription";
 import {
   ANALYTICS_RANGE_CONFIG,
   AnalyticsRangeKey,
@@ -50,6 +51,7 @@ const AnalyticsPage: React.FC = () => {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
+  const [isCancellingSubscription, setIsCancellingSubscription] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,10 @@ const AnalyticsPage: React.FC = () => {
 
   const hasAnalyticsAccess = profile?.subscriptionTier === "pro" && profile?.subscriptionStatus === "active";
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID?.trim() ?? "";
+  const subscriptionCurrency = profile?.subscriptionCurrency === "INR" || profile?.subscriptionCurrency === "USD"
+    ? profile.subscriptionCurrency
+    : resolveSubscriptionCurrency();
+  const subscriptionPrice = formatSubscriptionPrice(subscriptionCurrency);
 
   useEffect(() => {
     if (!user) {
@@ -156,7 +162,7 @@ const AnalyticsPage: React.FC = () => {
   const handleCheckoutSuccess = useCallback(async (payload: RazorpaySuccessPayload) => {
     setCheckoutError(null);
     try {
-      await api.verifyRazorpayPayment(payload);
+      await api.verifyRazorpaySubscription(payload);
       setCheckoutMessage("Payment verified. Unlocking analytics...");
       const updatedUser = await api.getUser();
       if (updatedUser) {
@@ -183,14 +189,15 @@ const AnalyticsPage: React.FC = () => {
     setIsStartingCheckout(true);
 
     try {
-      const order = await api.createRazorpayOrder();
+      const subscription = await api.createRazorpaySubscription({
+        currency: subscriptionCurrency,
+      });
+      console.log(`key: ${razorpayKeyId}, sub_id: ${subscription.subscription_id}`);
       const checkout = await openRazorpayCheckout({
         key: razorpayKeyId,
-        amount: order.amount,
-        currency: order.currency,
         name: "Task Quota",
-        description: "Unlock analytics access",
-        order_id: order.order_id,
+        description: `Start your subscription`,
+        subscription_id: subscription.subscription_id,
         prefill: {
           name: profile.name || user?.displayName || undefined,
           email: profile.email || user?.email || undefined,
@@ -217,7 +224,35 @@ const AnalyticsPage: React.FC = () => {
     } finally {
       setIsStartingCheckout(false);
     }
-  }, [handleCheckoutSuccess, profile, razorpayKeyId, user?.displayName, user?.email]);
+  }, [handleCheckoutSuccess, profile, razorpayKeyId, subscriptionCurrency, user?.displayName, user?.email]);
+
+  const handleCancelSubscription = useCallback(async (cancelAtPeriodEnd: boolean) => {
+    if (!profile?.razorpaySubscriptionId) {
+      setCheckoutError("No active subscription found.");
+      return;
+    }
+
+    setCheckoutError(null);
+    setCheckoutMessage(null);
+    setIsCancellingSubscription(true);
+
+    try {
+      await api.cancelRazorpaySubscription({ cancel_at_period_end: cancelAtPeriodEnd });
+      setCheckoutMessage(
+        cancelAtPeriodEnd
+          ? "Cancellation scheduled for the end of the current billing period."
+          : "Subscription cancelled immediately.",
+      );
+      const updatedUser = await api.getUser();
+      if (updatedUser) {
+        setProfile(updatedUser);
+      }
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : "Failed to cancel subscription");
+    } finally {
+      setIsCancellingSubscription(false);
+    }
+  }, [profile]);
 
   const activeSessionId = profile?.activeSessionId ?? null;
   const activeSessionTitle = sessions.find((session) => session.id === activeSessionId)?.title ?? "Ready to Focus";
@@ -371,6 +406,47 @@ const AnalyticsPage: React.FC = () => {
                 helper={`Data grouped by ${viewModel.bucketMode}`}
                 icon={<RefreshCw size={18} />}
               />
+            </section>
+
+            <section className="mt-6 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Subscription</p>
+                  <h2 className="mt-1 text-lg font-bold text-slate-900">Task Quota Pro</h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {subscriptionPrice} · {profile?.subscriptionStatus}
+                    {profile?.subscriptionCancelAtPeriodEnd ? " · Cancels at period end" : " · Renews monthly"}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button
+                    variant="outline"
+                    className="border-slate-300 bg-white"
+                    onClick={() => handleCancelSubscription(true)}
+                    disabled={isCancellingSubscription || !profile?.razorpaySubscriptionId}
+                  >
+                    {isCancellingSubscription ? "Working..." : "Cancel at period end"}
+                  </Button>
+                  <Button
+                    onClick={() => handleCancelSubscription(false)}
+                    disabled={isCancellingSubscription || !profile?.razorpaySubscriptionId}
+                    className="bg-slate-950 text-white hover:bg-slate-800"
+                  >
+                    {isCancellingSubscription ? "Working..." : "Cancel now"}
+                  </Button>
+                </div>
+              </div>
+              {(checkoutMessage || checkoutError) && (
+                <div
+                  className={`mt-4 rounded-[1.25rem] border p-4 text-sm ${
+                    checkoutError
+                      ? "border-rose-200 bg-rose-50 text-rose-700"
+                      : "border-brand-soft bg-brand-soft text-brand"
+                  }`}
+                >
+                  {checkoutError ?? checkoutMessage}
+                </div>
+              )}
             </section>
 
             <section className="mt-6 grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
@@ -529,6 +605,8 @@ const AnalyticsPage: React.FC = () => {
             isLoading={isStartingCheckout}
             checkoutMessage={checkoutMessage}
             checkoutError={checkoutError}
+            subscriptionCurrency={subscriptionCurrency}
+            subscriptionPrice={subscriptionPrice}
           />
         ) : null}
       </main>
@@ -568,11 +646,15 @@ function SubscriptionPaywall({
   isLoading,
   checkoutMessage,
   checkoutError,
+  subscriptionCurrency,
+  subscriptionPrice,
 }: {
   onCheckout: () => void;
   isLoading: boolean;
   checkoutMessage: string | null;
   checkoutError: string | null;
+  subscriptionCurrency: string;
+  subscriptionPrice: string;
 }) {
   return (
     <section className="mt-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
@@ -603,8 +685,12 @@ function SubscriptionPaywall({
           <div>
             <div className="rounded-[1.5rem] border border-brand-soft bg-brand-soft p-5">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand">Checkout</p>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{subscriptionPrice}</p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Complete the Razorpay checkout, then verify the payment signature to unlock analytics automatically.
+              </p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Currency: {subscriptionCurrency}
               </p>
             </div>
 
@@ -636,7 +722,7 @@ function SubscriptionPaywall({
               </Link>
             </Button>
             <Button onClick={onCheckout} disabled={isLoading} className="bg-slate-950 text-white hover:bg-slate-800">
-              {isLoading ? "Opening Razorpay..." : "Upgrade with Razorpay"}
+              {isLoading ? "Opening Razorpay..." : "Start subscription"}
               <BarChart3 size={16} />
             </Button>
           </div>

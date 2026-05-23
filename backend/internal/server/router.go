@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/sheoranravi/focus-flow/backend/internal/handlers"
+	"github.com/sheoranravi/focus-flow/backend/internal/repo"
 	"github.com/sheoranravi/focus-flow/backend/internal/service"
 )
 
@@ -16,6 +17,7 @@ func NewRouter(
 	paymentSvc *service.PaymentService,
 	eventSvc *service.EventService,
 	userSvc *service.UserService,
+	webhookRepo *repo.RazorpayWebhookEventRepo,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
 ) http.Handler {
@@ -45,7 +47,8 @@ func NewRouter(
 
 	sessionHandler := handlers.NewSessionHandler(sessionSvc, eventSvc)
 	analyticsHandler := handlers.NewAnalyticHandler(analyticsSvc, userSvc)
-	paymentHandler := handlers.NewPaymentHandler(paymentSvc)
+	paymentHandler := handlers.NewPaymentHandler(paymentSvc, userSvc)
+	webhookHandler := handlers.NewRazorpayWebhookHandler(paymentSvc, userSvc, webhookRepo)
 
 	r.Route("/sessions", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -65,9 +68,12 @@ func NewRouter(
 
 	r.Route("/payments", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.Post("/create-order", paymentHandler.CreateOrder)
-		r.Post("/verify-payment", paymentHandler.VerifyPayment)
+		r.Post("/create-subscription", paymentHandler.CreateSubscription)
+		r.Post("/verify-subscription", paymentHandler.VerifySubscription)
+		r.Post("/cancel-subscription", paymentHandler.CancelSubscription)
 	})
+
+	r.Post("/webhooks/razorpay", webhookHandler.Handle)
 
 	sseHandler := handlers.NewSSEHandler(eventSvc)
 	r.Route("/events", func(r chi.Router) {

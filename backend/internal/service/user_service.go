@@ -57,6 +57,14 @@ func (svc *UserService) GetUserDetails(ctx context.Context, userId string) (*ent
 	return user, nil
 }
 
+func (svc *UserService) GetUserByRazorpaySubscriptionID(ctx context.Context, subscriptionID string) (*entities.User, error) {
+	user, err := svc.repo.GetByRazorpaySubscriptionID(ctx, subscriptionID)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 func (svc *UserService) GetAllUsers(ctx context.Context) ([]*entities.User, error) {
 	users, err := svc.repo.GetAll(ctx)
 	if err != nil {

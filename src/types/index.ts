@@ -27,6 +27,8 @@ export interface BackendUser{
   subscriptionTier: string;
   subscriptionStatus: string;
   subscriptionInterval?: string | null;
+  subscriptionCurrency?: string | null;
+  razorpayPlanId?: string | null;
   razorpayCustomerId?: string | null;
   razorpaySubscriptionId?: string | null;
   subscriptionStartedAt?: string | null;

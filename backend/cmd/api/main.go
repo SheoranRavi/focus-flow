@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
 	firebase "firebase.google.com/go/v4"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -66,15 +65,17 @@ func main() {
 	sessionRepo := repo.NewSessionRepo(database)
 	analyticsRepo := repo.NewAnalyticRepo(database)
 	userRepo := repo.NewUserRepo(database)
+	webhookRepo := repo.NewRazorpayWebhookEventRepo(database)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, authClient)
 	paymentService := service.NewPaymentService(userService, service.PaymentConfig{
-		KeyID:               os.Getenv("RAZORPAY_KEY_ID"),
-		KeySecret:           os.Getenv("RAZORPAY_KEY_SECRET"),
-		CheckoutAmountPaise: paymentCheckoutAmountFromEnv(),
-		Currency:            "INR",
-		APIBaseURL:          os.Getenv("RAZORPAY_API_BASE_URL"),
+		KeyID:         os.Getenv("RAZORPAY_KEY_ID"),
+		KeySecret:     os.Getenv("RAZORPAY_KEY_SECRET"),
+		PlanIDINR:     os.Getenv("RAZORPAY_PLAN_ID_INR"),
+		PlanIDUSD:     os.Getenv("RAZORPAY_PLAN_ID_USD"),
+		WebhookSecret: os.Getenv("RAZORPAY_WEBHOOK_SECRET"),
+		APIBaseURL:    os.Getenv("RAZORPAY_API_BASE_URL"),
 	})
 	eventService := service.NewEventService(userService, sessionRepo)
 	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
@@ -102,6 +103,7 @@ func main() {
 		paymentService,
 		eventService,
 		userService,
+		webhookRepo,
 		authMiddleware,
 		loggingMiddleware,
 	)
@@ -112,18 +114,10 @@ func main() {
 		port = "8080"
 	}
 
+	success := paymentService.TestSubscription()
+	log.Printf("test subscription success: %t", success)
 	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe("0.0.0.0:"+port, r); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
-}
-
-func paymentCheckoutAmountFromEnv() int {
-	amount := 19900
-	if raw := os.Getenv("RAZORPAY_CHECKOUT_AMOUNT_PAISE"); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil {
-			amount = parsed
-		}
-	}
-	return amount
 }

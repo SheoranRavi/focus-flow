@@ -70,16 +70,25 @@ export interface StreamEventsHandle {
   hasActiveConnection: () => boolean;
 }
 
-export interface RazorpayCreateOrderResponse {
-  order_id: string;
-  amount: number;
+export interface RazorpayCreateSubscriptionResponse {
+  subscription_id: string;
+  plan_id: string;
+  status: string;
   currency: string;
 }
 
-export interface RazorpayVerifyPaymentRequest {
-  razorpay_order_id: string;
+export interface RazorpayVerifySubscriptionRequest {
+  razorpay_subscription_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
+}
+
+export interface RazorpayCreateSubscriptionRequest {
+  currency: string;
+}
+
+export interface RazorpayCancelSubscriptionRequest {
+  cancel_at_period_end: boolean;
 }
 
 // Convert backend session format to frontend format
@@ -155,16 +164,28 @@ export const api = {
     });
   },
 
-  async createRazorpayOrder(): Promise<RazorpayCreateOrderResponse> {
-    const response = await fetchWithAuth('/payments/create-order', {
+  async createRazorpaySubscription(payload: RazorpayCreateSubscriptionRequest): Promise<RazorpayCreateSubscriptionResponse> {
+    const response = await fetchWithAuth('/payments/create-subscription', {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify(payload),
     });
     return response.json();
   },
 
-  async verifyRazorpayPayment(payload: RazorpayVerifyPaymentRequest): Promise<{ success: boolean }> {
-    const response = await fetchWithAuth('/payments/verify-payment', {
+  async verifyRazorpaySubscription(payload: {
+    razorpay_subscription_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }): Promise<{ success: boolean }> {
+    const response = await fetchWithAuth('/payments/verify-subscription', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.json();
+  },
+
+  async cancelRazorpaySubscription(payload: RazorpayCancelSubscriptionRequest): Promise<RazorpayCreateSubscriptionResponse> {
+    const response = await fetchWithAuth('/payments/cancel-subscription', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -396,6 +417,8 @@ export const api = {
     user.subscriptionTier = user.subscriptionTier ?? 'free';
     user.subscriptionStatus = user.subscriptionStatus ?? 'inactive';
     user.subscriptionCancelAtPeriodEnd = user.subscriptionCancelAtPeriodEnd ?? false;
+    user.subscriptionCurrency = user.subscriptionCurrency ?? null;
+    user.razorpayPlanId = user.razorpayPlanId ?? null;
     console.log(`fetched user: ${JSON.stringify(user)}`);
     return user
   },

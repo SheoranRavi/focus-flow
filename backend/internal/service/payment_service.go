@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,68 +20,100 @@ import (
 )
 
 var (
-	ErrPaymentAmountTooSmall    = errors.New("amount must be at least 100 paise")
 	ErrPaymentMissingFields     = errors.New("missing payment fields")
 	ErrPaymentSignatureMismatch = errors.New("razorpay signature mismatch")
 	ErrPaymentUnauthorized      = errors.New("razorpay authentication failed")
+	ErrUnsupportedCurrency      = errors.New("unsupported subscription currency")
+	ErrMissingPlanID            = errors.New("missing razorpay subscription plan id")
 )
+
+const subscriptionCycleCount = 1200
 
 type SubscriptionUpdater interface {
 	Update(ctx context.Context, patch *entities.UserPatchInput) error
 }
 
 type PaymentConfig struct {
-	KeyID               string
-	KeySecret           string
-	CheckoutAmountPaise int
-	Currency            string
-	APIBaseURL          string
-	Client              *http.Client
+	KeyID         string
+	KeySecret     string
+	PlanIDINR     string
+	PlanIDUSD     string
+	APIBaseURL    string
+	WebhookSecret string
+	Client        *http.Client
 }
 
 type PaymentService struct {
-	userUpdater    SubscriptionUpdater
-	keyID          string
-	keySecret      string
-	checkoutAmount int
-	currency       string
-	apiBaseURL     string
-	client         *http.Client
-	logger         zerolog.Logger
+	userUpdater   SubscriptionUpdater
+	keyID         string
+	keySecret     string
+	planIDINR     string
+	planIDUSD     string
+	apiBaseURL    string
+	webhookSecret string
+	client        *http.Client
+	logger        zerolog.Logger
 }
 
-type CreateOrderRequest struct {
-	Amount   int    `json:"amount,omitempty"`
+type CreateSubscriptionRequest struct {
 	Currency string `json:"currency,omitempty"`
-	Receipt  string `json:"receipt,omitempty"`
 }
 
-type CreateOrderResponse struct {
-	OrderID  string `json:"order_id"`
-	Amount   int    `json:"amount"`
-	Currency string `json:"currency"`
+type CreateSubscriptionResponse struct {
+	SubscriptionID string `json:"subscription_id"`
+	PlanID         string `json:"plan_id"`
+	Status         string `json:"status"`
+	Currency       string `json:"currency"`
 }
 
-type VerifyPaymentRequest struct {
-	RazorpayOrderID   string `json:"razorpay_order_id"`
-	RazorpayPaymentID string `json:"razorpay_payment_id"`
-	RazorpaySignature string `json:"razorpay_signature"`
+type VerifySubscriptionRequest struct {
+	RazorpaySubscriptionID string `json:"razorpay_subscription_id"`
+	RazorpayPaymentID      string `json:"razorpay_payment_id"`
+	RazorpaySignature      string `json:"razorpay_signature"`
 }
 
-type verifyPaymentResponse struct {
-	Success bool `json:"success"`
+type CancelSubscriptionRequest struct {
+	CancelAtPeriodEnd bool `json:"cancel_at_period_end"`
 }
 
-type razorpayOrderPayload struct {
-	Amount   int    `json:"amount"`
-	Currency string `json:"currency"`
-	Receipt  string `json:"receipt"`
+type razorpaySubscriptionRequest struct {
+	PlanID         string            `json:"plan_id"`
+	TotalCount     int               `json:"total_count"`
+	Quantity       int               `json:"quantity"`
+	CustomerNotify bool              `json:"customer_notify"`
+	Notes          map[string]string `json:"notes,omitempty"`
 }
 
-type razorpayOrderResponse struct {
-	ID       string `json:"id"`
-	Amount   int    `json:"amount"`
-	Currency string `json:"currency"`
+type RazorpaySubscriptionEntity struct {
+	ID                  string `json:"id"`
+	PlanID              string `json:"plan_id"`
+	CustomerID          string `json:"customer_id"`
+	Status              string `json:"status"`
+	CurrentStart        *int64 `json:"current_start"`
+	CurrentEnd          *int64 `json:"current_end"`
+	EndedAt             *int64 `json:"ended_at"`
+	ChargeAt            *int64 `json:"charge_at"`
+	StartAt             *int64 `json:"start_at"`
+	EndAt               *int64 `json:"end_at"`
+	AuthAttempts        int    `json:"auth_attempts"`
+	TotalCount          int    `json:"total_count"`
+	PaidCount           int    `json:"paid_count"`
+	CustomerNotify      bool   `json:"customer_notify"`
+	CreatedAt           int64  `json:"created_at"`
+	ExpireBy            *int64 `json:"expire_by"`
+	RemainingCount      *int64 `json:"remaining_count"`
+	HasScheduledChanges bool   `json:"has_scheduled_changes"`
+}
+
+type RazorpaySubscriptionWebhook struct {
+	ID        string `json:"id"`
+	Event     string `json:"event"`
+	CreatedAt int64  `json:"created_at"`
+	Payload   struct {
+		Subscription struct {
+			Entity RazorpaySubscriptionEntity `json:"entity"`
+		} `json:"subscription"`
+	} `json:"payload"`
 }
 
 func NewPaymentService(userUpdater SubscriptionUpdater, cfg PaymentConfig) *PaymentService {
@@ -91,66 +122,43 @@ func NewPaymentService(userUpdater SubscriptionUpdater, cfg PaymentConfig) *Paym
 		client = &http.Client{Timeout: 15 * time.Second}
 	}
 
-	currency := strings.TrimSpace(cfg.Currency)
-	if currency == "" {
-		currency = "INR"
-	}
-
 	apiBaseURL := strings.TrimRight(strings.TrimSpace(cfg.APIBaseURL), "/")
 	if apiBaseURL == "" {
 		apiBaseURL = "https://api.razorpay.com"
 	}
 
-	amount := cfg.CheckoutAmountPaise
-	if amount < 100 {
-		amount = 19900
-	}
-
 	return &PaymentService{
-		userUpdater:    userUpdater,
-		keyID:          strings.TrimSpace(cfg.KeyID),
-		keySecret:      strings.TrimSpace(cfg.KeySecret),
-		checkoutAmount: amount,
-		currency:       currency,
-		apiBaseURL:     apiBaseURL,
-		client:         client,
-		logger:         logger.NewServiceLogger("PaymentService"),
+		userUpdater:   userUpdater,
+		keyID:         strings.TrimSpace(cfg.KeyID),
+		keySecret:     strings.TrimSpace(cfg.KeySecret),
+		planIDINR:     strings.TrimSpace(cfg.PlanIDINR),
+		planIDUSD:     strings.TrimSpace(cfg.PlanIDUSD),
+		apiBaseURL:    apiBaseURL,
+		webhookSecret: strings.TrimSpace(cfg.WebhookSecret),
+		client:        client,
+		logger:        logger.NewServiceLogger("PaymentService"),
 	}
 }
 
-func (svc *PaymentService) CreateOrder(ctx context.Context, userID string, req *CreateOrderRequest) (*CreateOrderResponse, error) {
+func (svc *PaymentService) CreateSubscription(ctx context.Context, userID string, req *CreateSubscriptionRequest) (*CreateSubscriptionResponse, error) {
 	if svc.keyID == "" || svc.keySecret == "" {
 		return nil, ErrPaymentUnauthorized
 	}
 
-	amount := svc.checkoutAmount
-	if req != nil && req.Amount >= 100 {
-		amount = req.Amount
-	}
-	if amount < 100 {
-		return nil, ErrPaymentAmountTooSmall
+	currency, planID, err := svc.planForCurrency(req)
+	if err != nil {
+		return nil, err
 	}
 
-	currency := svc.currency
-	if req != nil && strings.TrimSpace(req.Currency) != "" {
-		currency = strings.TrimSpace(req.Currency)
-	}
-	if currency == "" {
-		currency = "INR"
-	}
-
-	receipt := ""
-	if req != nil {
-		receipt = strings.TrimSpace(req.Receipt)
-	}
-	if receipt == "" {
-		receipt = buildReceipt(userID)
-	}
-
-	body := razorpayOrderPayload{
-		Amount:   amount,
-		Currency: currency,
-		Receipt:  receipt,
+	body := razorpaySubscriptionRequest{
+		PlanID:         planID,
+		TotalCount:     subscriptionCycleCount,
+		Quantity:       1,
+		CustomerNotify: true,
+		Notes: map[string]string{
+			"user_id":  userID,
+			"currency": currency,
+		},
 	}
 
 	payload, err := json.Marshal(body)
@@ -158,14 +166,11 @@ func (svc *PaymentService) CreateOrder(ctx context.Context, userID string, req *
 		return nil, err
 	}
 
-	orderURL := svc.apiBaseURL + "/v1/orders"
-	svc.logger.Info().Msgf("orderURL:%s", orderURL)
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, orderURL, bytes.NewReader(payload))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, svc.apiBaseURL+"/v1/subscriptions", bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
 	request.SetBasicAuth(svc.keyID, svc.keySecret)
-	svc.logger.Info().Msgf("keyId and secret: %s, %s", svc.keyID, svc.keySecret)
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := svc.client.Do(request)
@@ -182,27 +187,33 @@ func (svc *PaymentService) CreateOrder(ctx context.Context, userID string, req *
 		svc.logger.Error().
 			Int("status", response.StatusCode).
 			Str("body", string(errorBody)).
-			Msg("Failed to create Razorpay order")
-		return nil, fmt.Errorf("razorpay order creation failed: %s", response.Status)
+			Msg("Failed to create Razorpay subscription")
+		return nil, fmt.Errorf("razorpay subscription creation failed: %s", response.Status)
 	}
 
-	var razorpayOrder razorpayOrderResponse
-	if err := json.NewDecoder(response.Body).Decode(&razorpayOrder); err != nil {
+	subscription, err := decodeRazorpaySubscriptionResponse(response.Body)
+	if err != nil {
 		return nil, err
 	}
 
-	return &CreateOrderResponse{
-		OrderID:  razorpayOrder.ID,
-		Amount:   razorpayOrder.Amount,
-		Currency: razorpayOrder.Currency,
+	now := time.Now().UTC()
+	if err := svc.userUpdater.Update(ctx, SubscriptionPatchFromEntity(userID, currency, &subscription, now, ptrBool(false))); err != nil {
+		return nil, err
+	}
+
+	return &CreateSubscriptionResponse{
+		SubscriptionID: subscription.ID,
+		PlanID:         subscription.PlanID,
+		Status:         subscription.Status,
+		Currency:       currency,
 	}, nil
 }
 
-func (svc *PaymentService) VerifyPayment(ctx context.Context, userID string, req *VerifyPaymentRequest) error {
+func (svc *PaymentService) VerifySubscription(ctx context.Context, userID string, req *VerifySubscriptionRequest) error {
 	if req == nil {
 		return ErrPaymentMissingFields
 	}
-	if strings.TrimSpace(req.RazorpayOrderID) == "" ||
+	if strings.TrimSpace(req.RazorpaySubscriptionID) == "" ||
 		strings.TrimSpace(req.RazorpayPaymentID) == "" ||
 		strings.TrimSpace(req.RazorpaySignature) == "" {
 		return ErrPaymentMissingFields
@@ -211,57 +222,242 @@ func (svc *PaymentService) VerifyPayment(ctx context.Context, userID string, req
 		return ErrPaymentUnauthorized
 	}
 
-	expected := buildSignature(req.RazorpayOrderID, req.RazorpayPaymentID, svc.keySecret)
+	expected := buildSignature(req.RazorpayPaymentID, req.RazorpaySubscriptionID, svc.keySecret)
 	if !hmac.Equal([]byte(expected), []byte(strings.TrimSpace(req.RazorpaySignature))) {
 		return ErrPaymentSignatureMismatch
 	}
 
-	interval := "one_time"
-	status := "active"
-	tier := "pro"
+	subscription, err := svc.fetchSubscription(ctx, req.RazorpaySubscriptionID)
+	if err != nil {
+		return err
+	}
+
 	now := time.Now().UTC()
-
-	return svc.userUpdater.Update(ctx, &entities.UserPatchInput{
-		UserId:                        userID,
-		SubscriptionTier:              &tier,
-		SubscriptionStatus:            &status,
-		SubscriptionInterval:          &interval,
-		SubscriptionStartedAt:         &now,
-		SubscriptionUpdatedAt:         &now,
-		SubscriptionCancelAtPeriodEnd: ptrBool(false),
-	})
+	if subscription.Status == "" {
+		subscription.Status = "active"
+	}
+	return svc.userUpdater.Update(ctx, SubscriptionPatchFromEntity(userID, svc.currencyForPlan(subscription.PlanID), subscription, now, ptrBool(false)))
 }
 
-func buildReceipt(userID string) string {
-	cleaned := strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z':
-			return r
-		case r >= 'A' && r <= 'Z':
-			return r
-		case r >= '0' && r <= '9':
-			return r
-		default:
-			return '-'
+func (svc *PaymentService) CancelSubscription(ctx context.Context, userID, subscriptionID string, cancelAtPeriodEnd bool) (*CreateSubscriptionResponse, error) {
+	if svc.keyID == "" || svc.keySecret == "" {
+		return nil, ErrPaymentUnauthorized
+	}
+	if strings.TrimSpace(subscriptionID) == "" {
+		return nil, ErrPaymentMissingFields
+	}
+
+	body := map[string]bool{"cancel_at_cycle_end": cancelAtPeriodEnd}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, svc.apiBaseURL+"/v1/subscriptions/"+subscriptionID+"/cancel", bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	request.SetBasicAuth(svc.keyID, svc.keySecret)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := svc.client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
+		return nil, ErrPaymentUnauthorized
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		errorBody, _ := io.ReadAll(response.Body)
+		svc.logger.Error().
+			Int("status", response.StatusCode).
+			Str("body", string(errorBody)).
+			Msg("Failed to cancel Razorpay subscription")
+		return nil, fmt.Errorf("razorpay subscription cancellation failed: %s", response.Status)
+	}
+
+	subscription, err := decodeRazorpaySubscriptionResponse(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	if err := svc.userUpdater.Update(ctx, SubscriptionPatchFromEntity(userID, svc.currencyForPlan(subscription.PlanID), &subscription, now, ptrBool(cancelAtPeriodEnd))); err != nil {
+		return nil, err
+	}
+
+	return &CreateSubscriptionResponse{
+		SubscriptionID: subscription.ID,
+		PlanID:         subscription.PlanID,
+		Status:         subscription.Status,
+		Currency:       svc.currencyForPlan(subscription.PlanID),
+	}, nil
+}
+
+func (svc *PaymentService) VerifyWebhookSignature(rawBody []byte, signature string) bool {
+	if svc.webhookSecret == "" || strings.TrimSpace(signature) == "" {
+		return false
+	}
+	expected := buildRawSignature(rawBody, svc.webhookSecret)
+	return hmac.Equal([]byte(expected), []byte(strings.TrimSpace(signature)))
+}
+
+func (svc *PaymentService) ParseWebhookEvent(rawBody []byte) (*RazorpaySubscriptionWebhook, error) {
+	var event RazorpaySubscriptionWebhook
+	if err := json.Unmarshal(rawBody, &event); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (svc *PaymentService) TestSubscription() bool {
+	ctx := context.Background()
+	subId := "sub_Sss1Eu78xSI5d2"
+	userId := "KV78nh5N10auNdBhN7G6w2kj65x2"
+	subscription, err := svc.fetchSubscription(ctx, subId)
+	if err != nil {
+		return false
+	}
+	now := time.Now().UTC()
+	err = svc.userUpdater.Update(ctx, SubscriptionPatchFromEntity(userId, svc.currencyForPlan(subscription.PlanID), subscription, now, ptrBool(false)))
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (svc *PaymentService) fetchSubscription(ctx context.Context, subscriptionID string) (*RazorpaySubscriptionEntity, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, svc.apiBaseURL+"/v1/subscriptions/"+subscriptionID, nil)
+	if err != nil {
+		return nil, err
+	}
+	request.SetBasicAuth(svc.keyID, svc.keySecret)
+
+	response, err := svc.client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
+		return nil, ErrPaymentUnauthorized
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, fmt.Errorf("razorpay subscription fetch failed: %s", response.Status)
+	}
+
+	subscription, err := decodeRazorpaySubscriptionResponse(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	return &subscription, nil
+}
+
+func (svc *PaymentService) planForCurrency(req *CreateSubscriptionRequest) (string, string, error) {
+	currency := "USD"
+	if req != nil && strings.TrimSpace(req.Currency) != "" {
+		currency = strings.ToUpper(strings.TrimSpace(req.Currency))
+	}
+
+	switch currency {
+	case "INR":
+		if svc.planIDINR == "" {
+			return "", "", ErrMissingPlanID
 		}
-	}, userID)
-
-	shortUserID := strings.Trim(cleaned, "-")
-	if shortUserID == "" {
-		shortUserID = "anon"
+		return currency, svc.planIDINR, nil
+	case "USD":
+		if svc.planIDUSD == "" {
+			return "", "", ErrMissingPlanID
+		}
+		return currency, svc.planIDUSD, nil
+	default:
+		return "", "", ErrUnsupportedCurrency
 	}
-	if len(shortUserID) > 16 {
-		shortUserID = shortUserID[:16]
-	}
-
-	return fmt.Sprintf("ff-%s-%s", shortUserID, strings.ToLower(strconv.FormatInt(time.Now().UTC().UnixMilli(), 36)))
 }
 
-func buildSignature(orderID, paymentID, secret string) string {
+func (svc *PaymentService) currencyForPlan(planID string) string {
+	switch strings.TrimSpace(planID) {
+	case svc.planIDINR:
+		return "INR"
+	case svc.planIDUSD:
+		return "USD"
+	default:
+		return ""
+	}
+}
+
+func (svc *PaymentService) CurrencyForPlan(planID string) string {
+	return svc.currencyForPlan(planID)
+}
+
+func decodeRazorpaySubscriptionResponse(body io.Reader) (RazorpaySubscriptionEntity, error) {
+	var subscription RazorpaySubscriptionEntity
+	if err := json.NewDecoder(body).Decode(&subscription); err != nil {
+		return RazorpaySubscriptionEntity{}, err
+	}
+	return subscription, nil
+}
+
+func SubscriptionPatchFromEntity(userID, currency string, subscription *RazorpaySubscriptionEntity, now time.Time, cancelAtPeriodEnd *bool) *entities.UserPatchInput {
+	tier := "pro"
+	status := subscription.Status
+	if status == "" {
+		status = "active"
+	}
+	interval := "monthly"
+	updatedAt := now
+	patch := &entities.UserPatchInput{
+		UserId:                userID,
+		SubscriptionTier:      &tier,
+		SubscriptionStatus:    &status,
+		SubscriptionInterval:  &interval,
+		SubscriptionUpdatedAt: &updatedAt,
+	}
+
+	if currency != "" {
+		patch.SubscriptionCurrency = &currency
+	}
+	if subscription.PlanID != "" {
+		patch.RazorpayPlanId = &subscription.PlanID
+	}
+	if subscription.CustomerID != "" {
+		patch.RazorpayCustomerId = &subscription.CustomerID
+	}
+	if subscription.ID != "" {
+		patch.RazorpaySubscriptionId = &subscription.ID
+	}
+	if subscription.CurrentStart != nil {
+		startedAt := time.Unix(*subscription.CurrentStart, 0).UTC()
+		patch.SubscriptionStartedAt = &startedAt
+	}
+	if subscription.CurrentEnd != nil {
+		periodEnd := time.Unix(*subscription.CurrentEnd, 0).UTC()
+		patch.SubscriptionCurrentPeriodEnd = &periodEnd
+	}
+	if subscription.EndedAt != nil {
+		cancelledAt := time.Unix(*subscription.EndedAt, 0).UTC()
+		patch.SubscriptionCancelledAt = &cancelledAt
+	}
+	if cancelAtPeriodEnd != nil {
+		patch.SubscriptionCancelAtPeriodEnd = cancelAtPeriodEnd
+	}
+
+	return patch
+}
+
+func buildSignature(first, second, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(orderID))
+	mac.Write([]byte(first))
 	mac.Write([]byte("|"))
-	mac.Write([]byte(paymentID))
+	mac.Write([]byte(second))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func buildRawSignature(rawBody []byte, secret string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(rawBody)
 	return hex.EncodeToString(mac.Sum(nil))
 }
 

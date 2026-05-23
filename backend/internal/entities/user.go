@@ -19,6 +19,8 @@ type User struct {
 	SubscriptionTier              string     `json:"subscriptionTier"`
 	SubscriptionStatus            string     `json:"subscriptionStatus"`
 	SubscriptionInterval          *string    `json:"subscriptionInterval,omitempty"`
+	SubscriptionCurrency          *string    `json:"subscriptionCurrency,omitempty"`
+	RazorpayPlanId                *string    `json:"razorpayPlanId,omitempty"`
 	RazorpayCustomerId            *string    `json:"razorpayCustomerId,omitempty"`
 	RazorpaySubscriptionId        *string    `json:"razorpaySubscriptionId,omitempty"`
 	SubscriptionStartedAt         *time.Time `json:"subscriptionStartedAt,omitempty"`
@@ -41,6 +43,8 @@ type UserPatchInput struct {
 	SubscriptionTier              *string
 	SubscriptionStatus            *string
 	SubscriptionInterval          *string
+	SubscriptionCurrency          *string
+	RazorpayPlanId                *string
 	RazorpayCustomerId            *string
 	RazorpaySubscriptionId        *string
 	SubscriptionStartedAt         *time.Time
@@ -102,6 +106,14 @@ func (user *User) ApplyPatch(in *UserPatchInput) {
 
 	if in.SubscriptionInterval != nil {
 		user.SubscriptionInterval = in.SubscriptionInterval
+	}
+
+	if in.SubscriptionCurrency != nil {
+		user.SubscriptionCurrency = in.SubscriptionCurrency
+	}
+
+	if in.RazorpayPlanId != nil {
+		user.RazorpayPlanId = in.RazorpayPlanId
 	}
 
 	if in.RazorpayCustomerId != nil {
