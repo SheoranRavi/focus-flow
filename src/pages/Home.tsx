@@ -16,10 +16,10 @@ const Home: React.FC = () => {
       <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 md:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-200">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-200">
               <CheckCircle2 size={24} />
             </div>
-            <span className="text-xl font-bold tracking-tight">Focus Flow</span>
+            <span className="text-xl font-bold tracking-tight">Task Quota</span>
           </div>
 
           <Button asChild variant="outline" className="border-slate-300 bg-white shadow-sm hover:bg-slate-100 hover:shadow-md">

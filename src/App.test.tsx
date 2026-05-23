@@ -37,7 +37,7 @@ describe('App Component', () => {
   describe('Initial Render', () => {
     it('should render the app header with title', () => {
       renderApp();
-      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      const heading = screen.getByRole('heading', { level: 1, name: 'Task Quota' });
       expect(heading).toBeInTheDocument();
     });
 
@@ -432,7 +432,7 @@ describe('App Component', () => {
       renderApp();
       
       const mainHeading = screen.getByRole('heading', { level: 1 });
-      expect(mainHeading).toHaveTextContent('Focus Flow');
+      expect(mainHeading).toHaveTextContent('Task Quota');
     });
 
     it('should have accessible buttons', () => {
@@ -456,7 +456,7 @@ describe('App Component', () => {
       
       // Should not throw and render with defaults
       renderApp();
-      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      const heading = screen.getByRole('heading', { level: 1, name: 'Task Quota' });
       expect(heading).toBeInTheDocument();
     });
 
@@ -469,7 +469,7 @@ describe('App Component', () => {
       const header = document.querySelector('header');
       expect(header).toBeTruthy();
       // Just verify the app renders without crashing
-      const heading = screen.getByRole('heading', { level: 1, name: 'Focus Flow' });
+      const heading = screen.getByRole('heading', { level: 1, name: 'Task Quota' });
       expect(heading).toBeInTheDocument();
     });
 

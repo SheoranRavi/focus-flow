@@ -75,11 +75,11 @@ const Navbar: React.FC<NavbarProps> = (props) => {
       <header className="sticky top-0 z-30 w-full px-3 py-2">
         <nav className="max-w-7xl mx-auto bg-white/60 backdrop-blur-lg border border-white/20 rounded-2xl px-4 py-2 flex items-center justify-between shadow-lg shadow-slate-200/50">
           <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-emerald-200 shadow-lg">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center text-white shadow-blue-200 shadow-lg">
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <h1 className="font-bold text-xl tracking-tight text-slate-900">Focus Flow</h1>
+            <h1 className="font-bold text-xl tracking-tight text-slate-900">Task Quota</h1>
             <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
               {activeSessionId ? (
                 <span className="flex items-center gap-1 text-emerald-600 animate-pulse">

@@ -1,6 +1,6 @@
 # Unit Tests for App.tsx
 
-This directory contains comprehensive unit tests for the Focus Flow application's main App component.
+This directory contains comprehensive unit tests for the Task Quota application's main App component.
 
 ## Test Setup
 
