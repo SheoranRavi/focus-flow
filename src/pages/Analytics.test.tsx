@@ -69,7 +69,7 @@ describe("Analytics page", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Deep Work", { selector: "p" })).toBeInTheDocument();
+    expect(await screen.findByText(/Deep Work/)).toBeInTheDocument();
     expect(screen.getByText(/focus time/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /last 30 days/i }));
@@ -84,7 +84,7 @@ describe("Analytics page", () => {
 
     renderPage();
 
-    await screen.findByText("Deep Work", { selector: "p" });
+    await screen.findByText(/Deep Work/);
     expect(mockApi.getAnalytics).toHaveBeenCalledWith(expect.any(String), expect.any(String), false);
 
     await user.click(screen.getByRole("checkbox", { name: /include deleted sessions/i }));

@@ -16,7 +16,7 @@ const Home: React.FC = () => {
       <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 md:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-200">
+            <div className="brand-gradient shadow-brand flex h-10 w-10 items-center justify-center rounded-xl text-white">
               <CheckCircle2 size={24} />
             </div>
             <span className="text-xl font-bold tracking-tight">Task Quota</span>
@@ -29,7 +29,7 @@ const Home: React.FC = () => {
 
         <section className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[1fr_0.9fr] lg:py-16">
           <div className="max-w-2xl">
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-brand">
               Focus sessions, daily progress, zero friction
             </p>
             <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
@@ -88,7 +88,7 @@ const Home: React.FC = () => {
                   </div>
 
                   <div className="relative z-10 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-slate-100 bg-white">
-                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-emerald-200 opacity-50" />
+                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-brand-soft opacity-50" />
                     <div className="z-10 text-center">
                       <div className="text-5xl font-bold tracking-tighter text-slate-800">25</div>
                       <div className="mt-1 text-sm font-medium uppercase tracking-widest text-slate-400">00</div>
@@ -97,7 +97,7 @@ const Home: React.FC = () => {
                 </div>
 
                 <div className="mt-2 flex items-center gap-1 text-xs font-medium text-slate-400">
-                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  <span className="h-2 w-2 rounded-full bg-brand" />
                   Daily Goal: 50%
                 </div>
               </div>
@@ -112,7 +112,7 @@ const Home: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 md:w-[320px] lg:ml-auto">
+            <div className="rounded-2xl border border-brand-soft bg-brand-soft p-5 md:w-[320px] lg:ml-auto">
               <p className="font-semibold text-slate-900">Account sync</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
                 Register to keep sessions and progress available across your laptop, tablet, and phone.
@@ -123,7 +123,7 @@ const Home: React.FC = () => {
 
         <section className="grid gap-4 pb-12 md:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
               <BarChart3 size={20} />
             </div>
             <h2 className="font-bold text-slate-900">Analytics dashboard</h2>
@@ -136,7 +136,7 @@ const Home: React.FC = () => {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
               <Layers3 size={20} />
             </div>
             <h2 className="font-bold text-slate-900">Switch between tasks</h2>

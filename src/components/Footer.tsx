@@ -25,7 +25,7 @@ const Footer: React.FC = () => {
                   href="https://merchant.razorpay.com/policy/RxL6gyEm0EewW8/terms"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-slate-600 hover:text-emerald-600 transition-colors"
+                  className="text-sm text-slate-600 hover:text-brand transition-colors"
                 >
                   Terms & Conditions
                 </a>
@@ -35,7 +35,7 @@ const Footer: React.FC = () => {
                   href="https://merchant.razorpay.com/policy/RxL6gyEm0EewW8/refund"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-slate-600 hover:text-emerald-600 transition-colors"
+                  className="text-sm text-slate-600 hover:text-brand transition-colors"
                 >
                   Cancellation & Refund Policy
                 </a>
@@ -45,7 +45,7 @@ const Footer: React.FC = () => {
                   href="https://merchant.razorpay.com/policy/RxL6gyEm0EewW8/shipping"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-slate-600 hover:text-emerald-600 transition-colors"
+                  className="text-sm text-slate-600 hover:text-brand transition-colors"
                 >
                   Shipping & Delivery Policy
                 </a>

@@ -473,9 +473,9 @@ const App: React.FC = () => {
 
   if (loadingView) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-emerald-100 flex items-center justify-center px-6">
+      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-brand-soft flex items-center justify-center px-6">
         <div className="flex flex-col items-center gap-4 rounded-3xl border border-slate-200 bg-white px-8 py-10 shadow-sm">
-          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-brand" />
           <div className="text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Loading workspace</p>
             <p className="mt-2 text-sm text-slate-600">Fetching your sessions and settings from the server.</p>
@@ -486,7 +486,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-emerald-100">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-brand-soft">
       <Navbar
         activeSessionTitle={activeSessionTitle}
         activeSessionId={state.activeSessionId}
@@ -563,7 +563,7 @@ const App: React.FC = () => {
                 {state.sessions.length === 0 && (
                   <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 rounded-3xl w-full text-slate-400">
                      <p className="mb-4 font-medium">No active tasks</p>
-                     <button onClick={() => setIsCreateDialogOpen(true)} className="text-emerald-600 hover:underline">Create one to get started</button>
+                     <button onClick={() => setIsCreateDialogOpen(true)} className="text-brand hover:underline">Create one to get started</button>
                   </div>
                 )}
               </div>
@@ -585,7 +585,7 @@ const App: React.FC = () => {
                            className="p-1 rounded-full hover:bg-slate-100 transition-colors"
                            title="Start New Day (Reset Progress)"
                        >
-                           <RotateCcw size={16} className="text-slate-400 hover:text-emerald-600" />
+                           <RotateCcw size={16} className="text-slate-400 hover:text-brand" />
                        </button>
                    </div>
                 </div>
@@ -605,7 +605,7 @@ const App: React.FC = () => {
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Total Goal</div>
                         {/* Display the calculated total goal from all sessions */}
-                        <div className="font-bold text-emerald-600 text-lg">{Math.floor(totalDailyGoalMinutes / 60)}h {totalDailyGoalMinutes % 60} min</div>
+                        <div className="font-bold text-brand text-lg">{Math.floor(totalDailyGoalMinutes / 60)}h {totalDailyGoalMinutes % 60} min</div>
                     </div>
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Streak</div>
