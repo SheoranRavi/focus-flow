@@ -114,8 +114,6 @@ func main() {
 		port = "8080"
 	}
 
-	success := paymentService.TestSubscription()
-	log.Printf("test subscription success: %t", success)
 	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe("0.0.0.0:"+port, r); err != nil {
 		log.Fatalf("Server failed to start: %v", err)

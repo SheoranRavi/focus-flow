@@ -312,22 +312,6 @@ func (svc *PaymentService) ParseWebhookEvent(rawBody []byte) (*RazorpaySubscript
 	return &event, nil
 }
 
-func (svc *PaymentService) TestSubscription() bool {
-	ctx := context.Background()
-	subId := "sub_Sss1Eu78xSI5d2"
-	userId := "KV78nh5N10auNdBhN7G6w2kj65x2"
-	subscription, err := svc.fetchSubscription(ctx, subId)
-	if err != nil {
-		return false
-	}
-	now := time.Now().UTC()
-	err = svc.userUpdater.Update(ctx, SubscriptionPatchFromEntity(userId, svc.currencyForPlan(subscription.PlanID), subscription, now, ptrBool(false)))
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 func (svc *PaymentService) fetchSubscription(ctx context.Context, subscriptionID string) (*RazorpaySubscriptionEntity, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, svc.apiBaseURL+"/v1/subscriptions/"+subscriptionID, nil)
 	if err != nil {
