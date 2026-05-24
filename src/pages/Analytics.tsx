@@ -192,7 +192,6 @@ const AnalyticsPage: React.FC = () => {
       const subscription = await api.createRazorpaySubscription({
         currency: subscriptionCurrency,
       });
-      console.log(`key: ${razorpayKeyId}, sub_id: ${subscription.subscription_id}`);
       const checkout = await openRazorpayCheckout({
         key: razorpayKeyId,
         name: "Task Quota",
