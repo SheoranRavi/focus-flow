@@ -419,7 +419,6 @@ export const api = {
     user.subscriptionCancelAtPeriodEnd = user.subscriptionCancelAtPeriodEnd ?? false;
     user.subscriptionCurrency = user.subscriptionCurrency ?? null;
     user.razorpayPlanId = user.razorpayPlanId ?? null;
-    console.log(`fetched user: ${JSON.stringify(user)}`);
     return user
   },
 

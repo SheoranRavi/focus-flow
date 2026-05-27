@@ -66,9 +66,13 @@ deps:
 migrate-up:
 	@migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" up
 
-## migrate-down: Rollback database migrations
+## migrate-down: Rollback database migrations (usage: make migrate-down version=9)
 migrate-down:
-	@migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" down
+	@if [ -z "$(version)" ]; then \
+		migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" down; \
+	else \
+		migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" goto $(version); \
+	fi
 
 ## migrate-force: Force the migration version (usage: make migrate-force version=4)
 migrate-force:

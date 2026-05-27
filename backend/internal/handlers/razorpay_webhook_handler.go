@@ -94,7 +94,7 @@ func (h *RazorpayWebhookHandler) Handle(rw http.ResponseWriter, req *http.Reques
 			h.logger.Error().Err(markErr).Str("subscription_id", subscription.ID).Msg("Failed to mark webhook event failed")
 		}
 		h.logger.Warn().Str("subscription_id", subscription.ID).Msg("Ignoring webhook for unknown subscription")
-		http.Error(rw, "Unknown subscription", http.StatusInternalServerError)
+		http.Error(rw, "Unknown subscription", http.StatusUnprocessableEntity)
 		return
 	}
 
