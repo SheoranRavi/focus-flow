@@ -57,6 +57,21 @@ type UserPatchInput struct {
 	ClearActiveSession            bool
 }
 
+func (in *UserPatchInput) HasSubscriptionChanges() bool {
+	return in.SubscriptionTier != nil ||
+		in.SubscriptionStatus != nil ||
+		in.SubscriptionInterval != nil ||
+		in.SubscriptionCurrency != nil ||
+		in.RazorpayPlanId != nil ||
+		in.RazorpayCustomerId != nil ||
+		in.RazorpaySubscriptionId != nil ||
+		in.SubscriptionStartedAt != nil ||
+		in.SubscriptionCurrentPeriodEnd != nil ||
+		in.SubscriptionCancelAtPeriodEnd != nil ||
+		in.SubscriptionCancelledAt != nil ||
+		in.SubscriptionUpdatedAt != nil
+}
+
 func (user *User) ApplyPatch(in *UserPatchInput) {
 	if in.ClearActiveSession {
 		user.ActiveSessionId = nil

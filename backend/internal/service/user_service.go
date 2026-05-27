@@ -39,8 +39,9 @@ func (svc *UserService) Update(ctx context.Context, patch *entities.UserPatchInp
 		svc.logger.Error().Msg("User is nil")
 		return fmt.Errorf("No user for id:%s", patch.UserId)
 	}
+	touchSubscriptionUpdatedAt := patch.HasSubscriptionChanges()
 	user.ApplyPatch(patch)
-	err = svc.repo.Update(ctx, user)
+	err = svc.repo.Update(ctx, user, touchSubscriptionUpdatedAt)
 	return err
 }
 

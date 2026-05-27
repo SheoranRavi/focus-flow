@@ -338,7 +338,7 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 	return users, rows.Err()
 }
 
-func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
+func (repo *UserRepo) Update(ctx context.Context, u *entities.User, touchSubscriptionUpdatedAt bool) error {
 	query := `
 		UPDATE users
 		SET
@@ -360,7 +360,7 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 			subscription_current_period_end = $16,
 			subscription_cancel_at_period_end = $17,
 			subscription_cancelled_at = $18,
-			subscription_updated_at = now()
+			subscription_updated_at = CASE WHEN $20 THEN now() ELSE subscription_updated_at END
 		WHERE id = $19
 	`
 
@@ -382,11 +382,12 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User) error {
 		u.RazorpayCustomerId,
 		u.RazorpaySubscriptionId,
 		u.SubscriptionStartedAt,
-		u.SubscriptionCurrentPeriodEnd,
-		u.SubscriptionCancelAtPeriodEnd,
-		u.SubscriptionCancelledAt,
-		u.Id,
-	)
+			u.SubscriptionCurrentPeriodEnd,
+			u.SubscriptionCancelAtPeriodEnd,
+			u.SubscriptionCancelledAt,
+			u.Id,
+			touchSubscriptionUpdatedAt,
+		)
 
 	if err != nil {
 		repo.logger.Error().Err(err).Str("user_id", u.Id).Msg("Failed to update user")
