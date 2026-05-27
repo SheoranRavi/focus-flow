@@ -177,6 +177,7 @@ func (repo *UserRepo) GetByRazorpaySubscriptionID(ctx context.Context, subscript
 	var subscriptionCurrency sql.NullString
 	var razorpayPlanId sql.NullString
 	var razorpayCustomerId sql.NullString
+	var razorpaySubscriptionId sql.NullString
 	var subscriptionStartedAt sql.NullTime
 	var subscriptionCurrentPeriodEnd sql.NullTime
 	var subscriptionCancelledAt sql.NullTime
@@ -198,7 +199,7 @@ func (repo *UserRepo) GetByRazorpaySubscriptionID(ctx context.Context, subscript
 		&subscriptionCurrency,
 		&razorpayPlanId,
 		&razorpayCustomerId,
-		&user.RazorpaySubscriptionId,
+		&razorpaySubscriptionId,
 		&subscriptionStartedAt,
 		&subscriptionCurrentPeriodEnd,
 		&user.SubscriptionCancelAtPeriodEnd,
@@ -224,6 +225,9 @@ func (repo *UserRepo) GetByRazorpaySubscriptionID(ctx context.Context, subscript
 	}
 	if razorpayCustomerId.Valid {
 		user.RazorpayCustomerId = &razorpayCustomerId.String
+	}
+	if razorpaySubscriptionId.Valid {
+		user.RazorpaySubscriptionId = &razorpaySubscriptionId.String
 	}
 	if subscriptionStartedAt.Valid {
 		user.SubscriptionStartedAt = &subscriptionStartedAt.Time

@@ -59,25 +59,42 @@ func (h *RazorpayWebhookHandler) Handle(rw http.ResponseWriter, req *http.Reques
 		eventID = strings.TrimSpace(event.Event) + ":" + subscription.ID + ":" + time.Unix(event.CreatedAt, 0).UTC().Format(time.RFC3339Nano)
 	}
 
-	if err := h.eventRepo.Record(req.Context(), eventID, event.Event, subscription.ID, event); err != nil {
-		if errors.Is(err, repo.ErrWebhookEventAlreadyProcessed) {
+	claimed, err := h.eventRepo.Acquire(req.Context(), eventID, event.Event, subscription.ID, event)
+	if err != nil {
+		switch {
+		case errors.Is(err, repo.ErrWebhookEventAlreadyProcessed):
 			rw.WriteHeader(http.StatusOK)
 			return
+		case errors.Is(err, repo.ErrWebhookEventInProgress):
+			rw.WriteHeader(http.StatusOK)
+			return
+		default:
+			h.logger.Error().Err(err).Str("event_id", eventID).Msg("Failed to persist webhook event")
+			http.Error(rw, "Failed to record webhook event", http.StatusInternalServerError)
+			return
 		}
-		h.logger.Error().Err(err).Str("event_id", eventID).Msg("Failed to persist webhook event")
-		http.Error(rw, "Failed to record webhook event", http.StatusInternalServerError)
+	}
+	if !claimed {
+		rw.WriteHeader(http.StatusOK)
 		return
 	}
 
 	user, err := h.userSvc.GetUserByRazorpaySubscriptionID(req.Context(), subscription.ID)
 	if err != nil {
+		if markErr := h.eventRepo.MarkFailed(req.Context(), eventID, err); markErr != nil {
+			h.logger.Error().Err(markErr).Str("event_id", eventID).Msg("Failed to mark webhook event failed")
+		}
 		h.logger.Error().Err(err).Str("subscription_id", subscription.ID).Msg("Failed to load user for webhook")
 		http.Error(rw, "Failed to load subscription state", http.StatusInternalServerError)
 		return
 	}
 	if user == nil {
+		markErr := h.eventRepo.MarkFailed(req.Context(), eventID, errors.New("unknown subscription"))
+		if markErr != nil {
+			h.logger.Error().Err(markErr).Str("subscription_id", subscription.ID).Msg("Failed to mark webhook event failed")
+		}
 		h.logger.Warn().Str("subscription_id", subscription.ID).Msg("Ignoring webhook for unknown subscription")
-		rw.WriteHeader(http.StatusOK)
+		http.Error(rw, "Unknown subscription", http.StatusInternalServerError)
 		return
 	}
 
@@ -100,8 +117,17 @@ func (h *RazorpayWebhookHandler) Handle(rw http.ResponseWriter, req *http.Reques
 	}
 
 	if err := h.userSvc.Update(req.Context(), patch); err != nil {
+		if markErr := h.eventRepo.MarkFailed(req.Context(), eventID, err); markErr != nil {
+			h.logger.Error().Err(markErr).Str("event_id", eventID).Msg("Failed to mark webhook event failed")
+		}
 		h.logger.Error().Err(err).Str("subscription_id", subscription.ID).Msg("Failed to apply webhook update")
 		http.Error(rw, "Failed to update subscription state", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.eventRepo.MarkProcessed(req.Context(), eventID); err != nil {
+		h.logger.Error().Err(err).Str("event_id", eventID).Msg("Failed to mark webhook event processed")
+		http.Error(rw, "Failed to finalize webhook event", http.StatusInternalServerError)
 		return
 	}
 
