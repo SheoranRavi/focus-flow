@@ -33,7 +33,7 @@ export interface RazorpayCheckoutOptions {
   modal?: {
     ondismiss?: () => void;
   };
-  handler: (response: RazorpaySuccessPayload) => void;
+  handler: (response: RazorpaySuccessPayload) => void | Promise<void>;
 }
 
 export interface RazorpayInstance {
@@ -97,6 +97,5 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
   }
 
   const instance = new Razorpay(options);
-  instance.open();
   return instance;
 }

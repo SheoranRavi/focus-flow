@@ -59,6 +59,20 @@ func (h *PaymentHandler) VerifySubscription(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
+	// verify that the subscription matches
+	subsUser, err := h.userSvc.GetUserByRazorpaySubscriptionID(req.Context(), verifyReq.RazorpaySubscriptionID)
+	if err != nil {
+		h.logger.Error().Err(err).Str("user_id", userID).Msg("Failed to verify Razorpay subscription, error fetching user by subscription id")
+		http.Error(rw, "Failed to verify Razorpay subscription", http.StatusInternalServerError)
+		return
+	}
+
+	if subsUser == nil || subsUser.Id != userID {
+		h.logger.Error().Str("user_id", userID).Str("subscription_id", verifyReq.RazorpaySubscriptionID).Msg("There is no user for this subscription id or it doesn't match the user.")
+		http.Error(rw, "Subscription and user don't match", http.StatusBadRequest)
+		return
+	}
+
 	if err := h.svc.VerifySubscription(req.Context(), userID, &verifyReq); err != nil {
 		switch {
 		case errors.Is(err, service.ErrPaymentMissingFields):

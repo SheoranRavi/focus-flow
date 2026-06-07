@@ -54,7 +54,7 @@ func (repo *RazorpayWebhookEventRepo) Acquire(ctx context.Context, eventID, even
 		)
 		VALUES ($1, $2, $3, $4, $5, NOW())
 	`
-	_, err = repo.db.ExecContext(ctx, query, eventID, eventType, nullableString(subscriptionID), payloadBytes, WebhookEventStatusProcessing)
+	_, err = repo.db.ExecContext(ctx, query, eventID, eventType, nullableString(subscriptionID), string(payloadBytes), WebhookEventStatusProcessing)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return repo.resolveExistingEvent(ctx, eventID)

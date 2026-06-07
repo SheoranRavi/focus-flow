@@ -382,12 +382,12 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User, touchSubscri
 		u.RazorpayCustomerId,
 		u.RazorpaySubscriptionId,
 		u.SubscriptionStartedAt,
-			u.SubscriptionCurrentPeriodEnd,
-			u.SubscriptionCancelAtPeriodEnd,
-			u.SubscriptionCancelledAt,
-			u.Id,
-			touchSubscriptionUpdatedAt,
-		)
+		u.SubscriptionCurrentPeriodEnd,
+		u.SubscriptionCancelAtPeriodEnd,
+		u.SubscriptionCancelledAt,
+		u.Id,
+		touchSubscriptionUpdatedAt,
+	)
 
 	if err != nil {
 		repo.logger.Error().Err(err).Str("user_id", u.Id).Msg("Failed to update user")

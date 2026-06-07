@@ -218,6 +218,7 @@ const AnalyticsPage: React.FC = () => {
         const description = payload.error?.description || payload.error?.reason || "Payment failed";
         setCheckoutError(description);
       });
+      checkout.open();
     } catch (err) {
       setCheckoutError(err instanceof Error ? err.message : "Failed to start checkout");
     } finally {

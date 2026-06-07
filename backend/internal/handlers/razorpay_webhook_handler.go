@@ -111,7 +111,7 @@ func (h *RazorpayWebhookHandler) Handle(rw http.ResponseWriter, req *http.Reques
 	}
 
 	patch := service.SubscriptionPatchFromEntity(user.Id, derefString(currency), &subscription, time.Now().UTC(), &cancelAtPeriodEnd)
-	if event.Event == "subscription.cancelled" {
+	if event.Event == "subscription.cancelled" && patch.SubscriptionCancelledAt == nil {
 		now := time.Now().UTC()
 		patch.SubscriptionCancelledAt = &now
 	}
