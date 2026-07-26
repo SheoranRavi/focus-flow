@@ -14,6 +14,7 @@ import CreateSession from './components/CreateSession/CreateSession';
 import { appReducer, AppState } from './context/reducer';
 import { notifySessionComplete, requestSessionNotificationPermission } from './lib/notifications';
 import { sortSessionsForDisplay } from './lib/utils';
+import SEO from './components/SEO';
 
 const DEFAULT_SESSIONS: Session[] = [
   { id: 1, title: 'Deep Work', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
@@ -487,6 +488,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-brand-soft">
+      <SEO title="Focus sessions | Task Quota" description="Run task-based focus sessions, track daily progress, and build consistent focus streaks with Task Quota." path="/app" indexable={false} />
       <Navbar
         activeSessionTitle={activeSessionTitle}
         activeSessionId={state.activeSessionId}

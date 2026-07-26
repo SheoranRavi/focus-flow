@@ -3,6 +3,7 @@ import { sendPasswordResetEmail } from "firebase/auth";
 import { Link } from "react-router-dom";
 import { auth } from "../firebase";
 import Button from "../components/ui/Button";
+import SEO from "../components/SEO";
 
 function getResetErrorMessage(error: unknown): string {
   const code = (error as { code?: string })?.code;
@@ -43,6 +44,7 @@ const ForgotPassword: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <SEO title="Reset your password | Task Quota" description="Reset your Task Quota account password." path="/forgot-password" indexable={false} />
       <div className="max-w-md w-full space-y-8">
         <div>
           <h1 className="mt-6 text-center text-3xl font-extrabold text-gray-900">

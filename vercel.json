@@ -1,4 +1,15 @@
 {
+  "headers": [
+    {
+      "source": "/(app|analytics|login|register|forgot-password)(/.*)?",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

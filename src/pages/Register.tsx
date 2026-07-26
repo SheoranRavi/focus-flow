@@ -4,6 +4,7 @@ import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
 import { api } from "../lib/api";
+import SEO from "../components/SEO";
 
 const Register: React.FC = () => {
   const [firstName, setFirstName] = useState("");
@@ -59,6 +60,7 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <SEO title="Create your account | Task Quota" description="Create a Task Quota account to sync task-based focus sessions, daily goals, streaks, and analytics across devices." path="/register" indexable={false} />
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
