@@ -17,7 +17,7 @@ export interface NavbarProps{
   subscriptionStatus?: string,
   subscriptionCancelAtPeriodEnd?: boolean,
   isCancellingSubscription?: boolean,
-  onCancelSubscription?: (cancelAtPeriodEnd: boolean) => void,
+  onCancelSubscription?: () => void,
 }
 
 const COMMON_TIMEZONES = [
@@ -46,7 +46,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
   const isLoggedIn = !!user;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [pendingCancelAtPeriodEnd, setPendingCancelAtPeriodEnd] = useState<boolean | null>(null);
+  const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] = useState(false);
 
   const {
     activeSessionTitle,
@@ -87,20 +87,20 @@ const Navbar: React.FC<NavbarProps> = (props) => {
     setIsMobileMenuOpen(false);
   }
 
-  const openCancelConfirmation = (cancelAtPeriodEnd: boolean) => {
-    setPendingCancelAtPeriodEnd(cancelAtPeriodEnd);
+  const openCancelConfirmation = () => {
+    setIsCancelConfirmationOpen(true);
   };
 
   const closeCancelConfirmation = () => {
-    setPendingCancelAtPeriodEnd(null);
+    setIsCancelConfirmationOpen(false);
   };
 
   const confirmCancellation = () => {
-    if (pendingCancelAtPeriodEnd === null || !onCancelSubscription) {
+    if (!onCancelSubscription) {
       return;
     }
 
-    onCancelSubscription(pendingCancelAtPeriodEnd);
+    onCancelSubscription();
     closeCancelConfirmation();
     setIsMenuOpen(false);
     setIsMobileMenuOpen(false);
@@ -121,19 +121,10 @@ const Navbar: React.FC<NavbarProps> = (props) => {
           type="button"
           variant="outline"
           className="w-full justify-center border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-          onClick={() => openCancelConfirmation(true)}
+          onClick={openCancelConfirmation}
           disabled={isCancellingSubscription}
         >
-          {isCancellingSubscription ? "Working..." : "Cancel at period end"}
-        </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          className="w-full justify-center"
-          onClick={() => openCancelConfirmation(false)}
-          disabled={isCancellingSubscription}
-        >
-          {isCancellingSubscription ? "Working..." : "Cancel now"}
+          {isCancellingSubscription ? "Working..." : "Cancel subscription"}
         </Button>
       </div>
     </div>
@@ -377,7 +368,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
         </>
       )}
 
-      <Dialog open={pendingCancelAtPeriodEnd !== null} onOpenChange={(open) => {
+      <Dialog open={isCancelConfirmationOpen} onOpenChange={(open) => {
         if (!open) {
           closeCancelConfirmation();
         }
@@ -386,9 +377,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
           <DialogHeader>
             <DialogTitle>Confirm cancellation</DialogTitle>
             <DialogDescription>
-              {pendingCancelAtPeriodEnd
-                ? "This will schedule your subscription to end at the close of the current billing period."
-                : "This will cancel your subscription immediately."}
+              This will schedule your subscription to end at the close of the current billing period.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">

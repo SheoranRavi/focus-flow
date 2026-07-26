@@ -72,10 +72,6 @@ type VerifySubscriptionRequest struct {
 	RazorpaySignature      string `json:"razorpay_signature"`
 }
 
-type CancelSubscriptionRequest struct {
-	CancelAtPeriodEnd bool `json:"cancel_at_period_end"`
-}
-
 type razorpaySubscriptionRequest struct {
 	PlanID         string            `json:"plan_id"`
 	TotalCount     int               `json:"total_count"`
@@ -239,7 +235,7 @@ func (svc *PaymentService) VerifySubscription(ctx context.Context, userID string
 	return svc.userUpdater.Update(ctx, SubscriptionPatchFromEntity(userID, svc.currencyForPlan(subscription.PlanID), subscription, now, ptrBool(false)))
 }
 
-func (svc *PaymentService) CancelSubscription(ctx context.Context, userID, subscriptionID string, cancelAtPeriodEnd bool) (*CreateSubscriptionResponse, error) {
+func (svc *PaymentService) CancelSubscription(ctx context.Context, userID, subscriptionID string) (*CreateSubscriptionResponse, error) {
 	if svc.keyID == "" || svc.keySecret == "" {
 		return nil, ErrPaymentUnauthorized
 	}
@@ -247,7 +243,7 @@ func (svc *PaymentService) CancelSubscription(ctx context.Context, userID, subsc
 		return nil, ErrPaymentMissingFields
 	}
 
-	body := map[string]bool{"cancel_at_cycle_end": cancelAtPeriodEnd}
+	body := map[string]bool{"cancel_at_cycle_end": true}
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -284,7 +280,7 @@ func (svc *PaymentService) CancelSubscription(ctx context.Context, userID, subsc
 	}
 
 	now := time.Now().UTC()
-	if err := svc.userUpdater.Update(ctx, SubscriptionPatchFromEntity(userID, svc.currencyForPlan(subscription.PlanID), &subscription, now, ptrBool(cancelAtPeriodEnd))); err != nil {
+	if err := svc.userUpdater.Update(ctx, SubscriptionPatchFromEntity(userID, svc.currencyForPlan(subscription.PlanID), &subscription, now, ptrBool(true))); err != nil {
 		return nil, err
 	}
 

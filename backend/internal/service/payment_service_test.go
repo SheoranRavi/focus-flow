@@ -253,7 +253,7 @@ func TestCancelSubscriptionCanScheduleEnd(t *testing.T) {
 		Client:     client,
 	})
 
-	resp, err := svc.CancelSubscription(context.Background(), "user-1", "sub_123", true)
+	resp, err := svc.CancelSubscription(context.Background(), "user-1", "sub_123")
 	if err != nil {
 		t.Fatalf("CancelSubscription() error = %v", err)
 	}

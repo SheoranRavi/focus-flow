@@ -239,37 +239,18 @@ describe("Analytics page", () => {
     expect(await screen.findByText(/focus time/i)).toBeInTheDocument();
   });
 
-  it("calls the cancel endpoint when cancel now is chosen", async () => {
+  it("always schedules cancellation for the end of the billing period", async () => {
     const user = userEvent.setup();
 
     renderPage();
 
     await user.click(await screen.findByRole("button", { name: /open settings/i }));
-    const cancelNowButton = await screen.findByRole("button", { name: /cancel now/i });
-    await user.click(cancelNowButton);
+    const cancelButton = await screen.findByRole("button", { name: /cancel subscription/i });
+    await user.click(cancelButton);
     await user.click(await screen.findByRole("button", { name: /confirm cancellation/i }));
 
     await waitFor(() => {
-      expect(mockApi.cancelRazorpaySubscription).toHaveBeenCalledWith({
-        cancel_at_period_end: false,
-      });
-    });
-  });
-
-  it("calls the cancel endpoint when cancel at period end is chosen", async () => {
-    const user = userEvent.setup();
-
-    renderPage();
-
-    await user.click(await screen.findByRole("button", { name: /open settings/i }));
-    const cancelLaterButton = await screen.findByRole("button", { name: /cancel at period end/i });
-    await user.click(cancelLaterButton);
-    await user.click(await screen.findByRole("button", { name: /confirm cancellation/i }));
-
-    await waitFor(() => {
-      expect(mockApi.cancelRazorpaySubscription).toHaveBeenCalledWith({
-        cancel_at_period_end: true,
-      });
+      expect(mockApi.cancelRazorpaySubscription).toHaveBeenCalledWith();
     });
   });
 });

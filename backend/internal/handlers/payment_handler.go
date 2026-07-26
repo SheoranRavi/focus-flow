@@ -94,7 +94,7 @@ func (h *PaymentHandler) VerifySubscription(rw http.ResponseWriter, req *http.Re
 func (h *PaymentHandler) CancelSubscription(rw http.ResponseWriter, req *http.Request) {
 	userID := req.Context().Value(middleware.UserIDKey).(string)
 
-	var cancelReq service.CancelSubscriptionRequest
+	var cancelReq struct{}
 	if err := decodeJSON(req.Body, &cancelReq); err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
@@ -110,7 +110,7 @@ func (h *PaymentHandler) CancelSubscription(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	resp, err := h.svc.CancelSubscription(req.Context(), userID, *user.RazorpaySubscriptionId, cancelReq.CancelAtPeriodEnd)
+	resp, err := h.svc.CancelSubscription(req.Context(), userID, *user.RazorpaySubscriptionId)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPaymentUnauthorized):

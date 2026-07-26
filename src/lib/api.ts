@@ -87,10 +87,6 @@ export interface RazorpayCreateSubscriptionRequest {
   currency: string;
 }
 
-export interface RazorpayCancelSubscriptionRequest {
-  cancel_at_period_end: boolean;
-}
-
 // Convert backend session format to frontend format
 function mapBackendToFrontend(backendSession: BackendSession): Session {
   return {
@@ -184,10 +180,9 @@ export const api = {
     return response.json();
   },
 
-  async cancelRazorpaySubscription(payload: RazorpayCancelSubscriptionRequest): Promise<RazorpayCreateSubscriptionResponse> {
+  async cancelRazorpaySubscription(): Promise<RazorpayCreateSubscriptionResponse> {
     const response = await fetchWithAuth('/payments/cancel-subscription', {
       method: 'POST',
-      body: JSON.stringify(payload),
     });
     return response.json();
   },

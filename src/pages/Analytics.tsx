@@ -226,7 +226,7 @@ const AnalyticsPage: React.FC = () => {
     }
   }, [handleCheckoutSuccess, profile, razorpayKeyId, subscriptionCurrency, user?.displayName, user?.email]);
 
-  const handleCancelSubscription = useCallback(async (cancelAtPeriodEnd: boolean) => {
+  const handleCancelSubscription = useCallback(async () => {
     if (!profile?.razorpaySubscriptionId) {
       setCheckoutError("No active subscription found.");
       return;
@@ -237,12 +237,8 @@ const AnalyticsPage: React.FC = () => {
     setIsCancellingSubscription(true);
 
     try {
-      await api.cancelRazorpaySubscription({ cancel_at_period_end: cancelAtPeriodEnd });
-      setCheckoutMessage(
-        cancelAtPeriodEnd
-          ? "Cancellation scheduled for the end of the current billing period."
-          : "Subscription cancelled immediately.",
-      );
+      await api.cancelRazorpaySubscription();
+      setCheckoutMessage("Cancellation scheduled for the end of the current billing period.");
       const updatedUser = await api.getUser();
       if (updatedUser) {
         setProfile(updatedUser);
