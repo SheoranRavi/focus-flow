@@ -57,12 +57,20 @@ const AnalyticsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const chartScrollRef = useRef<HTMLDivElement | null>(null);
 
-  const hasAnalyticsAccess = profile?.subscriptionTier === "pro" && profile?.subscriptionStatus === "active";
+  const hasProAnalytics = profile?.subscriptionTier === "pro" && profile?.subscriptionStatus === "active";
+  const hasAnalyticsAccess = Boolean(profile);
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID?.trim() ?? "";
   const subscriptionCurrency = profile?.subscriptionCurrency === "INR" || profile?.subscriptionCurrency === "USD"
     ? profile.subscriptionCurrency
     : resolveSubscriptionCurrency();
   const subscriptionPrice = formatSubscriptionPrice(subscriptionCurrency);
+
+  useEffect(() => {
+    if (!hasProAnalytics) {
+      setRange("7d");
+      setIncludeDeleted(false);
+    }
+  }, [hasProAnalytics]);
 
   useEffect(() => {
     if (!user) {
@@ -315,7 +323,7 @@ const AnalyticsPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-3 lg:mt-1">
-              <label className="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+              {hasProAnalytics && <label className="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
                 <input
                   type="checkbox"
                   checked={includeDeleted}
@@ -323,7 +331,7 @@ const AnalyticsPage: React.FC = () => {
                   className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
                 />
                 Include deleted sessions
-              </label>
+              </label>}
               <Button asChild variant="outline" className="border-slate-300 bg-white">
                 <Link to="/app">
                   <ArrowLeft size={16} />
@@ -334,7 +342,9 @@ const AnalyticsPage: React.FC = () => {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
-            {(Object.keys(ANALYTICS_RANGE_CONFIG) as AnalyticsRangeKey[]).map((key) => {
+            {(Object.keys(ANALYTICS_RANGE_CONFIG) as AnalyticsRangeKey[])
+              .filter((key) => hasProAnalytics || key === "7d")
+              .map((key) => {
               const active = key === range;
               return (
                 <button
@@ -350,7 +360,7 @@ const AnalyticsPage: React.FC = () => {
                   {ANALYTICS_RANGE_CONFIG[key].label}
                 </button>
               );
-            })}
+              })}
           </div>
         </section>
 
@@ -381,6 +391,17 @@ const AnalyticsPage: React.FC = () => {
           </section>
         ) : hasAnalyticsAccess ? (
           <>
+            {!hasProAnalytics && (
+              <section className="mt-6 flex flex-col gap-4 rounded-[1.5rem] border border-brand-soft bg-brand-soft/60 p-5 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900">You&apos;re viewing the last 7 days</p>
+                  <p className="mt-1 text-sm text-slate-600">Subscribe to unlock 30, 90, and 180-day analytics and deleted-session history.</p>
+                </div>
+                <Button onClick={handleStartCheckout} disabled={isStartingCheckout} className="shrink-0 bg-slate-950 text-white hover:bg-slate-800">
+                  {isStartingCheckout ? "Opening Razorpay..." : "Unlock longer history"}
+                </Button>
+              </section>
+            )}
             <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label="Focus time"

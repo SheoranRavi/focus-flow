@@ -19,6 +19,8 @@ type AnalyticsHandler struct {
 	logger  zerolog.Logger
 }
 
+const freeAnalyticsDays = 7
+
 func NewAnalyticHandler(svc *service.AnalyticsService, userSvc *service.UserService) *AnalyticsHandler {
 	return &AnalyticsHandler{svc: svc, userSvc: userSvc, logger: logger.NewHandlerLogger("AnalyticsHandler")}
 }
@@ -31,8 +33,8 @@ func (h *AnalyticsHandler) Get(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, "Not able to get analytics access", http.StatusInternalServerError)
 		return
 	}
-	if user == nil || !user.HasAnalyticsAccess() {
-		http.Error(rw, "analytics requires an active pro subscription", http.StatusPaymentRequired)
+	if user == nil {
+		http.Error(rw, "analytics access is unavailable", http.StatusPaymentRequired)
 		return
 	}
 
@@ -48,6 +50,10 @@ func (h *AnalyticsHandler) Get(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, "endDate not formatted correctly", http.StatusBadRequest)
 		return
 	}
+	if !user.HasAnalyticsAccess() && endDate.Sub(startDate) >= time.Duration(freeAnalyticsDays)*24*time.Hour {
+		http.Error(rw, "free analytics is limited to the last 7 days", http.StatusPaymentRequired)
+		return
+	}
 	includeDeleted := false
 	if includeDeletedRaw := req.URL.Query().Get("includeDeleted"); includeDeletedRaw != "" {
 		includeDeleted, err = strconv.ParseBool(includeDeletedRaw)
@@ -56,6 +62,9 @@ func (h *AnalyticsHandler) Get(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, "includeDeleted must be a boolean", http.StatusBadRequest)
 			return
 		}
+	}
+	if !user.HasAnalyticsAccess() {
+		includeDeleted = false
 	}
 	analytics, err := h.svc.GetAnalytics(req.Context(), userId, startDate, endDate, includeDeleted)
 	if err != nil {

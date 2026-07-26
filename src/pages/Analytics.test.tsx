@@ -143,7 +143,7 @@ describe("Analytics page", () => {
     });
   });
 
-  it("shows the paywall for free users and does not fetch analytics", async () => {
+  it("shows the last 7 days of analytics for free users", async () => {
     mockApi.getUser.mockResolvedValueOnce({
       id: "user-1",
       name: "Test User",
@@ -164,8 +164,12 @@ describe("Analytics page", () => {
 
     renderPage();
 
-    expect(await screen.findByText(/unlock the analytics dashboard/i)).toBeInTheDocument();
-    expect(mockApi.getAnalytics).not.toHaveBeenCalled();
+    expect(await screen.findByText(/you're viewing the last 7 days/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /last 7 days/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /last 30 days/i })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockApi.getAnalytics).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("opens Razorpay checkout and unlocks analytics after successful payment verification", async () => {
@@ -211,7 +215,7 @@ describe("Analytics page", () => {
 
     renderPage();
 
-    const upgradeButton = await screen.findByRole("button", { name: /start .*subscription/i });
+    const upgradeButton = await screen.findByRole("button", { name: /unlock longer history/i });
     await user.click(upgradeButton);
 
     expect(mockApi.createRazorpaySubscription).toHaveBeenCalledTimes(1);
