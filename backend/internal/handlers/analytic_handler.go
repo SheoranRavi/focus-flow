@@ -14,16 +14,30 @@ import (
 )
 
 type AnalyticsHandler struct {
-	svc    *service.AnalyticsService
-	logger zerolog.Logger
+	svc     *service.AnalyticsService
+	userSvc *service.UserService
+	logger  zerolog.Logger
 }
 
-func NewAnalyticHandler(svc *service.AnalyticsService) *AnalyticsHandler {
-	return &AnalyticsHandler{svc: svc, logger: logger.NewHandlerLogger("AnalyticsHandler")}
+const freeAnalyticsDays = 7
+
+func NewAnalyticHandler(svc *service.AnalyticsService, userSvc *service.UserService) *AnalyticsHandler {
+	return &AnalyticsHandler{svc: svc, userSvc: userSvc, logger: logger.NewHandlerLogger("AnalyticsHandler")}
 }
 
 func (h *AnalyticsHandler) Get(rw http.ResponseWriter, req *http.Request) {
 	userId := req.Context().Value(middleware.UserIDKey).(string)
+	user, err := h.userSvc.GetUserDetails(req.Context(), userId)
+	if err != nil {
+		h.logger.Error().Str("userId", userId).Err(err).Msg("Failed to load user subscription state")
+		http.Error(rw, "Not able to get analytics access", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(rw, "analytics access is unavailable", http.StatusPaymentRequired)
+		return
+	}
+
 	startDate, err := parseDateQueryParam(req, "startDate")
 	if err != nil {
 		h.logger.Error().Str("userId", userId).Msg("startDate not formatted correctly")
@@ -36,6 +50,10 @@ func (h *AnalyticsHandler) Get(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, "endDate not formatted correctly", http.StatusBadRequest)
 		return
 	}
+	if !user.HasAnalyticsAccess() && endDate.Sub(startDate) >= time.Duration(freeAnalyticsDays)*24*time.Hour {
+		http.Error(rw, "free analytics is limited to the last 7 days", http.StatusPaymentRequired)
+		return
+	}
 	includeDeleted := false
 	if includeDeletedRaw := req.URL.Query().Get("includeDeleted"); includeDeletedRaw != "" {
 		includeDeleted, err = strconv.ParseBool(includeDeletedRaw)
@@ -44,6 +62,9 @@ func (h *AnalyticsHandler) Get(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, "includeDeleted must be a boolean", http.StatusBadRequest)
 			return
 		}
+	}
+	if !user.HasAnalyticsAccess() {
+		includeDeleted = false
 	}
 	analytics, err := h.svc.GetAnalytics(req.Context(), userId, startDate, endDate, includeDeleted)
 	if err != nil {

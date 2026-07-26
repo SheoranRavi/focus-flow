@@ -65,9 +65,18 @@ func main() {
 	sessionRepo := repo.NewSessionRepo(database)
 	analyticsRepo := repo.NewAnalyticRepo(database)
 	userRepo := repo.NewUserRepo(database)
+	webhookRepo := repo.NewRazorpayWebhookEventRepo(database)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, authClient)
+	paymentService := service.NewPaymentService(userService, service.PaymentConfig{
+		KeyID:         os.Getenv("RAZORPAY_KEY_ID"),
+		KeySecret:     os.Getenv("RAZORPAY_KEY_SECRET"),
+		PlanIDINR:     os.Getenv("RAZORPAY_PLAN_ID_INR"),
+		PlanIDUSD:     os.Getenv("RAZORPAY_PLAN_ID_USD"),
+		WebhookSecret: os.Getenv("RAZORPAY_WEBHOOK_SECRET"),
+		APIBaseURL:    os.Getenv("RAZORPAY_API_BASE_URL"),
+	})
 	eventService := service.NewEventService(userService, sessionRepo)
 	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
 	analyticsService := service.NewAnalyticService(sessionService, analyticsRepo)
@@ -91,8 +100,10 @@ func main() {
 	r := server.NewRouter(
 		sessionService,
 		analyticsService,
+		paymentService,
 		eventService,
 		userService,
+		webhookRepo,
 		authMiddleware,
 		loggingMiddleware,
 	)

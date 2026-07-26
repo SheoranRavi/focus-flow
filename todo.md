@@ -1,13 +1,20 @@
 # Continuation
-- Analytics support
+- Fix the UI sync issues (localstorage load shows old data when api disconnected)
+- DD
+  - Extend free tier to 7 days of analytics and paid one should show longer analytics.
+  - Update the company? name in razorpay to task quota (instead of it being Ravi Sheoran) -> OR maybe it should be something else...
 - Add better logging
   - Log each event
 - Build tests to ensure timer accuracy
 - SSE should send heartbeat events, client should reconnect if heartbeats not being received
 
 # Backlog
+- EnsureUserExists for internal contexts should not call firebase
 - Add all timezones to dropdown
 - Handle the case of both frontend and backend triggering reset within seconds/minutes of each other.
+
+# Bugs
+- If backend starts after multiple days (resets missed), it should check the last reset date, and do the reset corresponding to that date
 
 # UI
 - Maybe allow editing the time (focusSeconds) for tasks.

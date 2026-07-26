@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { auth } from "../firebase";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
 
 const Login: React.FC = () => {
@@ -149,9 +149,9 @@ const Login: React.FC = () => {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-brand hover:text-brand/80">
+                <Link to="/forgot-password" className="font-medium text-brand hover:text-brand/80">
                   Forgot password?
-                </a>
+                </Link>
               </div>
             </div>
 

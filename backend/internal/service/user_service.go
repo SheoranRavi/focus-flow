@@ -39,8 +39,9 @@ func (svc *UserService) Update(ctx context.Context, patch *entities.UserPatchInp
 		svc.logger.Error().Msg("User is nil")
 		return fmt.Errorf("No user for id:%s", patch.UserId)
 	}
+	touchSubscriptionUpdatedAt := patch.HasSubscriptionChanges()
 	user.ApplyPatch(patch)
-	err = svc.repo.Update(ctx, user)
+	err = svc.repo.Update(ctx, user, touchSubscriptionUpdatedAt)
 	return err
 }
 
@@ -51,6 +52,14 @@ func (svc *UserService) GetUserDetails(ctx context.Context, userId string) (*ent
 		return nil, err
 	}
 	user, err := svc.repo.Get(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (svc *UserService) GetUserByRazorpaySubscriptionID(ctx context.Context, subscriptionID string) (*entities.User, error) {
+	user, err := svc.repo.GetByRazorpaySubscriptionID(ctx, subscriptionID)
 	if err != nil {
 		return nil, err
 	}

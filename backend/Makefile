@@ -1,4 +1,4 @@
-.PHONY: build run clean test dev install-tools migrate-up migrate-down migrate-create help
+.PHONY: build run clean test dev install-tools migrate-up migrate-down migrate-force migrate-create help
 
 # Variables
 BINARY_NAME=focus-api
@@ -66,9 +66,21 @@ deps:
 migrate-up:
 	@migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" up
 
-## migrate-down: Rollback database migrations
+## migrate-down: Rollback database migrations (usage: make migrate-down version=9)
 migrate-down:
-	@migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" down
+	@if [ -z "$(version)" ]; then \
+		migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" down; \
+	else \
+		migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" goto $(version); \
+	fi
+
+## migrate-force: Force the migration version (usage: make migrate-force version=4)
+migrate-force:
+	@if [ -z "$(version)" ]; then \
+		echo "usage: make migrate-force version=4"; \
+		exit 1; \
+	fi
+	@migrate -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" force $(version)
 
 ## migrate-create: Create a new migration (usage: make migrate-create name=add_users)
 migrate-create:

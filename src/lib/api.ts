@@ -70,6 +70,23 @@ export interface StreamEventsHandle {
   hasActiveConnection: () => boolean;
 }
 
+export interface RazorpayCreateSubscriptionResponse {
+  subscription_id: string;
+  plan_id: string;
+  status: string;
+  currency: string;
+}
+
+export interface RazorpayVerifySubscriptionRequest {
+  razorpay_subscription_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+export interface RazorpayCreateSubscriptionRequest {
+  currency: string;
+}
+
 // Convert backend session format to frontend format
 function mapBackendToFrontend(backendSession: BackendSession): Session {
   return {
@@ -141,6 +158,33 @@ export const api = {
     await fetchWithAuth(`/sessions/${sessionId}`, {
       method: 'DELETE',
     });
+  },
+
+  async createRazorpaySubscription(payload: RazorpayCreateSubscriptionRequest): Promise<RazorpayCreateSubscriptionResponse> {
+    const response = await fetchWithAuth('/payments/create-subscription', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.json();
+  },
+
+  async verifyRazorpaySubscription(payload: {
+    razorpay_subscription_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }): Promise<{ success: boolean }> {
+    const response = await fetchWithAuth('/payments/verify-subscription', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.json();
+  },
+
+  async cancelRazorpaySubscription(): Promise<RazorpayCreateSubscriptionResponse> {
+    const response = await fetchWithAuth('/payments/cancel-subscription', {
+      method: 'POST',
+    });
+    return response.json();
   },
 
   streamEvents(
@@ -365,7 +409,11 @@ export const api = {
     user.lastAutoResetDate = typeof user.lastAutoResetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(user.lastAutoResetDate)
       ? user.lastAutoResetDate
       : '';
-    console.log(`fetched user: ${JSON.stringify(user)}`);
+    user.subscriptionTier = user.subscriptionTier ?? 'free';
+    user.subscriptionStatus = user.subscriptionStatus ?? 'inactive';
+    user.subscriptionCancelAtPeriodEnd = user.subscriptionCancelAtPeriodEnd ?? false;
+    user.subscriptionCurrency = user.subscriptionCurrency ?? null;
+    user.razorpayPlanId = user.razorpayPlanId ?? null;
     return user
   },
 

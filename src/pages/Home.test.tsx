@@ -33,7 +33,7 @@ describe("Home", () => {
   it("shows the planned and current focus features", () => {
     renderHome();
 
-    expect(screen.getByText(/analytics dashboard/i)).toBeInTheDocument();
+    expect(screen.getByText(/pro analytics dashboard/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open analytics/i })).toHaveAttribute("href", "/analytics");
     expect(screen.getByText(/switch between tasks/i)).toBeInTheDocument();
     expect(screen.getByText(/deep focus on one task/i)).toBeInTheDocument();
