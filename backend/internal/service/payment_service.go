@@ -27,7 +27,7 @@ var (
 	ErrMissingPlanID            = errors.New("missing razorpay subscription plan id")
 )
 
-const subscriptionCycleCount = 1200
+const subscriptionCycleCount = 120
 
 type SubscriptionUpdater interface {
 	Update(ctx context.Context, patch *entities.UserPatchInput) error
