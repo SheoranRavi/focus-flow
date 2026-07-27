@@ -15,6 +15,7 @@ import { appReducer, AppState } from './context/reducer';
 import { notifySessionComplete, requestSessionNotificationPermission } from './lib/notifications';
 import { sortSessionsForDisplay } from './lib/utils';
 import SEO from './components/SEO';
+import GoalProgressStack from './components/GoalProgressStack/GoalProgressStack';
 
 const DEFAULT_SESSIONS: Session[] = [
   { id: 1, title: 'Deep Work', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
@@ -270,8 +271,8 @@ const App: React.FC = () => {
       streak: 0,
       autoReset: source === "auto",
     });
-    if (user && source === "manual"){
-      api.sendUserEvent('reset_progress', { manualReset: true }).catch(err => {
+    if (user){
+      api.sendUserEvent('reset_progress', { manualReset: source === "manual" }).catch(err => {
         console.error(err);
       });
     }
@@ -615,6 +616,7 @@ const App: React.FC = () => {
                     </div>
                 </div>
              </div>
+             <GoalProgressStack sessions={state.sessions} />
           </div>
 
         </div>
