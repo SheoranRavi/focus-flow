@@ -203,6 +203,26 @@ const Home: React.FC = () => {
           </div>
         </section>
 
+        <section aria-labelledby="explore-heading" className="pb-12">
+          <h2 id="explore-heading" className="text-2xl font-bold tracking-tight text-slate-900">
+            Explore Task Quota
+          </h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <Link to="/task-focus-timer" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <h3 className="font-bold text-slate-900">Task focus timer</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Focus on one task at a time with a dedicated session.</p>
+            </Link>
+            <Link to="/focus-session-tracker" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <h3 className="font-bold text-slate-900">Focus session tracker</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Keep daily sessions, goals, and streaks visible.</p>
+            </Link>
+            <Link to="/productivity-analytics" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <h3 className="font-bold text-slate-900">Productivity analytics</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Understand where your focused time goes by task.</p>
+            </Link>
+          </div>
+        </section>
+
         <section aria-labelledby="faq-heading" className="pb-12">
           <h2 id="faq-heading" className="text-2xl font-bold tracking-tight text-slate-900">
             Frequently asked questions

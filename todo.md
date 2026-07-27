@@ -1,7 +1,6 @@
 # Continuation
 - Fix the UI sync issues (localstorage load shows old data when api disconnected)
 - DD
-  - Extend free tier to 7 days of analytics and paid one should show longer analytics.
   - Update the company? name in razorpay to task quota (instead of it being Ravi Sheoran) -> OR maybe it should be something else...
 - Add better logging
   - Log each event
@@ -15,6 +14,7 @@
 
 # Bugs
 - If backend starts after multiple days (resets missed), it should check the last reset date, and do the reset corresponding to that date
+- Logout from another tab and then the sessions load in original tab but not updating in backend (apparently)
 
 # UI
 - Maybe allow editing the time (focusSeconds) for tasks.

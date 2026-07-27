@@ -77,5 +77,35 @@ export default function SEO({
     }
   }, [canonicalUrl, description, image, indexable, schemaJson, title]);
 
-  return null;
+  // The prerender build uses these tags to populate the document head. In the
+  // browser, the effect above owns head updates so hydration stays identical
+  // to the generated root markup.
+  if (typeof window !== "undefined") {
+    return null;
+  }
+
+  return (
+    <>
+      <title>{title}</title>
+      <meta name="description" content={description} />
+      <meta name="robots" content={indexable ? "index, follow" : "noindex, nofollow"} />
+      <link rel="canonical" href={canonicalUrl} />
+      <meta property="og:title" content={title} />
+      <meta property="og:description" content={description} />
+      <meta property="og:url" content={canonicalUrl} />
+      <meta property="og:type" content="website" />
+      <meta property="og:image" content={image} />
+      <meta property="og:image:alt" content={`${title} preview`} />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={title} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={image} />
+      {schemaJson && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: schemaJson }}
+        />
+      )}
+    </>
+  );
 }
