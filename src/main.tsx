@@ -10,6 +10,7 @@ import { AuthProvider } from './context/AuthContext';
 import Home from './pages/Home';
 import AnalyticsPage from './pages/Analytics';
 import { registerNotificationServiceWorker } from './lib/notifications';
+import { getSeoLandingPage } from './pages/SeoLandingPages';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
@@ -18,6 +19,18 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: <Home/>,
+  },
+  {
+    path: "/task-focus-timer",
+    element: getSeoLandingPage("/task-focus-timer"),
+  },
+  {
+    path: "/focus-session-tracker",
+    element: getSeoLandingPage("/focus-session-tracker"),
+  },
+  {
+    path: "/productivity-analytics",
+    element: getSeoLandingPage("/productivity-analytics"),
   },
   {
     path: "/app",

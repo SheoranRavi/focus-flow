@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Task Quota</title>
+  <desc id="description">Task-based focus sessions with analytics and daily progress tracking.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eff6ff" />
+      <stop offset="100%" stop-color="#dbeafe" />
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#background)" />
+  <circle cx="1010" cy="120" r="220" fill="#bfdbfe" opacity=".6" />
+  <circle cx="1080" cy="560" r="280" fill="#c4b5fd" opacity=".35" />
+  <rect x="92" y="126" width="96" height="96" rx="24" fill="url(#brand)" />
+  <path d="M119 175l18 18 35-42" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="220" y="204" fill="#0f172a" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="700">Task Quota</text>
+  <text x="96" y="330" fill="#1e293b" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="700">Task-based focus sessions</text>
+  <text x="96" y="395" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="36">Track progress, build streaks, and understand</text>
+  <text x="96" y="445" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="36">where your focused time goes.</text>
+</svg>

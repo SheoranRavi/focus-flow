@@ -19,5 +19,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const analytics = getAnalytics(app);
+// Analytics is only available in the browser. Keeping this guarded allows the
+// public marketing pages to be rendered during the prerender build.
+export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
 export const auth = getAuth(app);

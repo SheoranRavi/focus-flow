@@ -23,6 +23,7 @@ import {
   formatReadableDate,
 } from "@/lib/analytics";
 import { Session, BackendUser, BackendAnalyticsEntry } from "@/types";
+import SEO from "@/components/SEO";
 
 const SESSION_COLORS = [
   "var(--chart-1)",
@@ -293,6 +294,7 @@ const AnalyticsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-brand-soft">
+      <SEO title="Analytics | Task Quota" description="Review focused time by task and track your productivity trends in Task Quota analytics." path="/analytics" indexable={false} />
       <Navbar
         activeSessionTitle={activeSessionTitle}
         activeSessionId={activeSessionId}

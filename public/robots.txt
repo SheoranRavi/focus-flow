@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /analytics
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+
+Sitemap: https://www.taskquota.com/sitemap.xml

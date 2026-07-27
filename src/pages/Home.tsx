@@ -3,6 +3,8 @@ import { Link, Navigate } from "react-router-dom";
 import { ArrowRight, BarChart3, CheckCircle2, Layers3, Pencil, Play, RotateCcw, Target, Trash2 } from "lucide-react";
 import Button from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
+import Footer from "../components/Footer";
+import SEO from "../components/SEO";
 
 const Home: React.FC = () => {
   const user = useAuth();
@@ -11,8 +13,53 @@ const Home: React.FC = () => {
     return <Navigate to="/app" replace />;
   }
 
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        name: "Task Quota",
+        url: "https://www.taskquota.com/",
+        description: "Task-based focus sessions with analytics, daily goals, and streak tracking.",
+        applicationCategory: "ProductivityApplication",
+        operatingSystem: "Web",
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+        },
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: [
+          {
+            "@type": "Question",
+            name: "What is Task Quota?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Task Quota is a task-based focus app that helps you run focused sessions, track daily goals, and review analytics over time.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Can I use Task Quota without creating an account?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Yes. You can start as a guest on your current device. Create an account when you want to sync sessions and progress across devices.",
+            },
+          },
+        ],
+      },
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
+      <SEO
+        title="Task Quota | Task-based focus sessions with analytics"
+        description="Run task-based focus sessions, track daily goals and streaks, and use analytics to understand where your focused time goes."
+        schema={structuredData}
+      />
       <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 md:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -30,19 +77,19 @@ const Home: React.FC = () => {
         <section className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[1fr_0.9fr] lg:py-16">
           <div className="max-w-2xl">
             <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-brand">
-              Focus sessions, daily progress, zero friction
+              Task-based focus sessions and analytics
             </p>
             <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              Start focusing now. Sync when you want.
+              Make every focused session count.
             </h1>
             <p className="mt-6 text-lg leading-8 text-slate-600">
-              Create focus sessions, track your daily goal, and keep your streak visible. Use it as a guest on this device, or create an account to sync sessions across multiple devices.
+              Organize focused time by task, track daily goals and streaks, and use analytics to see how your work is really progressing. Start as a guest or create an account to sync sessions across multiple devices.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="bg-slate-950 text-white hover:bg-slate-800">
                 <Link to="/register">
-                  Create an account
+                  Start focusing free — create an account
                   <ArrowRight size={18} />
                 </Link>
               </Button>
@@ -155,7 +202,48 @@ const Home: React.FC = () => {
             </p>
           </div>
         </section>
+
+        <section aria-labelledby="explore-heading" className="pb-12">
+          <h2 id="explore-heading" className="text-2xl font-bold tracking-tight text-slate-900">
+            Explore Task Quota
+          </h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <Link to="/task-focus-timer" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <h3 className="font-bold text-slate-900">Task focus timer</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Focus on one task at a time with a dedicated session.</p>
+            </Link>
+            <Link to="/focus-session-tracker" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <h3 className="font-bold text-slate-900">Focus session tracker</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Keep daily sessions, goals, and streaks visible.</p>
+            </Link>
+            <Link to="/productivity-analytics" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <h3 className="font-bold text-slate-900">Productivity analytics</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Understand where your focused time goes by task.</p>
+            </Link>
+          </div>
+        </section>
+
+        <section aria-labelledby="faq-heading" className="pb-12">
+          <h2 id="faq-heading" className="text-2xl font-bold tracking-tight text-slate-900">
+            Frequently asked questions
+          </h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="font-bold text-slate-900">What is Task Quota?</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Task Quota helps you run task-based focus sessions, track daily goals, and review your focused time with analytics.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="font-bold text-slate-900">Can I use it without an account?</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Yes. Start as a guest on your current device, then create an account when you want to sync sessions and progress across devices.
+              </p>
+            </article>
+          </div>
+        </section>
       </main>
+      <Footer />
     </div>
   );
 };

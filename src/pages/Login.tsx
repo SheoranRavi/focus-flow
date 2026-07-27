@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 
 import { auth } from "../firebase";
 import { Link, useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
+import SEO from "../components/SEO";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -47,6 +48,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <SEO title="Sign in | Task Quota" description="Sign in to Task Quota to continue your task-based focus sessions and view your progress." path="/login" indexable={false} />
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
