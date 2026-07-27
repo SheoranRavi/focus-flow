@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import React, {useState, useEffect} from "react";
 import {useNavigate } from "react-router-dom";
-import { CheckCircle2, MoreHorizontal, Clock, X, Menu, BarChart3 } from "lucide-react";
+import { CheckCircle2, MoreHorizontal, Clock, X, Menu, BarChart3, Plus } from "lucide-react";
 import Button from "./ui/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/Dialog";
 import { signOut } from 'firebase/auth';
@@ -10,10 +10,10 @@ import { auth } from '../firebase';
 export interface NavbarProps{
   activeSessionTitle: string,
   activeSessionId: number | null,
-  streak: number,
   resetTime: string,
   timezone: string,
   handleSaveSettings: (newResetTime: string, newTimezone: string) => void,
+  onCreateSession?: () => void,
   subscriptionStatus?: string,
   subscriptionCancelAtPeriodEnd?: boolean,
   isCancellingSubscription?: boolean,
@@ -51,10 +51,10 @@ const Navbar: React.FC<NavbarProps> = (props) => {
   const {
     activeSessionTitle,
     activeSessionId,
-    streak,
     resetTime,
     timezone,
     handleSaveSettings,
+    onCreateSession,
     subscriptionStatus,
     subscriptionCancelAtPeriodEnd,
     isCancellingSubscription = false,
@@ -152,14 +152,14 @@ const Navbar: React.FC<NavbarProps> = (props) => {
 
       {/* Right side container - visible on all screens */}
       <div className="flex items-center gap-3 md:gap-6">
-        {/* Streak counter - always visible */}
-        <div className="text-right">
-          <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Streak</div>
-          <div className="font-bold text-slate-700">{streak} Days</div>
-        </div>
-
         {/* Desktop-only auth buttons and settings */}
         <div className="hidden md:flex items-center gap-6 relative">
+          {onCreateSession && (
+            <Button onClick={onCreateSession} className="bg-slate-900 text-white hover:bg-slate-800">
+              <Plus size={16} />
+              New Session
+            </Button>
+          )}
           {
             !isLoggedIn ?
             <>
@@ -269,6 +269,18 @@ const Navbar: React.FC<NavbarProps> = (props) => {
               
               {/* Auth Buttons */}
               <div className="space-y-2">
+                {onCreateSession && (
+                  <Button
+                    onClick={() => {
+                      onCreateSession();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full bg-slate-900 text-white hover:bg-slate-800"
+                  >
+                    <Plus size={16} />
+                    New Session
+                  </Button>
+                )}
                 {!isLoggedIn ? (
                   <>
                     <Button 

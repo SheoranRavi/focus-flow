@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';
-import { AlertCircle, Loader2, Plus, RotateCcw } from 'lucide-react';
+import { AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
 import { Session, TimerState } from './types';
@@ -493,10 +493,10 @@ const App: React.FC = () => {
       <Navbar
         activeSessionTitle={activeSessionTitle}
         activeSessionId={state.activeSessionId}
-        streak={state.streak}
         resetTime={state.resetTime}
         timezone={state.timezone}
         handleSaveSettings={handleSaveSettings}
+        onCreateSession={() => setIsCreateDialogOpen(true)}
       />
       <main className="max-w-7xl mx-auto p-6 md:p-8">
         {startupError && (
@@ -521,16 +521,6 @@ const App: React.FC = () => {
           
           {/* LEFT COLUMN: Sessions List */}
           <div className="lg:col-span-8 flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-               <h2 className="text-2xl font-bold text-slate-800">Your Sessions</h2>
-               <button 
-                 onClick={() => setIsCreateDialogOpen(true)}
-                 className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200"
-               >
-                 <Plus size={16} /> New Session
-               </button>
-            </div>
-
             {/* Horizontal Scroll Area for Sessions (or Grid on large) */}
             <div className="w-full overflow-x-auto pb-8 -mx-6 px-6 md:mx-0 md:px-0 scrollbar-hide">
               <div className="flex flex-col md:flex-row gap-6 md:flex-wrap">
@@ -576,8 +566,8 @@ const App: React.FC = () => {
           {/* RIGHT COLUMN: Daily Progress */}
           <div className="lg:col-span-4 space-y-6">
              {/* Progress Card */}
-             <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
-                <div className="w-full flex justify-between items-center mb-6 h-8">
+             <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
+                <div className="w-full flex justify-between items-center mb-2 h-5">
                    <h3 className="font-bold text-lg text-slate-800">Daily Progress</h3>
                    <div className="flex gap-1">
                        <button
@@ -594,13 +584,13 @@ const App: React.FC = () => {
                 </div>
                 
                 <ProgressRing 
-                   radius={100} 
-                   stroke={12} 
+                   radius={100}
+                   stroke={12}
                    progress={Math.floor(totalFocusSeconds / 60)} 
                    total={totalDailyGoalMinutes} 
                 />
 
-                <div className="grid grid-cols-3 divide-x divide-slate-100 w-full mt-8 pt-8 border-t border-slate-50">
+                <div className="grid grid-cols-3 divide-x divide-slate-100 w-full mt-4 pt-4 border-t border-slate-50">
                     <div className="text-center px-2">
                         <div className="text-xs text-slate-400 uppercase font-medium tracking-wide mb-1">Yesterday</div>
                         <div className="font-bold text-slate-700 text-lg">{Math.floor(state.yesterdayMinutes / 60)} h {Math.floor(state.yesterdayMinutes) % 60} min</div>

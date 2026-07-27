@@ -261,7 +261,6 @@ const AnalyticsPage: React.FC = () => {
 
   const activeSessionId = profile?.activeSessionId ?? null;
   const activeSessionTitle = sessions.find((session) => session.id === activeSessionId)?.title ?? "Ready to Focus";
-  const streak = profile?.streak ?? 0;
   const resetTime = profile?.sessionsResetTime ?? "00:00";
   const timezone = profile?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -298,7 +297,6 @@ const AnalyticsPage: React.FC = () => {
       <Navbar
         activeSessionTitle={activeSessionTitle}
         activeSessionId={activeSessionId}
-        streak={streak}
         resetTime={resetTime}
         timezone={timezone}
         handleSaveSettings={handleSaveSettings}
