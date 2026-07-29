@@ -62,3 +62,73 @@ Running sessions use a target completion timestamp rather than relying only on b
 React, TypeScript, Vite, Tailwind CSS, Go, PostgreSQL, Firebase Authentication, Server-Sent Events, and Razorpay.
 
 The frontend also includes automated tests with Vitest and React Testing Library, plus SEO-prerendered marketing pages.
+
+## Run locally
+
+### Prerequisites
+
+- Node.js and npm
+- Go
+- Docker and Docker Compose
+- A Firebase project with Authentication enabled
+- Razorpay credentials if you want to test subscriptions
+
+### 1. Configure the frontend
+
+From the project root:
+
+```bash
+cp .env.example .env
+```
+
+Fill in the Firebase values. The default API URL points to `http://localhost:8080`.
+
+### 2. Start PostgreSQL
+
+From the `backend` directory:
+
+```bash
+POSTGRES_PASSWORD=focus_password_strong123 docker compose up -d db
+```
+
+### 3. Configure and migrate the backend
+
+Create `backend/.env` with `FIREBASE_CREDENTIALS_JSON`, `DATABASE_URL`, and any Razorpay settings such as `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. For local development, the database URL is:
+
+```text
+DATABASE_URL=postgres://focus_app:focus_password_strong123@localhost:5432/focus_db?sslmode=disable
+```
+
+Run the migrations from the `backend` directory:
+
+```bash
+make migrate-up
+```
+
+Start the API in a separate terminal:
+
+```bash
+make run
+```
+
+The backend runs on `http://localhost:8080` by default.
+
+### 4. Start the frontend
+
+From the project root:
+
+```bash
+npm install
+npm run dev
+```
+
+Open the URL printed by Vite, usually `http://localhost:5173`.
+
+Useful commands include:
+
+```bash
+npm run type-check
+npm run lint
+npm test -- --run
+npm run build
+```
