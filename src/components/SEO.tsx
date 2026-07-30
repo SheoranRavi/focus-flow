@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 const SITE_URL = "https://www.taskquota.com";
-const DEFAULT_IMAGE = `${SITE_URL}/og-image.svg`;
+const DEFAULT_IMAGE = `${SITE_URL}/og-image.png`;
 
 export interface SEOProps {
   title: string;
@@ -59,6 +59,9 @@ export default function SEO({
     upsertMeta("property", "og:type", "website");
     upsertMeta("property", "og:image", image);
     upsertMeta("property", "og:image:alt", `${title} preview`);
+    upsertMeta("property", "og:image:width", "1200");
+    upsertMeta("property", "og:image:height", "630");
+    upsertMeta("property", "og:image:type", "image/png");
 
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", title);
@@ -96,6 +99,9 @@ export default function SEO({
       <meta property="og:type" content="website" />
       <meta property="og:image" content={image} />
       <meta property="og:image:alt" content={`${title} preview`} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:type" content="image/png" />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
