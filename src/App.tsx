@@ -240,9 +240,14 @@ const App: React.FC = () => {
   // Derived State: Calculate total daily goal from individual session goals
   const totalDailyGoalMinutes = state.sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
   const timerSession = state.sessions.find(session => session.title === 'General') ?? GENERAL_TIMER;
-  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
+  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(() => {
+    const storedSelection = localStorage.getItem('selectedGoalId');
+    if (!storedSelection || storedSelection === 'general') return null;
+    const parsedSelection = Number.parseInt(storedSelection, 10);
+    return Number.isFinite(parsedSelection) ? parsedSelection : null;
+  });
   const goals = state.sessions
-    .filter(session => session.title !== 'General' && !session.noGoal && session.dailyGoalMinutes > 0)
+    .filter(session => session.title !== 'General' && !session.noGoal)
     .sort((a, b) => (a.id === selectedGoalId ? -1 : b.id === selectedGoalId ? 1 : 0));
   const selectedGoal = goals.find(goal => goal.id === selectedGoalId);
 
@@ -256,7 +261,10 @@ const App: React.FC = () => {
 
   const handleSelectGoal = (goalId: number | null) => {
     setSelectedGoalId(goalId);
-    if (!user) return;
+    if (!user) {
+      localStorage.setItem('selectedGoalId', goalId === null ? 'general' : String(goalId));
+      return;
+    }
     const selectedSessionId = goalId ?? timerSession.id;
     api.sendUserEvent('selected_session_change', { selectedSessionId }).catch(e => console.error(e));
   };
@@ -431,7 +439,10 @@ const App: React.FC = () => {
 
   const handleDeleteGoal = (goal: Session) => {
     dispatch({ type: 'DELETE_SESSION', id: goal.id });
-    if (selectedGoalId === goal.id) setSelectedGoalId(null);
+    if (selectedGoalId === goal.id) {
+      setSelectedGoalId(null);
+      if (!user) localStorage.setItem('selectedGoalId', 'general');
+    }
     if (user) api.deleteSession(goal.id).catch(e => console.error(e));
   };
 
@@ -441,6 +452,10 @@ const App: React.FC = () => {
     sessionDuration: number;
     noGoal: boolean;
   }) => {
+    if (state.sessions.some(session => session.title.trim().toLowerCase() === sessionData.title.trim().toLowerCase())) {
+      alert('A session with this name already exists');
+      return;
+    }
     const newId = Math.max(...state.sessions.map(s => s.id), 0) + 1;
     const newSession: Session = {
       id: newId,
@@ -619,13 +634,15 @@ const App: React.FC = () => {
               <div className="flex items-center justify-between"><h2 id="goals-heading" className="text-lg font-bold">Goals</h2><Target className="text-brand" size={20} /></div>
               <div className="mt-4 flex flex-col gap-2">
                 <button onClick={() => handleSelectGoal(null)} className={`rounded-xl border px-4 py-3 text-left ${selectedGoalId === null ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}><span className="font-semibold">General</span></button>
-                {goals.map(goal => <motion.div layout key={goal.id} className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${selectedGoalId === goal.id ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}>
-                  <button onClick={() => handleSelectGoal(goal.id)} className="min-w-0 flex-1 text-left"><span className="block truncate font-semibold">{goal.title}</span><span className="block text-xs text-slate-500">{selectedGoalId === goal.id ? 'Selected for the shared timer' : 'Select to attribute focus time'}</span></button>
-                  <label className="flex shrink-0 items-center gap-2 text-xs text-slate-500">Daily goal
-                    <input aria-label={`${goal.title} daily goal`} type="number" min="0" value={goal.dailyGoalMinutes} onChange={event => handleGoalDurationChange(goal, event.target.value)} className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-right text-sm text-slate-700" />
-                    min
-                  </label>
-                  <button type="button" aria-label={`Delete ${goal.title}`} onClick={() => handleDeleteGoal(goal)} className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500">×</button>
+                {goals.map(goal => <motion.div layout key={goal.id} className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${selectedGoalId === goal.id ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}>
+                  <button onClick={() => handleSelectGoal(goal.id)} className="min-w-0 flex-1 text-left"><span className="block truncate font-semibold">{goal.title}</span><span className="block truncate text-xs text-slate-500">{selectedGoalId === goal.id ? 'Selected for the shared timer' : 'Select to attribute focus time'}</span></button>
+                  <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                    <label className="flex min-w-0 items-center gap-2 text-xs text-slate-500">Daily goal
+                      <input aria-label={`${goal.title} daily goal`} type="number" min="0" value={goal.dailyGoalMinutes} onChange={event => handleGoalDurationChange(goal, event.target.value)} className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-right text-sm text-slate-700" />
+                      min
+                    </label>
+                    <button type="button" aria-label={`Delete ${goal.title}`} onClick={() => handleDeleteGoal(goal)} className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500">×</button>
+                  </div>
                 </motion.div>)}
                 {goals.length === 0 && <p className="text-sm text-slate-500">No active goals. Add one when you want to track focused time against it.</p>}
               </div>
