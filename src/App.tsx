@@ -154,9 +154,6 @@ const App: React.FC = () => {
     const userObj = await api.getUser();
     if (userObj != null){
       dispatch({type: "LOAD_USER", user: userObj});
-      if (userObj.sessionDuration > 0) {
-        dispatch({ type: 'SET_TIMER_DURATION', duration: userObj.sessionDuration });
-      }
       const selectedId = userObj.selectedSessionId ?? userObj.activeSessionId;
       setSelectedGoalId(selectedId ?? null);
       localStorage.setItem('lastResetDate', userObj.lastResetDate);
@@ -302,10 +299,10 @@ const App: React.FC = () => {
     if (state.activeSessionId === null && pendingTimerTargetMs === null) return;
     const interval = setInterval(() => {
       setClockNow(Date.now());
-      dispatch({type: 'TICK', now: Date.now()});
+      dispatch({type: 'TICK', now: Date.now(), goalId: user ? null : selectedGoalId});
     }, 1000);
     return () => clearInterval(interval);
-  }, [state.activeSessionId, pendingTimerTargetMs])
+  }, [state.activeSessionId, pendingTimerTargetMs, selectedGoalId, user])
 
   // handler for resetting the total daily progress
   const handleResetDailyProgress = useCallback((resetDate: string, source: "manual" | "auto") => {

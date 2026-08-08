@@ -21,7 +21,7 @@ export type AppAction =
   | { type: 'UPDATE_SESSION'; id: number; changes: Partial<Session> }
   | { type: 'ADD_SESSION'; session: Session }
   | { type: 'COMPLETE_SESSION'; id: number; focusSeconds: number }
-  | { type: 'TICK'; now: number }
+  | { type: 'TICK'; now: number; goalId?: number | null }
   | { type: 'RESET_DAILY_PROGRESS'; yesterdayMins: number; streak: number; resetDate: string; fromApi: boolean; autoReset: boolean }
   | { type: 'SET_RESET_TIME'; time: string }
   | { type: 'SET_TIMEZONE'; timezone: string }
@@ -139,10 +139,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'TICK': {
       if (state.activeSessionId === null) return state;
       let completed = false;
+      let elapsedDelta = 0;
       const sessions = state.sessions.map(s => {
         if (s.id !== state.activeSessionId || !s.targetTimeMs || s.state !== TimerState.RUNNING || s.timeLeft === undefined || s.sessionDuration === undefined) return s;
         let secondsLeft = Math.max(0, Math.ceil((s.targetTimeMs - action.now) / 1000));
         const delta = Math.max(0, s.timeLeft - secondsLeft);
+        elapsedDelta = delta;
         let timerState = TimerState.RUNNING;
         if (secondsLeft <= 0) { 
           completed = true; 
@@ -151,9 +153,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
         return { ...s, timeLeft: secondsLeft, focusSeconds: (s.focusSeconds || 0) + delta, isCompleted: completed, state: timerState };
       });
+      const attributedSessions = action.goalId == null || elapsedDelta <= 0
+        ? sessions
+        : sessions.map(s => s.id === action.goalId
+          ? { ...s, focusSeconds: (s.focusSeconds || 0) + elapsedDelta }
+          : s);
       return {
         ...state,
-        sessions: sessions,
+        sessions: attributedSessions,
         activeSessionId: completed ? null : state.activeSessionId,
       };
     }
