@@ -394,3 +394,17 @@ func (repo *SessionRepo) UpdateTaskDailyTimeGoal(ctx context.Context, sessionId 
 	}
 	return nil
 }
+
+// IncrementFocusSeconds records attribution separately from the General timer
+// row. The timer itself remains owned by General.
+func (repo *SessionRepo) IncrementFocusSeconds(ctx context.Context, sessionId int64, userId string, seconds int) error {
+	if seconds <= 0 {
+		return nil
+	}
+	_, err := repo.db.ExecContext(ctx, `
+		UPDATE sessions
+		SET focus_seconds = focus_seconds + $1
+		WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE AND title <> 'General'
+	`, seconds, sessionId, userId)
+	return err
+}

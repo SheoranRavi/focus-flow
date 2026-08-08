@@ -25,7 +25,7 @@ func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entitie
 	query := `
 		INSERT INTO users (
 			id, name, email, created_at, sessions_reset_time, last_reset_date, last_auto_reset_date,
-			active_session_id, yesterday_mins, streak, timezone, subscription_tier, subscription_status,
+			active_session_id, selected_session_id, session_duration, yesterday_mins, streak, timezone, subscription_tier, subscription_status,
 			subscription_interval, subscription_currency, razorpay_plan_id, razorpay_customer_id, razorpay_subscription_id,
 			subscription_started_at, subscription_current_period_end, subscription_cancel_at_period_end, subscription_cancelled_at
 		)
@@ -33,7 +33,7 @@ func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entitie
 			$1, $2, $3, now(), $4, $5, $6,
 			$7, $8, $9, $10, $11, $12,
 			$13, $14, $15, $16, $17, $18,
-			$19, $20, $21
+			$19, $20, $21, $22, $23
 		)
 		RETURNING id, created_at, subscription_updated_at
 	`
@@ -47,6 +47,8 @@ func (repo *UserRepo) Create(ctx context.Context, user *entities.User) (*entitie
 		user.LastResetDate,
 		user.LastAutoResetDate,
 		user.ActiveSessionId,
+		user.SelectedSessionId,
+		user.SessionDuration,
 		user.YesterdayMins,
 		user.Streak,
 		user.Timezone,
@@ -74,7 +76,7 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 	query := `
 		SELECT
 			id, name, email, created_at, sessions_reset_time, last_reset_date, last_auto_reset_date,
-			active_session_id, yesterday_mins, streak, timezone, subscription_tier, subscription_status,
+			active_session_id, selected_session_id, session_duration, yesterday_mins, streak, timezone, subscription_tier, subscription_status,
 			subscription_interval, subscription_currency, razorpay_plan_id, razorpay_customer_id, razorpay_subscription_id,
 			subscription_started_at, subscription_current_period_end, subscription_cancel_at_period_end, subscription_cancelled_at,
 			subscription_updated_at
@@ -83,6 +85,7 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 	`
 	var user entities.User
 	var activeSessionId sql.NullInt64
+	var selectedSessionId sql.NullInt64
 	var subscriptionInterval sql.NullString
 	var subscriptionCurrency sql.NullString
 	var razorpayPlanId sql.NullString
@@ -104,6 +107,8 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 		&user.LastResetDate,
 		&user.LastAutoResetDate,
 		&activeSessionId,
+		&selectedSessionId,
+		&user.SessionDuration,
 		&user.YesterdayMins,
 		&user.Streak,
 		&user.Timezone,
@@ -127,6 +132,10 @@ func (repo *UserRepo) Get(ctx context.Context, userId string) (*entities.User, e
 	if activeSessionId.Valid {
 		user.ActiveSessionId = new(int64)
 		*user.ActiveSessionId = activeSessionId.Int64
+	}
+	if selectedSessionId.Valid {
+		user.SelectedSessionId = new(int64)
+		*user.SelectedSessionId = selectedSessionId.Int64
 	}
 	if subscriptionInterval.Valid {
 		user.SubscriptionInterval = &subscriptionInterval.String
@@ -164,7 +173,7 @@ func (repo *UserRepo) GetByRazorpaySubscriptionID(ctx context.Context, subscript
 	query := `
 		SELECT
 			id, name, email, created_at, sessions_reset_time, last_reset_date, last_auto_reset_date,
-			active_session_id, yesterday_mins, streak, timezone, subscription_tier, subscription_status,
+			active_session_id, session_duration, yesterday_mins, streak, timezone, subscription_tier, subscription_status,
 			subscription_interval, subscription_currency, razorpay_plan_id, razorpay_customer_id, razorpay_subscription_id,
 			subscription_started_at, subscription_current_period_end, subscription_cancel_at_period_end, subscription_cancelled_at,
 			subscription_updated_at
@@ -190,6 +199,7 @@ func (repo *UserRepo) GetByRazorpaySubscriptionID(ctx context.Context, subscript
 		&user.LastResetDate,
 		&user.LastAutoResetDate,
 		&activeSessionId,
+		&user.SessionDuration,
 		&user.YesterdayMins,
 		&user.Streak,
 		&user.Timezone,
@@ -249,7 +259,7 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 	query := `
 		SELECT
 			id, name, email, created_at, sessions_reset_time, last_reset_date, last_auto_reset_date,
-			active_session_id, yesterday_mins, streak, timezone, subscription_tier, subscription_status,
+			active_session_id, session_duration, yesterday_mins, streak, timezone, subscription_tier, subscription_status,
 			subscription_interval, subscription_currency, razorpay_plan_id, razorpay_customer_id, razorpay_subscription_id,
 			subscription_started_at, subscription_current_period_end, subscription_cancel_at_period_end, subscription_cancelled_at,
 			subscription_updated_at
@@ -285,6 +295,7 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 			&user.LastResetDate,
 			&user.LastAutoResetDate,
 			&activeSessionId,
+			&user.SessionDuration,
 			&user.YesterdayMins,
 			&user.Streak,
 			&user.Timezone,
@@ -346,22 +357,24 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User, touchSubscri
 			last_reset_date = $2,
 			last_auto_reset_date = $3,
 			active_session_id  = $4,
-			yesterday_mins = $5,
-			streak = $6,
-			timezone = $7,
-			subscription_tier = $8,
-			subscription_status = $9,
-			subscription_interval = $10,
-			subscription_currency = $11,
-			razorpay_plan_id = $12,
-			razorpay_customer_id = $13,
-			razorpay_subscription_id = $14,
-			subscription_started_at = $15,
-			subscription_current_period_end = $16,
-			subscription_cancel_at_period_end = $17,
-			subscription_cancelled_at = $18,
-			subscription_updated_at = CASE WHEN $20 THEN now() ELSE subscription_updated_at END
-		WHERE id = $19
+			session_duration = COALESCE($5, session_duration),
+			yesterday_mins = $6,
+			streak = $7,
+			timezone = $8,
+			subscription_tier = $9,
+			subscription_status = $10,
+			subscription_interval = $11,
+			subscription_currency = $12,
+			razorpay_plan_id = $13,
+			razorpay_customer_id = $14,
+			razorpay_subscription_id = $15,
+			subscription_started_at = $16,
+			subscription_current_period_end = $17,
+			subscription_cancel_at_period_end = $18,
+			subscription_cancelled_at = $19,
+			subscription_updated_at = CASE WHEN $21 THEN now() ELSE subscription_updated_at END
+			, selected_session_id = $22
+		WHERE id = $20
 	`
 
 	_, err := repo.db.ExecContext(
@@ -371,6 +384,7 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User, touchSubscri
 		u.LastResetDate,
 		u.LastAutoResetDate,
 		u.ActiveSessionId,
+		u.SessionDuration,
 		u.YesterdayMins,
 		u.Streak,
 		u.Timezone,
@@ -387,6 +401,7 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User, touchSubscri
 		u.SubscriptionCancelledAt,
 		u.Id,
 		touchSubscriptionUpdatedAt,
+		u.SelectedSessionId,
 	)
 
 	if err != nil {

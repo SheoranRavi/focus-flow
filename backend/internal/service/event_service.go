@@ -141,6 +141,16 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		user, _ = svc.userSvc.GetUserDetails(ctx, user.Id)
 		svc.scheduleSessionResetForUser(ctx, user)
 		return nil // No broadcast needed for registration
+	case EventSelectedSessionChange:
+		if userPatch.SelectedSessionId == nil {
+			return fmt.Errorf("selectedSessionId needs to be supplied")
+		}
+		// Selection is also the current attribution target. Keeping both values
+		// aligned lets existing consumers of active_session_id work unchanged.
+		userPatch.ActiveSessionId = userPatch.SelectedSessionId
+		if err := svc.userSvc.Update(ctx, userPatch); err != nil {
+			return err
+		}
 	}
 	svc.ReceiveUserEvent(ctx, userId, &userData, t)
 	return nil
@@ -161,18 +171,13 @@ func (svc *EventService) ReceiveEvent(
 		}
 		switch t {
 		case EventStart:
-			patch.ActiveSessionId = new(int64)
-			*patch.ActiveSessionId = sessionId
+			// Goal attribution is updated by selected_session_change. Starting
+			// the General timer must not overwrite that selection.
 		case EventPause:
-			patch.ClearActiveSession = true
+			// Keep active_session_id as the user's last focused goal so it can
+			// be restored after a reload, even while the timer is paused.
 		case EventEdit, EventResetSession:
-			user, err := svc.userSvc.GetUserDetails(ctx, userId)
-			if err != nil {
-				return err
-			}
-			if user.ActiveSessionId != nil && *user.ActiveSessionId == sessionId {
-				patch.ClearActiveSession = true
-			}
+			// Keep the last selected goal across pause/reset.
 		}
 		err = svc.userSvc.Update(ctx, &patch)
 	}

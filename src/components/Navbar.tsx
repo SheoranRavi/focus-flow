@@ -141,7 +141,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
           <div>
             <h1 className="font-bold text-xl tracking-tight text-slate-900">Task Quota</h1>
             <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
-              {activeSessionId ? (
+              {activeSessionId !== null ? (
                 <span className="flex items-center gap-1 text-brand animate-pulse">
                   <span className="w-2 h-2 rounded-full bg-brand"></span> Focusing on {activeSessionTitle}
                 </span>
