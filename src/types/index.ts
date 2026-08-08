@@ -22,6 +22,7 @@ export interface BackendUser{
   lastAutoResetDate: string;
   activeSessionId: number | null;
   selectedSessionId: number | null;
+  sessionDuration: number;
   yesterdayMins: number;
   streak: number;
   timezone: string;

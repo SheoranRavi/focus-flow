@@ -154,6 +154,9 @@ const App: React.FC = () => {
     const userObj = await api.getUser();
     if (userObj != null){
       dispatch({type: "LOAD_USER", user: userObj});
+      if (userObj.sessionDuration > 0) {
+        dispatch({ type: 'SET_TIMER_DURATION', duration: userObj.sessionDuration });
+      }
       const selectedId = userObj.selectedSessionId ?? userObj.activeSessionId;
       setSelectedGoalId(selectedId ?? null);
       localStorage.setItem('lastResetDate', userObj.lastResetDate);
@@ -417,6 +420,15 @@ const App: React.FC = () => {
     }
   };
 
+  const handleTimerDurationUpdate = (_id: number, changes: Partial<Session>) => {
+    if (typeof changes.sessionDuration !== 'number') return;
+    dispatch({ type: 'SET_TIMER_DURATION', duration: changes.sessionDuration });
+    if (user) {
+      api.sendUserEvent('timer_duration_change', { sessionDuration: changes.sessionDuration })
+        .catch(e => console.error(e));
+    }
+  };
+
   const handleDeleteGoal = (goal: Session) => {
     dispatch({ type: 'DELETE_SESSION', id: goal.id });
     if (selectedGoalId === goal.id) setSelectedGoalId(null);
@@ -600,7 +612,7 @@ const App: React.FC = () => {
           <div className="lg:col-span-8 flex flex-col gap-6">
             <div className="flex flex-col items-center rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">Shared focus timer</p>
-              <div className="mt-6"><SessionCard session={displayTimerSession} isActive={state.activeSessionId === timerSession.id || pendingTimerTargetMs !== null} onStart={handleStart} onPause={handlePause} onDelete={() => undefined} onUpdate={() => undefined} onReset={handleReset} /></div>
+              <div className="mt-6"><SessionCard session={displayTimerSession} isActive={state.activeSessionId === timerSession.id || pendingTimerTargetMs !== null} onStart={handleStart} onPause={handlePause} onDelete={() => undefined} onUpdate={handleTimerDurationUpdate} onReset={handleReset} /></div>
               <p className="mt-4 text-sm text-slate-500">{selectedGoal ? `Tracking time for ${selectedGoal.title}` : 'General focus — select a goal below if you want to track it.'}</p>
             </div>
             <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm" aria-labelledby="goals-heading">

@@ -26,7 +26,8 @@ export type AppAction =
   | { type: 'SET_RESET_TIME'; time: string }
   | { type: 'SET_TIMEZONE'; timezone: string }
   | { type: 'LOAD_SESSIONS'; sessions: Session[] }
-  | { type: 'LOAD_USER'; user: Partial<BackendUser>};
+  | { type: 'LOAD_USER'; user: Partial<BackendUser> }
+  | { type: 'SET_TIMER_DURATION'; duration: number };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -45,8 +46,32 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         activeSessionId: state.activeSessionId,
       };
 
-    case 'LOAD_SESSIONS':
-      return { ...state, sessions: sortSessionsForDisplay(action.sessions) };
+    case 'LOAD_SESSIONS': {
+      const currentGeneral = state.sessions.find(session => session.title === 'General');
+      const sessions = action.sessions.map(session => {
+        if (session.title !== 'General' || !currentGeneral?.sessionDuration) return session;
+        return {
+          ...session,
+          sessionDuration: currentGeneral.sessionDuration,
+          timeLeft: currentGeneral.state === TimerState.RUNNING
+            ? currentGeneral.timeLeft
+            : session.timeLeft,
+        };
+      });
+      return { ...state, sessions: sortSessionsForDisplay(sessions) };
+    }
+
+    case 'SET_TIMER_DURATION':
+      return {
+        ...state,
+        sessions: state.sessions.map(session => session.title === 'General'
+          ? {
+              ...session,
+              sessionDuration: action.duration,
+              timeLeft: session.state === TimerState.RUNNING ? session.timeLeft : action.duration,
+            }
+          : session),
+      };
 
     case 'ADD_SESSION':
       if (state.sessions.some(s => s.id === action.session.id)) {

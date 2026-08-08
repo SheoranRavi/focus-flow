@@ -151,6 +151,30 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		if err := svc.userSvc.Update(ctx, userPatch); err != nil {
 			return err
 		}
+	case EventTimerDurationChange:
+		if userPatch.SessionDuration == nil || *userPatch.SessionDuration <= 0 {
+			return fmt.Errorf("sessionDuration must be greater than zero")
+		}
+		if err := svc.userSvc.Update(ctx, userPatch); err != nil {
+			return err
+		}
+		// Keep the legacy General row synchronized while it remains in the
+		// database. This prevents session reloads from showing its old value.
+		sessions, err := svc.sessionRepo.GetAllForUser(ctx, userId)
+		if err != nil {
+			return err
+		}
+		for _, session := range sessions {
+			if session.Title != "General" || session.State == entities.SessionRunning {
+				continue
+			}
+			session.SessionDuration = *userPatch.SessionDuration
+			session.TimeLeft = *userPatch.SessionDuration
+			if err := svc.sessionRepo.Update(ctx, session, false); err != nil {
+				return err
+			}
+			break
+		}
 	}
 	svc.ReceiveUserEvent(ctx, userId, &userData, t)
 	return nil

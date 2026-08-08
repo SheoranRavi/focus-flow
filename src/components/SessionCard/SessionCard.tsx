@@ -99,7 +99,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
               >
                 <Pencil size={14} />
               </button>
-              {
+              {session.title !== 'General' &&
                 session.state !== TimerState.RUNNING &&
                 <button 
                   onClick={() => onDelete(session.id)}
