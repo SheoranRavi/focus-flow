@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';
-import { AlertCircle, Loader2, RotateCcw } from 'lucide-react';
+import { AlertCircle, Loader2, RotateCcw, Target } from 'lucide-react';
 import ProgressRing from './components/ProgressRing/ProgressRing';
 import SessionCard from './components/SessionCard/SessionCard';
 import { Session, TimerState } from './types';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import { AnimatePresence } from 'framer-motion';
-import {motion} from "motion/react";
 import { parseSessionsFromStorage, getTodayDateTimeString, normalizeDateToISO } from './lib/utils';
 import { useAuth } from './context/AuthContext';
 import { api } from './lib/api';
@@ -16,18 +14,24 @@ import { notifySessionComplete, requestSessionNotificationPermission } from './l
 import { sortSessionsForDisplay } from './lib/utils';
 import SEO from './components/SEO';
 import GoalProgressStack from './components/GoalProgressStack/GoalProgressStack';
+import { motion } from 'motion/react';
 
 const DEFAULT_SESSIONS: Session[] = [
   { id: 1, title: 'Deep Work', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 90, focusSeconds: 0, state: TimerState.PAUSED },
   { id: 2, title: 'Reading', sessionDuration: 45 * 60, timeLeft: 45 * 60, isCompleted: false, dailyGoalMinutes: 60, focusSeconds: 0, state: TimerState.PAUSED },
   { id: 3, title: 'Emails', sessionDuration: 15 * 60, timeLeft: 15 * 60, isCompleted: false, dailyGoalMinutes: 30, focusSeconds: 0, state: TimerState.PAUSED },
 ];
+const GENERAL_TIMER_ID = 0;
+const GENERAL_TIMER: Session = { id: GENERAL_TIMER_ID, title: 'General', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 0, focusSeconds: 0, state: TimerState.PAUSED, noGoal: true };
 
 function buildLocalStorageState(): AppState {
   const storedSessions = localStorage.getItem('sessions');
-  const sessions = storedSessions
+  const loadedSessions = storedSessions
     ? sortSessionsForDisplay(parseSessionsFromStorage(storedSessions, DEFAULT_SESSIONS))
-    : DEFAULT_SESSIONS;
+    : [GENERAL_TIMER, ...DEFAULT_SESSIONS];
+  const sessions = loadedSessions.some(session => session.title === 'General')
+    ? loadedSessions
+    : [GENERAL_TIMER, ...loadedSessions];
 
   const activeSessionId = sessions.find(s => s.state === TimerState.RUNNING)?.id ?? null;
 
@@ -62,6 +66,8 @@ const App: React.FC = () => {
   const user = useAuth();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [clockNow, setClockNow] = useState(Date.now());
+  const [pendingTimerTargetMs, setPendingTimerTargetMs] = useState<number | null>(null);
   const [sseKey, setSseKey] = useState(0);
   const [resetStateReady, setResetStateReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
@@ -78,6 +84,7 @@ const App: React.FC = () => {
       : state.sessions.map((session) => ({ ...session }))
   );
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
+  const localTimerActionAtRef = useRef(0);
   const sessionSyncPromiseRef = useRef<Promise<void> | null>(null);
   const sseHandleRef = useRef<ReturnType<typeof api.streamEvents> | null>(null);
   const lastResumeCheckRef = useRef(0);
@@ -92,25 +99,29 @@ const App: React.FC = () => {
     }
 
     sessionSyncPromiseRef.current = (async () => {
-      const fetchedSessions = await api.getSessions();
+      let fetchedSessions = await api.getSessions();
+      // General is the single shared timer. Existing rows are retained as goals.
+      if (fetchedSessions && !fetchedSessions.some(session => session.title === 'General')) {
+        const createdGeneral = await api.createSession(GENERAL_TIMER);
+        fetchedSessions = [createdGeneral, ...fetchedSessions];
+      }
       if (fetchedSessions && fetchedSessions.length > 0) {
         console.log(`fetched sessions: ${JSON.stringify(fetchedSessions)}`);
         setCompletedSessionBaseline(fetchedSessions);
         dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions});
-        const runningSess = fetchedSessions.filter((s) => s.state === TimerState.RUNNING)
-        if (runningSess && runningSess.length > 0){
-          // ToDo: Figure out a better way
-          const targetTime = runningSess[0].targetTimeMs !== undefined ? runningSess[0].targetTimeMs : Date.now();
+        const generalTimer = fetchedSessions.find(session => session.title === 'General');
+        if (generalTimer?.state === TimerState.RUNNING && generalTimer.targetTimeMs && generalTimer.targetTimeMs > Date.now()) {
           dispatch({
             type: 'START_SESSION',
-            id: runningSess[0].id,
-            targetTimeMs: targetTime,
-            updatedAt: runningSess[0].updatedAt ?? new Date().toISOString(),
+            id: generalTimer.id,
+            targetTimeMs: generalTimer.targetTimeMs,
+            timeLeft: generalTimer.timeLeft ?? 1500,
+            updatedAt: generalTimer.updatedAt ?? new Date().toISOString(),
           });
         }
       } else{
         const results = await Promise.allSettled(
-          initialSessions.current.map(session => api.createSession(session))
+          [GENERAL_TIMER, ...initialSessions.current.filter(session => session.title !== 'General')].map(session => api.createSession(session))
         );
         const createdSessions = results
           .filter((result): result is PromiseFulfilledResult<Session> => result.status === 'fulfilled')
@@ -143,6 +154,8 @@ const App: React.FC = () => {
     const userObj = await api.getUser();
     if (userObj != null){
       dispatch({type: "LOAD_USER", user: userObj});
+      const selectedId = userObj.selectedSessionId ?? userObj.activeSessionId;
+      setSelectedGoalId(selectedId ?? null);
       localStorage.setItem('lastResetDate', userObj.lastResetDate);
       localStorage.setItem('lastAutoResetDate', userObj.lastAutoResetDate ?? '');
     }
@@ -223,6 +236,35 @@ const App: React.FC = () => {
 
   // Derived State: Calculate total daily goal from individual session goals
   const totalDailyGoalMinutes = state.sessions.reduce((sum, session) => sum + session.dailyGoalMinutes, 0);
+  const timerSession = state.sessions.find(session => session.title === 'General') ?? GENERAL_TIMER;
+  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(() => {
+    const storedSelection = localStorage.getItem('selectedGoalId');
+    if (!storedSelection || storedSelection === 'general') return null;
+    const parsedSelection = Number.parseInt(storedSelection, 10);
+    return Number.isFinite(parsedSelection) ? parsedSelection : null;
+  });
+  const goals = state.sessions
+    .filter(session => session.title !== 'General' && !session.noGoal)
+    .sort((a, b) => (a.id === selectedGoalId ? -1 : b.id === selectedGoalId ? 1 : 0));
+  const selectedGoal = goals.find(goal => goal.id === selectedGoalId);
+
+  // The backend persists General by its real session ID. The UI represents
+  // that choice as null so it remains distinct from a selected goal.
+  useEffect(() => {
+    if (selectedGoalId === timerSession.id) {
+      setSelectedGoalId(null);
+    }
+  }, [selectedGoalId, timerSession.id]);
+
+  const handleSelectGoal = (goalId: number | null) => {
+    setSelectedGoalId(goalId);
+    if (!user) {
+      localStorage.setItem('selectedGoalId', goalId === null ? 'general' : String(goalId));
+      return;
+    }
+    const selectedSessionId = goalId ?? timerSession.id;
+    api.sendUserEvent('selected_session_change', { selectedSessionId }).catch(e => console.error(e));
+  };
 
   // fire up the notification for session complete
   const completeNotification = useCallback((session: Session) => {
@@ -254,12 +296,13 @@ const App: React.FC = () => {
 
   // Timer tick
   useEffect(() => {
-    if (!state.activeSessionId) return;
+    if (state.activeSessionId === null && pendingTimerTargetMs === null) return;
     const interval = setInterval(() => {
-      dispatch({type: 'TICK', now: Date.now()});
+      setClockNow(Date.now());
+      dispatch({type: 'TICK', now: Date.now(), goalId: user ? null : selectedGoalId});
     }, 1000);
     return () => clearInterval(interval);
-  }, [state.activeSessionId])
+  }, [state.activeSessionId, pendingTimerTargetMs, selectedGoalId, user])
 
   // handler for resetting the total daily progress
   const handleResetDailyProgress = useCallback((resetDate: string, source: "manual" | "auto") => {
@@ -310,45 +353,57 @@ const App: React.FC = () => {
     // do not count a session time towards daily goal once session goal is achieved
     return state.sessions.reduce((sum, s) => sum + Math.min(s.focusSeconds, s.dailyGoalMinutes * 60), 0);
   }, [state.sessions]);
+  const displayTimerSession = useMemo(() => {
+    const targetTimeMs = pendingTimerTargetMs ?? timerSession.targetTimeMs;
+    if (
+      (state.activeSessionId !== timerSession.id && pendingTimerTargetMs === null) ||
+      !targetTimeMs ||
+      targetTimeMs <= clockNow
+    ) return timerSession;
+    return {
+      ...timerSession,
+      timeLeft: Math.max(0, Math.ceil((targetTimeMs - clockNow) / 1000)),
+    };
+  }, [clockNow, pendingTimerTargetMs, timerSession]);
 
-  const handleStart = (id: number) => {
+  useEffect(() => {
+    if (pendingTimerTargetMs !== null && pendingTimerTargetMs <= clockNow) {
+      setPendingTimerTargetMs(null);
+    }
+  }, [clockNow, pendingTimerTargetMs]);
+
+  const handleStart = () => {
     void requestSessionNotificationPermission();
-    const activeSess = state.sessions.filter((x) => x.id === id);
-    const s = activeSess[0];
-    const newTargetTimeMs = Date.now() + s.timeLeft*1000;
-    dispatch({type: 'START_SESSION', id: id, targetTimeMs: newTargetTimeMs, updatedAt: new Date().toISOString()});
+    localTimerActionAtRef.current = Date.now();
+    const currentTimeLeft = displayTimerSession.timeLeft ?? timerSession.timeLeft ?? 1500;
+    const now = Date.now();
+    setClockNow(now);
+    const newTargetTimeMs = now + currentTimeLeft * 1000;
+    setPendingTimerTargetMs(newTargetTimeMs);
+    dispatch({type: 'START_SESSION', id: timerSession.id, targetTimeMs: newTargetTimeMs, timeLeft: currentTimeLeft, updatedAt: new Date().toISOString()});
     if(user)
-      api.sendSessionEvent(id, 'start', {targetTimeMs: newTargetTimeMs}).catch(e => console.error(e));
+      api.sendSessionEvent(timerSession.id, 'start', {
+        targetTimeMs: newTargetTimeMs,
+        timeLeft: currentTimeLeft,
+      }).catch(e => console.error(e));
   };
 
-  const handlePause = (id: number) => {
+  const handlePause = () => {
+    localTimerActionAtRef.current = Date.now();
+    setPendingTimerTargetMs(null);
+    const currentTimeLeft = displayTimerSession.timeLeft ?? timerSession.timeLeft ?? 1500;
     // get timeLeft
-    const s = state.sessions.filter(s => s.id === id);
-    dispatch({type:'PAUSE_SESSION', id:id, timeLeft: s[0].timeLeft});
+    dispatch({type:'PAUSE_SESSION', id:timerSession.id, timeLeft: currentTimeLeft});
     if(user)
-      api.sendSessionEvent(id, 'pause', {timeLeft: s[0].timeLeft}).catch(e => console.error(e));
+      api.sendSessionEvent(timerSession.id, 'pause', {timeLeft: currentTimeLeft}).catch(e => console.error(e));
   };
 
-  const handleReset = (id: number) => {
-    dispatch({type:'RESET_SESSION', id:id});
+  const handleReset = () => {
+    localTimerActionAtRef.current = Date.now();
+    setPendingTimerTargetMs(null);
+    dispatch({type:'RESET_SESSION', id:timerSession.id});
     if(user)
-      api.sendSessionEvent(id, 'reset_session').catch(e => console.error(e));
-  };
-
-  const handleDelete = (id: number) => {
-    dispatch({type:'DELETE_SESSION', id:id});
-    if(user){
-      api.deleteSession(id).catch(e => console.error(e));
-    }
-  };
-
-  const handleUpdate = (id: number, newDetails: Partial<Session>) => {
-    if (id === state.activeSessionId && typeof newDetails.timeLeft === 'number') {
-      newDetails.targetTimeMs = Date.now() + newDetails.timeLeft * 1000;
-    }
-    dispatch({type:'UPDATE_SESSION', id:id, changes:newDetails});
-    if (user)
-      api.sendSessionEvent(id, 'edit', newDetails).catch(e => console.error(e));
+      api.sendSessionEvent(timerSession.id, 'reset_session').catch(e => console.error(e));
   };
 
   const handleSaveSettings = (newResetTime: string, newTimezone: string) => {
@@ -362,12 +417,42 @@ const App: React.FC = () => {
     }
   }
 
+  const handleGoalDurationChange = (goal: Session, value: string) => {
+    const dailyGoalMinutes = Math.max(0, Number.parseInt(value, 10) || 0);
+    dispatch({ type: 'UPDATE_SESSION', id: goal.id, changes: { dailyGoalMinutes } });
+    if (user) {
+      api.sendSessionEvent(goal.id, 'edit', { dailyGoalMinutes }).catch(e => console.error(e));
+    }
+  };
+
+  const handleTimerDurationUpdate = (_id: number, changes: Partial<Session>) => {
+    if (typeof changes.sessionDuration !== 'number') return;
+    dispatch({ type: 'SET_TIMER_DURATION', duration: changes.sessionDuration });
+    if (user) {
+      api.sendUserEvent('timer_duration_change', { sessionDuration: changes.sessionDuration })
+        .catch(e => console.error(e));
+    }
+  };
+
+  const handleDeleteGoal = (goal: Session) => {
+    dispatch({ type: 'DELETE_SESSION', id: goal.id });
+    if (selectedGoalId === goal.id) {
+      setSelectedGoalId(null);
+      if (!user) localStorage.setItem('selectedGoalId', 'general');
+    }
+    if (user) api.deleteSession(goal.id).catch(e => console.error(e));
+  };
+
   const handleAddSession = (sessionData: {
     title: string;
     dailyGoalMinutes: number;
     sessionDuration: number;
     noGoal: boolean;
   }) => {
+    if (state.sessions.some(session => session.title.trim().toLowerCase() === sessionData.title.trim().toLowerCase())) {
+      alert('A session with this name already exists');
+      return;
+    }
     const newId = Math.max(...state.sessions.map(s => s.id), 0) + 1;
     const newSession: Session = {
       id: newId,
@@ -458,7 +543,23 @@ const App: React.FC = () => {
   // subscribe to events
   useEffect(() => {
     if (user){
-      const handle = api.streamEvents(dispatch, syncStateFromApi);
+      // SSE events can reference the selected goal, but the UI countdown is
+      // always the shared General timer.
+      const eventDispatch = (action: Parameters<typeof dispatch>[0]) => {
+        if (action.type === 'START_SESSION' || action.type === 'PAUSE_SESSION' || action.type === 'RESET_SESSION' || action.type === 'COMPLETE_SESSION') {
+          // The current tab owns lifecycle state locally. Applying echoed
+          // start/pause/reset events can overwrite a newer pause/resume with
+          // an older timeLeft. Completion is still accepted from the backend.
+          if (action.type !== 'COMPLETE_SESSION') {
+            return;
+          }
+          setPendingTimerTargetMs(null);
+          dispatch({ ...action, id: timerSession.id } as typeof action);
+          return;
+        }
+        dispatch(action);
+      };
+      const handle = api.streamEvents(eventDispatch);
       sseHandleRef.current = handle;
 
       return () => {
@@ -468,10 +569,10 @@ const App: React.FC = () => {
         handle.cleanup();
       };
     }
-  }, [user, syncStateFromApi, sseKey])
+  }, [user, syncStateFromApi, sseKey, timerSession.id])
 
   // Derived State for UI
-  const activeSessionTitle = state.sessions.find(s => s.id === state.activeSessionId)?.title || "Ready to Focus";
+  const activeSessionTitle = selectedGoal?.title || "General";
 
   if (loadingView) {
     return (
@@ -519,48 +620,30 @@ const App: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* LEFT COLUMN: Sessions List */}
+          {/* LEFT COLUMN: One shared timer */}
           <div className="lg:col-span-8 flex flex-col gap-6">
-            {/* Horizontal Scroll Area for Sessions (or Grid on large) */}
-            <div className="w-full overflow-x-auto pb-8 -mx-6 px-6 md:mx-0 md:px-0 scrollbar-hide">
-              <div className="flex flex-col md:flex-row gap-6 md:flex-wrap">
-                <AnimatePresence mode='popLayout'>
-                  {state.sessions.map(session => (
-                    <motion.div
-                      key={session.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ 
-                        type: "spring", 
-                        stiffness: 300, 
-                        damping: 30
-                      }}
-                    >
-                      <SessionCard 
-                        key={session.id}
-                        session={session}
-                        isActive={state.activeSessionId === session.id}
-                        onStart={handleStart}
-                        onPause={handlePause}
-                        onDelete={handleDelete}
-                        onUpdate={handleUpdate}
-                        onReset={handleReset}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                
-                {/* Empty State / Add Button Card Placeholder */}
-                {state.sessions.length === 0 && (
-                  <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 rounded-3xl w-full text-slate-400">
-                     <p className="mb-4 font-medium">No active tasks</p>
-                     <button onClick={() => setIsCreateDialogOpen(true)} className="text-brand hover:underline">Create one to get started</button>
-                  </div>
-                )}
-              </div>
+            <div className="flex flex-col items-center rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
+              <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">Shared focus timer</p>
+              <div className="mt-6"><SessionCard session={displayTimerSession} isActive={state.activeSessionId === timerSession.id || pendingTimerTargetMs !== null} onStart={handleStart} onPause={handlePause} onDelete={() => undefined} onUpdate={handleTimerDurationUpdate} onReset={handleReset} /></div>
+              <p className="mt-4 text-sm text-slate-500">{selectedGoal ? `Tracking time for ${selectedGoal.title}` : 'General focus — select a goal below if you want to track it.'}</p>
             </div>
+            <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm" aria-labelledby="goals-heading">
+              <div className="flex items-center justify-between"><h2 id="goals-heading" className="text-lg font-bold">Goals</h2><Target className="text-brand" size={20} /></div>
+              <div className="mt-4 flex flex-col gap-2">
+                <button onClick={() => handleSelectGoal(null)} className={`rounded-xl border px-4 py-3 text-left ${selectedGoalId === null ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}><span className="font-semibold">General</span></button>
+                {goals.map(goal => <motion.div layout key={goal.id} className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${selectedGoalId === goal.id ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}>
+                  <button onClick={() => handleSelectGoal(goal.id)} className="min-w-0 flex-1 text-left"><span className="block truncate font-semibold">{goal.title}</span><span className="block truncate text-xs text-slate-500">{selectedGoalId === goal.id ? 'Selected for the shared timer' : 'Select to attribute focus time'}</span></button>
+                  <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                    <label className="flex min-w-0 items-center gap-2 text-xs text-slate-500">Daily goal
+                      <input aria-label={`${goal.title} daily goal`} type="number" min="0" value={goal.dailyGoalMinutes} onChange={event => handleGoalDurationChange(goal, event.target.value)} className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-right text-sm text-slate-700" />
+                      min
+                    </label>
+                    <button type="button" aria-label={`Delete ${goal.title}`} onClick={() => handleDeleteGoal(goal)} className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500">×</button>
+                  </div>
+                </motion.div>)}
+                {goals.length === 0 && <p className="text-sm text-slate-500">No active goals. Add one when you want to track focused time against it.</p>}
+              </div>
+            </section>
           </div>
 
           {/* RIGHT COLUMN: Daily Progress */}

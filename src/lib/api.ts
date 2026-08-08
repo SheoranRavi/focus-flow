@@ -89,20 +89,23 @@ export interface RazorpayCreateSubscriptionRequest {
 
 // Convert backend session format to frontend format
 function mapBackendToFrontend(backendSession: BackendSession): Session {
-  return {
+  const session: Session = {
     id: backendSession.id,
     title: backendSession.title,
-    sessionDuration: backendSession.sessionDuration,
-    timeLeft: backendSession.timeLeft,
     isCompleted: backendSession.isCompleted,
     dailyGoalMinutes: backendSession.dailyGoalMinutes,
     focusSeconds: backendSession.focusSeconds,
-    targetTimeMs: backendSession.targetTimeMs,
     state: backendSession.state,
     noGoal: backendSession.noGoal,
     createdAt: backendSession.createdAt,
     updatedAt: backendSession.updatedAt || backendSession.createdAt,
   };
+  if (backendSession.title === 'General') {
+    session.sessionDuration = backendSession.sessionDuration;
+    session.timeLeft = backendSession.timeLeft;
+    session.targetTimeMs = backendSession.targetTimeMs;
+  }
+  return session;
 }
 
 function normalizeLastResetDate(value: string | undefined | null): string {
@@ -271,12 +274,15 @@ export const api = {
           try {
             const session: BackendSession = JSON.parse(e.data);
             const frontEndSession = mapBackendToFrontend(session);
-            // ToDo: Figure out a better way
-            const targetTime = frontEndSession.targetTimeMs !== undefined ? frontEndSession.targetTimeMs : Date.now();
+            // A start event may be emitted for a goal attribution row. Its
+            // countdown still belongs to General, so retain the raw backend
+            // deadline even though goal rows omit timer fields in the UI.
+            const targetTime = session.targetTimeMs > 0 ? session.targetTimeMs : Date.now();
             dispatch({
               type: 'START_SESSION',
               id: frontEndSession.id,
               targetTimeMs: targetTime,
+              timeLeft: frontEndSession.timeLeft ?? 1500,
               updatedAt: frontEndSession.updatedAt ?? new Date().toISOString(),
             });
           } catch (error) {

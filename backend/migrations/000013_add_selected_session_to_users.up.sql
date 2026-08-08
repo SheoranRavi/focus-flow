@@ -1,0 +1,2 @@
+ALTER TABLE users
+ADD COLUMN selected_session_id BIGINT NULL DEFAULT NULL;

@@ -1,8 +1,8 @@
 export interface Session {
   id: number;
   title: string;
-  sessionDuration: number; // in seconds
-  timeLeft: number; // in seconds
+  sessionDuration?: number; // only present on General
+  timeLeft?: number; // only present on General
   isCompleted: boolean;
   dailyGoalMinutes: number; // adjustable daily goal
   focusSeconds: number; // time spent on this task today in seconds
@@ -21,6 +21,8 @@ export interface BackendUser{
   lastResetDate: string;
   lastAutoResetDate: string;
   activeSessionId: number | null;
+  selectedSessionId: number | null;
+  sessionDuration: number;
   yesterdayMins: number;
   streak: number;
   timezone: string;

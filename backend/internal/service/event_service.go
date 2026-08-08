@@ -141,6 +141,40 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		user, _ = svc.userSvc.GetUserDetails(ctx, user.Id)
 		svc.scheduleSessionResetForUser(ctx, user)
 		return nil // No broadcast needed for registration
+	case EventSelectedSessionChange:
+		if userPatch.SelectedSessionId == nil {
+			return fmt.Errorf("selectedSessionId needs to be supplied")
+		}
+		// Selection is also the current attribution target. Keeping both values
+		// aligned lets existing consumers of active_session_id work unchanged.
+		userPatch.ActiveSessionId = userPatch.SelectedSessionId
+		if err := svc.userSvc.Update(ctx, userPatch); err != nil {
+			return err
+		}
+	case EventTimerDurationChange:
+		if userPatch.SessionDuration == nil || *userPatch.SessionDuration <= 0 {
+			return fmt.Errorf("sessionDuration must be greater than zero")
+		}
+		if err := svc.userSvc.Update(ctx, userPatch); err != nil {
+			return err
+		}
+		// Keep the legacy General row synchronized while it remains in the
+		// database. This prevents session reloads from showing its old value.
+		sessions, err := svc.sessionRepo.GetAllForUser(ctx, userId)
+		if err != nil {
+			return err
+		}
+		for _, session := range sessions {
+			if session.Title != "General" || session.State == entities.SessionRunning {
+				continue
+			}
+			session.SessionDuration = *userPatch.SessionDuration
+			session.TimeLeft = *userPatch.SessionDuration
+			if err := svc.sessionRepo.Update(ctx, session, false); err != nil {
+				return err
+			}
+			break
+		}
 	}
 	svc.ReceiveUserEvent(ctx, userId, &userData, t)
 	return nil
@@ -161,18 +195,13 @@ func (svc *EventService) ReceiveEvent(
 		}
 		switch t {
 		case EventStart:
-			patch.ActiveSessionId = new(int64)
-			*patch.ActiveSessionId = sessionId
+			// Goal attribution is updated by selected_session_change. Starting
+			// the General timer must not overwrite that selection.
 		case EventPause:
-			patch.ClearActiveSession = true
+			// Keep active_session_id as the user's last focused goal so it can
+			// be restored after a reload, even while the timer is paused.
 		case EventEdit, EventResetSession:
-			user, err := svc.userSvc.GetUserDetails(ctx, userId)
-			if err != nil {
-				return err
-			}
-			if user.ActiveSessionId != nil && *user.ActiveSessionId == sessionId {
-				patch.ClearActiveSession = true
-			}
+			// Keep the last selected goal across pause/reset.
 		}
 		err = svc.userSvc.Update(ctx, &patch)
 	}
@@ -349,10 +378,12 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 		msg.Object = struct {
 			Id           int64     `json:"id"`
 			TargetTimeMs int64     `json:"targetTimeMs"`
+			TimeLeft     int       `json:"timeLeft"`
 			UpdatedAt    time.Time `json:"updatedAt"`
 		}{
 			Id:           sessionId,
 			TargetTimeMs: s.TargetTimeMs,
+			TimeLeft:     s.TimeLeft,
 			UpdatedAt:    s.UpdatedAt,
 		}
 	case EventPause, EventSessionComplete:

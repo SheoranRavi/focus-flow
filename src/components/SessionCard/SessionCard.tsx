@@ -4,13 +4,15 @@ import { SessionCardProps, TimerState } from '@/types';
 
 const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, onPause, onDelete, onUpdate, onReset }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editDuration, setEditDuration] = useState(session.sessionDuration / 60); // in minutes
+  const [editDuration, setEditDuration] = useState((session.sessionDuration ?? 1500) / 60); // in minutes
   const [editDailyGoal, setEditDailyGoal] = useState(session.dailyGoalMinutes); // in minutes
 
   // Calculate progress for this specific session ring (Timer Countdown)
-  const progressPercent = 1 - (session.timeLeft / session.sessionDuration);
-  const totalMinutes = Math.floor(session.timeLeft / 60);
-  const seconds = session.timeLeft % 60;
+  const timerDuration = session.sessionDuration ?? 1500;
+  const timeLeft = session.timeLeft ?? timerDuration;
+  const progressPercent = 1 - (timeLeft / timerDuration);
+  const totalMinutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
 
   // Calculate Daily Goal Progress for this session
   const goalProgressPercent = session.dailyGoalMinutes > 0 
@@ -29,10 +31,10 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
     const newDuration = Math.max(1, parseInt(String(editDuration)) || 1);
     const newGoal = Math.max(0, parseInt(String(editDailyGoal)) || 0);
 
-    onUpdate(session.id, { 
+    onUpdate(session.id, {
       sessionDuration: newDuration * 60,
       timeLeft: newDuration * 60, // being set to the initial duration
-      dailyGoalMinutes: newGoal,
+      ...(session.title !== 'General' ? { dailyGoalMinutes: newGoal } : {}),
     });
     setIsEditing(false);
   };
@@ -48,7 +50,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
       <div className="w-full flex justify-between items-start mb-4">
         {isEditing ? (
           <div className="flex flex-col gap-2 w-full z-10">
-            <h3 className="font-semibold text-lg text-slate-800 truncate" title={session.title}>{session.title}</h3>
+            {session.title !== 'General' && <h3 className="font-semibold text-lg text-slate-800 truncate" title={session.title}>{session.title}</h3>}
             {/* Session Length Input */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 w-24">Session Length:</span>
@@ -62,10 +64,9 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
               />
               <span className="text-xs text-slate-400">min</span>
             </div>
-            {/* Daily Goal Input */}
-            <div className="flex items-center gap-2">
+            {session.title !== 'General' && <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 w-24">Daily Goal:</span>
-              <input 
+              <input
                 type="number"
                 min="0"
                 max="300"
@@ -74,7 +75,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
                 className="w-16 p-1 border rounded text-center text-sm"
               />
               <span className="text-xs text-slate-400">min</span>
-            </div>
+            </div>}
 
             <div className="flex gap-2 mt-2">
               <button onClick={handleSave} className="text-xs bg-brand text-white px-2 py-1 rounded">Save</button>
@@ -85,12 +86,12 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
           <>
             <div className="flex items-center gap-2 max-w-[80%]">
                {session.isCompleted ? <CheckCircle2 size={20} className="text-brand" /> : null}
-               <h3 className="font-bold text-slate-800 truncate" title={session.title}>{session.title}</h3>
+               {session.title !== 'General' && <h3 className="font-bold text-slate-800 truncate" title={session.title}>{session.title}</h3>}
             </div>
             <div className="flex gap-1">
               <button 
                 onClick={() => {
-                  setEditDuration(session.sessionDuration / 60);
+                  setEditDuration((session.sessionDuration ?? 1500) / 60);
                   setEditDailyGoal(session.dailyGoalMinutes);
                   setIsEditing(true);
                 }}
@@ -98,7 +99,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
               >
                 <Pencil size={14} />
               </button>
-              {
+              {session.title !== 'General' &&
                 session.state !== TimerState.RUNNING &&
                 <button 
                   onClick={() => onDelete(session.id)}

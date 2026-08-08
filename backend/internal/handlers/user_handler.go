@@ -53,7 +53,7 @@ func (h *UserHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if eventType == service.EventResetProgress || eventType == service.EventAutoResetTimeChange || eventType == service.EventRegistration {
+	if eventType == service.EventResetProgress || eventType == service.EventAutoResetTimeChange || eventType == service.EventRegistration || eventType == service.EventSelectedSessionChange || eventType == service.EventTimerDurationChange {
 		err := h.eventSvc.HandleEvent(req.Context(), eventType, userId, &userPatch)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)

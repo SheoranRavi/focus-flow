@@ -95,9 +95,47 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 		svc.logger.Info().Int64("session_id", sessionId).Str("user_id", userId).Msg("Session not found")
 		return errors.New("session not found")
 	}
+	// Goal rows are attribution records only. All timer lifecycle events are
+	// applied to the user's single General row.
+	if (t == EventStart || t == EventPause || t == EventResetSession) && session.Title != "General" {
+		allSessions, listErr := svc.repo.GetAllForUser(ctx, userId)
+		if listErr != nil {
+			return listErr
+		}
+		for _, candidate := range allSessions {
+			if candidate.Title == "General" {
+				session = candidate
+				break
+			}
+		}
+	}
 	applyPatch := true
 	switch t {
 	case EventStart:
+		user, userErr := svc.userSvc.GetUserDetails(ctx, userId)
+		if userErr != nil {
+			return userErr
+		}
+		if user != nil && user.SessionDuration > 0 {
+			session.SessionDuration = user.SessionDuration
+		}
+		// A goal can be selected while the shared timer is already running.
+		// Carry the shared deadline onto the attributed row and persist the
+		// current remaining time; otherwise that row keeps its old timeLeft.
+		if patchInput.TargetTimeMs != nil && *patchInput.TargetTimeMs > 0 {
+			// The client computes this from the paused General timeLeft. Preserve
+			// it exactly so the SSE start event echoes the same deadline.
+			remaining := time.Until(time.UnixMilli(*patchInput.TargetTimeMs))
+			if remaining < 0 {
+				remaining = 0
+			}
+			patchInput.TimeLeft = new(int)
+			*patchInput.TimeLeft = int((remaining + time.Second - 1) / time.Second)
+		} else if session.TargetTimeMs == 0 {
+			target := time.Now().Add(time.Duration(session.TimeLeft) * time.Second).UnixMilli()
+			patchInput.TargetTimeMs = new(int64)
+			*patchInput.TargetTimeMs = target
+		}
 		patchInput.State = new(entities.SessionState)
 		*(patchInput.State) = entities.SessionRunning
 		patchInput.IsCompleted = new(bool)
@@ -105,13 +143,24 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	case EventPause:
 		patchInput.State = new(entities.SessionState)
 		*(patchInput).State = entities.SessionPaused
+		patchInput.TargetTimeMs = new(int64)
+		*patchInput.TargetTimeMs = 0
 	case EventResetSession:
+		user, userErr := svc.userSvc.GetUserDetails(ctx, userId)
+		if userErr != nil {
+			return userErr
+		}
+		if user != nil && user.SessionDuration > 0 {
+			session.SessionDuration = user.SessionDuration
+		}
 		patchInput.TimeLeft = new(int)
 		*(patchInput).TimeLeft = session.SessionDuration
 		patchInput.IsCompleted = new(bool)
 		*(patchInput.IsCompleted) = false
 		patchInput.State = new(entities.SessionState)
 		*patchInput.State = entities.SessionPaused
+		patchInput.TargetTimeMs = new(int64)
+		*patchInput.TargetTimeMs = 0
 		// cancel if already running timer
 		if session.State == entities.SessionRunning {
 			svc.CancelEvent(session)
@@ -154,7 +203,17 @@ func (svc *SessionService) ScheduleEvents(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// There is one timer per user. Prefer the explicit General row when old
+	// data contains more than one running session; the goal rows remain usable
+	// for goal-attributed focus when the client explicitly selects one.
+	selected := make(map[string]*entities.Session)
 	for _, sess := range sessions {
+		current, exists := selected[sess.UserId]
+		if !exists || (sess.Title == "General" && current.Title != "General") {
+			selected[sess.UserId] = sess
+		}
+	}
+	for _, sess := range selected {
 		err := svc.ScheduleEvent(ctx, sess)
 		if err != nil {
 			svc.logger.Error().Msg(err.Error())
@@ -171,9 +230,9 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 	svc.timerMu.Lock()
 	// can't start already running session
 	if t, ok := svc.userTimers[session.UserId]; ok && t.SessionId == session.Id {
-		svc.logger.Info().Msgf("User session already running: %s:%d", session.UserId, t.SessionId)
+		svc.logger.Info().Msgf("User timer already running: %s:%d", session.UserId, t.SessionId)
 		svc.timerMu.Unlock()
-		return fmt.Errorf("User session already running: %s:%d", session.UserId, t.SessionId)
+		return nil
 	}
 	svc.timerMu.Unlock()
 	// pause any session currently running
@@ -253,6 +312,10 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 				timeLeft = int((remaining + time.Second - 1) / time.Second)
 			}
 			focusSeconds := initFocusSeconds + initTimeLeft - timeLeft
+			attributedSeconds := (initTimeLeft - timeLeft) - (session.FocusSeconds - initFocusSeconds)
+			if attributedSeconds < 0 {
+				attributedSeconds = 0
+			}
 			maxFocusSeconds := initFocusSeconds + initTimeLeft
 			if focusSeconds > maxFocusSeconds {
 				focusSeconds = maxFocusSeconds
@@ -263,12 +326,19 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 
 			session.TimeLeft = timeLeft
 			session.FocusSeconds = focusSeconds
+			if user, userErr := svc.userSvc.GetUserDetails(ctx, session.UserId); userErr == nil && user != nil && user.ActiveSessionId != nil {
+				if err := svc.repo.IncrementFocusSeconds(ctx, *user.ActiveSessionId, session.UserId, attributedSeconds); err != nil {
+					svc.logger.Error().Err(err).Msg("Unable to attribute focus time to active goal")
+				}
+			}
 			if timeLeft == 0 {
 				t.Ticker.Stop()
 				svc.handleCompletion(ctx, session)
 				return
 			}
-			svc.repo.Update(ctx, session, false)
+			if err := svc.repo.UpdateTimerProgress(ctx, session); err != nil {
+				svc.logger.Error().Err(err).Msg("Unable to persist timer progress")
+			}
 		case <-t.CancelChan:
 			t.Ticker.Stop()
 			svc.logger.Info().Msgf("Stopping ticker for session %d", session.Id)
@@ -290,8 +360,6 @@ func (svc *SessionService) handleCompletion(ctx context.Context, session *entiti
 	}
 	// broadcast the session completion to clients
 	svc.logger.Info().Msgf("Session %d is complete, updating DB and clients.", session.Id)
-	userPatch := &entities.UserPatchInput{ClearActiveSession: true, UserId: session.UserId}
-	svc.userSvc.Update(ctx, userPatch)
 	svc.repo.Update(ctx, session, false)
 	svc.eventSvc.SendCompletion(sessionSched)
 	// remove this ticker from map
