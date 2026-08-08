@@ -14,7 +14,7 @@ export type AppState = {
 };
 
 export type AppAction =
-  | { type: 'START_SESSION'; id: number; targetTimeMs: number; updatedAt: string }
+  | { type: 'START_SESSION'; id: number; targetTimeMs: number; timeLeft: number; updatedAt: string }
   | { type: 'PAUSE_SESSION'; id: number; timeLeft: number }
   | { type: 'RESET_SESSION'; id: number }
   | { type: 'DELETE_SESSION'; id: number }
@@ -62,9 +62,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case 'START_SESSION': {
-      const restoredTimeLeft = Math.max(0, Math.ceil((action.targetTimeMs - Date.now()) / 1000));
       const updated = state.sessions.map(s => {
-        if (s.id === action.id) return { ...s, state: TimerState.RUNNING, targetTimeMs: action.targetTimeMs, timeLeft: restoredTimeLeft || s.timeLeft, updatedAt: action.updatedAt };
+        if (s.id === action.id) return { ...s, state: TimerState.RUNNING, targetTimeMs: action.targetTimeMs, timeLeft: action.timeLeft, updatedAt: action.updatedAt };
         // if any other session was running then set it to paused
         if (s.id === state.activeSessionId) return { ...s, state: TimerState.PAUSED };
         return s;
@@ -77,7 +76,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         activeSessionId: state.activeSessionId === action.id ? null : state.activeSessionId,
         sessions: state.sessions.map(s =>
-          s.id === action.id ? { ...s, state: TimerState.PAUSED, timeLeft: action.timeLeft } : s
+          s.id === action.id ? { ...s, state: TimerState.PAUSED, timeLeft: action.timeLeft, targetTimeMs: undefined } : s
         ),
       };
 

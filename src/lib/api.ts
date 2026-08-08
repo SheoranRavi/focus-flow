@@ -282,6 +282,7 @@ export const api = {
               type: 'START_SESSION',
               id: frontEndSession.id,
               targetTimeMs: targetTime,
+              timeLeft: frontEndSession.timeLeft ?? 1500,
               updatedAt: frontEndSession.updatedAt ?? new Date().toISOString(),
             });
           } catch (error) {

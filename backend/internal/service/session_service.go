@@ -122,12 +122,9 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 		// A goal can be selected while the shared timer is already running.
 		// Carry the shared deadline onto the attributed row and persist the
 		// current remaining time; otherwise that row keeps its old timeLeft.
-		if patchInput.TimeLeft != nil && *patchInput.TimeLeft > 0 {
-			// Re-anchor the deadline at server receipt time so network latency
-			// cannot make the countdown jump after the start request.
-			patchInput.TargetTimeMs = new(int64)
-			*patchInput.TargetTimeMs = time.Now().Add(time.Duration(*patchInput.TimeLeft) * time.Second).UnixMilli()
-		} else if patchInput.TargetTimeMs != nil && *patchInput.TargetTimeMs > 0 {
+		if patchInput.TargetTimeMs != nil && *patchInput.TargetTimeMs > 0 {
+			// The client computes this from the paused General timeLeft. Preserve
+			// it exactly so the SSE start event echoes the same deadline.
 			remaining := time.Until(time.UnixMilli(*patchInput.TargetTimeMs))
 			if remaining < 0 {
 				remaining = 0
@@ -146,6 +143,8 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	case EventPause:
 		patchInput.State = new(entities.SessionState)
 		*(patchInput).State = entities.SessionPaused
+		patchInput.TargetTimeMs = new(int64)
+		*patchInput.TargetTimeMs = 0
 	case EventResetSession:
 		user, userErr := svc.userSvc.GetUserDetails(ctx, userId)
 		if userErr != nil {
@@ -160,6 +159,8 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 		*(patchInput.IsCompleted) = false
 		patchInput.State = new(entities.SessionState)
 		*patchInput.State = entities.SessionPaused
+		patchInput.TargetTimeMs = new(int64)
+		*patchInput.TargetTimeMs = 0
 		// cancel if already running timer
 		if session.State == entities.SessionRunning {
 			svc.CancelEvent(session)
@@ -335,7 +336,9 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 				svc.handleCompletion(ctx, session)
 				return
 			}
-			svc.repo.Update(ctx, session, false)
+			if err := svc.repo.UpdateTimerProgress(ctx, session); err != nil {
+				svc.logger.Error().Err(err).Msg("Unable to persist timer progress")
+			}
 		case <-t.CancelChan:
 			t.Ticker.Stop()
 			svc.logger.Info().Msgf("Stopping ticker for session %d", session.Id)

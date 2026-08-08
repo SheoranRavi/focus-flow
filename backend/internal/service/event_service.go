@@ -354,10 +354,12 @@ func (svc *EventService) constructMessage(t EventType, sessionId int64, s *entit
 		msg.Object = struct {
 			Id           int64     `json:"id"`
 			TargetTimeMs int64     `json:"targetTimeMs"`
+			TimeLeft     int       `json:"timeLeft"`
 			UpdatedAt    time.Time `json:"updatedAt"`
 		}{
 			Id:           sessionId,
 			TargetTimeMs: s.TargetTimeMs,
+			TimeLeft:     s.TimeLeft,
 			UpdatedAt:    s.UpdatedAt,
 		}
 	case EventPause, EventSessionComplete:

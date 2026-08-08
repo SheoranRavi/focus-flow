@@ -115,6 +115,7 @@ const App: React.FC = () => {
             type: 'START_SESSION',
             id: generalTimer.id,
             targetTimeMs: generalTimer.targetTimeMs,
+            timeLeft: generalTimer.timeLeft ?? 1500,
             updatedAt: generalTimer.updatedAt ?? new Date().toISOString(),
           });
         }
@@ -367,9 +368,11 @@ const App: React.FC = () => {
     void requestSessionNotificationPermission();
     localTimerActionAtRef.current = Date.now();
     const currentTimeLeft = displayTimerSession.timeLeft ?? timerSession.timeLeft ?? 1500;
-    const newTargetTimeMs = Date.now() + currentTimeLeft * 1000;
+    const now = Date.now();
+    setClockNow(now);
+    const newTargetTimeMs = now + currentTimeLeft * 1000;
     setPendingTimerTargetMs(newTargetTimeMs);
-    dispatch({type: 'START_SESSION', id: timerSession.id, targetTimeMs: newTargetTimeMs, updatedAt: new Date().toISOString()});
+    dispatch({type: 'START_SESSION', id: timerSession.id, targetTimeMs: newTargetTimeMs, timeLeft: currentTimeLeft, updatedAt: new Date().toISOString()});
     if(user)
       api.sendSessionEvent(timerSession.id, 'start', {
         targetTimeMs: newTargetTimeMs,
@@ -520,17 +523,14 @@ const App: React.FC = () => {
       // always the shared General timer.
       const eventDispatch = (action: Parameters<typeof dispatch>[0]) => {
         if (action.type === 'START_SESSION' || action.type === 'PAUSE_SESSION' || action.type === 'RESET_SESSION' || action.type === 'COMPLETE_SESSION') {
-          // The current tab applies these actions optimistically. Ignore the
-          // same user's delayed SSE echo while the local transition settles.
-          if (action.type !== 'COMPLETE_SESSION' && Date.now() - localTimerActionAtRef.current < 2000) {
+          // The current tab owns lifecycle state locally. Applying echoed
+          // start/pause/reset events can overwrite a newer pause/resume with
+          // an older timeLeft. Completion is still accepted from the backend.
+          if (action.type !== 'COMPLETE_SESSION') {
             return;
           }
-          if (action.type !== 'START_SESSION') setPendingTimerTargetMs(null);
-          if (action.type === 'START_SESSION' && action.targetTimeMs <= Date.now() && timerSession.targetTimeMs && timerSession.targetTimeMs > Date.now()) {
-            dispatch({ ...action, id: timerSession.id, targetTimeMs: timerSession.targetTimeMs } as typeof action);
-          } else {
-            dispatch({ ...action, id: timerSession.id } as typeof action);
-          }
+          setPendingTimerTargetMs(null);
+          dispatch({ ...action, id: timerSession.id } as typeof action);
           return;
         }
         dispatch(action);

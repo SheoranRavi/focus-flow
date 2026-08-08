@@ -271,6 +271,17 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session, touchU
 	return err
 }
 
+// UpdateTimerProgress prevents an in-flight ticker from overwriting a pause
+// or a newer start. The target deadline acts as the timer generation.
+func (repo *SessionRepo) UpdateTimerProgress(ctx context.Context, s *entities.Session) error {
+	_, err := repo.db.ExecContext(ctx, `
+		UPDATE sessions
+		SET focus_seconds = $1, time_left = $2
+		WHERE id = $3 AND user_id = $4 AND state = 1 AND target_time_ms = $5
+	`, s.FocusSeconds, s.TimeLeft, s.Id, s.UserId, s.TargetTimeMs)
+	return err
+}
+
 func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string, resetDate string) error {
 	tx, err := repo.db.BeginTx(ctx, nil)
 	if err != nil {
