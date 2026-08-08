@@ -300,6 +300,21 @@ export const api = {
           }
         });
 
+        // Timer duration is stored on the user, so it is broadcast as a user
+        // event rather than as a session edit. Apply it to General on every
+        // connected client so edits made on another device are reflected too.
+        eventSrc.addEventListener("timer_duration_change", (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (typeof data.sessionDuration !== 'number' || data.sessionDuration <= 0) {
+              return;
+            }
+            dispatch({type: 'SET_TIMER_DURATION', duration: data.sessionDuration});
+          } catch (error) {
+            console.error('Error handling timer_duration_change event:', error);
+          }
+        });
+
         // Handle "session_complete" event
         eventSrc.addEventListener("session_complete", (e) => {
           try {
