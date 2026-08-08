@@ -158,6 +158,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		if err := svc.userSvc.Update(ctx, userPatch); err != nil {
 			return err
 		}
+		userData.SessionDuration = *userPatch.SessionDuration
 		// Keep the legacy General row synchronized while it remains in the
 		// database. This prevents session reloads from showing its old value.
 		sessions, err := svc.sessionRepo.GetAllForUser(ctx, userId)
@@ -237,6 +238,12 @@ func (svc *EventService) ReceiveUserEvent(ctx context.Context, userId string, us
 		}{
 			ResetTime: userData.SessionResetTime,
 			Timezone:  userData.Timezone,
+		}
+	case EventTimerDurationChange:
+		msg.Object = struct {
+			SessionDuration int `json:"sessionDuration"`
+		}{
+			SessionDuration: userData.SessionDuration,
 		}
 	}
 	svc.BroadcastToUserConnections(userId, msg)
@@ -427,4 +434,5 @@ type UserEventData struct {
 	AutoReset        bool
 	Timezone         string
 	TotalGoalMinutes int
+	SessionDuration  int
 }

@@ -275,6 +275,12 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 	// add t to the map
 	svc.userTimers[session.UserId] = tickerChan
 	svc.timerMu.Unlock()
+	svc.logger.Info().
+		Str("user_id", session.UserId).
+		Int64("session_id", session.Id).
+		Int64("target_time_ms", session.TargetTimeMs).
+		Int("time_left", session.TimeLeft).
+		Msg("Started timer")
 	return nil
 }
 

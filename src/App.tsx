@@ -85,6 +85,9 @@ const App: React.FC = () => {
   );
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
   const localTimerActionAtRef = useRef(0);
+  const localStartTargetRef = useRef<number | null>(null);
+  const localPauseTimeLeftRef = useRef<number | null>(null);
+  const localResetAtRef = useRef<number | null>(null);
   const sessionSyncPromiseRef = useRef<Promise<void> | null>(null);
   const sseHandleRef = useRef<ReturnType<typeof api.streamEvents> | null>(null);
   const lastResumeCheckRef = useRef(0);
@@ -379,6 +382,8 @@ const App: React.FC = () => {
     const now = Date.now();
     setClockNow(now);
     const newTargetTimeMs = now + currentTimeLeft * 1000;
+    localStartTargetRef.current = newTargetTimeMs;
+    localPauseTimeLeftRef.current = null;
     setPendingTimerTargetMs(newTargetTimeMs);
     dispatch({type: 'START_SESSION', id: timerSession.id, targetTimeMs: newTargetTimeMs, timeLeft: currentTimeLeft, updatedAt: new Date().toISOString()});
     if(user)
@@ -392,6 +397,8 @@ const App: React.FC = () => {
     localTimerActionAtRef.current = Date.now();
     setPendingTimerTargetMs(null);
     const currentTimeLeft = displayTimerSession.timeLeft ?? timerSession.timeLeft ?? 1500;
+    localPauseTimeLeftRef.current = currentTimeLeft;
+    localStartTargetRef.current = null;
     // get timeLeft
     dispatch({type:'PAUSE_SESSION', id:timerSession.id, timeLeft: currentTimeLeft});
     if(user)
@@ -400,6 +407,7 @@ const App: React.FC = () => {
 
   const handleReset = () => {
     localTimerActionAtRef.current = Date.now();
+    localResetAtRef.current = localTimerActionAtRef.current;
     setPendingTimerTargetMs(null);
     dispatch({type:'RESET_SESSION', id:timerSession.id});
     if(user)
@@ -547,11 +555,24 @@ const App: React.FC = () => {
       // always the shared General timer.
       const eventDispatch = (action: Parameters<typeof dispatch>[0]) => {
         if (action.type === 'START_SESSION' || action.type === 'PAUSE_SESSION' || action.type === 'RESET_SESSION' || action.type === 'COMPLETE_SESSION') {
-          // The current tab owns lifecycle state locally. Applying echoed
-          // start/pause/reset events can overwrite a newer pause/resume with
-          // an older timeLeft. Completion is still accepted from the backend.
-          if (action.type !== 'COMPLETE_SESSION') {
+          // Ignore only this tab's own SSE echo. A different target/timeLeft
+          // means another client changed the shared timer and must be applied.
+          if (action.type === 'START_SESSION' && localStartTargetRef.current === action.targetTimeMs) {
+            localStartTargetRef.current = null;
             return;
+          }
+          if (action.type === 'PAUSE_SESSION' && localPauseTimeLeftRef.current === action.timeLeft) {
+            localPauseTimeLeftRef.current = null;
+            return;
+          }
+          if (action.type === 'RESET_SESSION' && localResetAtRef.current !== null) {
+            localResetAtRef.current = null;
+            return;
+          }
+          if (action.type === 'START_SESSION') {
+            // Establish the receiving client's display clock at the same
+            // moment the remote deadline is accepted.
+            setClockNow(Date.now());
           }
           setPendingTimerTargetMs(null);
           dispatch({ ...action, id: timerSession.id } as typeof action);
