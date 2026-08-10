@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
@@ -28,6 +29,9 @@ func (h *UserHandler) Get(rw http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if revision, revErr := h.eventSvc.CurrentRevision(req.Context(), userId); revErr == nil {
+		rw.Header().Set("X-State-Revision", strconv.FormatInt(revision, 10))
 	}
 	_ = json.NewEncoder(rw).Encode(user)
 }
@@ -64,5 +68,13 @@ func (h *UserHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	rw.WriteHeader(http.StatusNoContent)
+	if revision, revErr := h.eventSvc.CurrentRevision(req.Context(), userId); revErr == nil {
+		rw.Header().Set("X-State-Revision", strconv.FormatInt(revision, 10))
+	}
+	_ = json.NewEncoder(rw).Encode(map[string]int64{"revision": userRevisionFromHeader(rw)})
+}
+
+func userRevisionFromHeader(rw http.ResponseWriter) int64 {
+	value, _ := strconv.ParseInt(rw.Header().Get("X-State-Revision"), 10, 64)
+	return value
 }

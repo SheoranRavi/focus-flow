@@ -16,14 +16,39 @@ type UserService struct {
 	repo       *repo.UserRepo
 	authClient *auth.Client
 	logger     zerolog.Logger
+	eventRepo  *repo.EventRepo
 }
 
-func NewUserService(usrRepo *repo.UserRepo, authClient *auth.Client) *UserService {
+func NewUserService(usrRepo *repo.UserRepo, authClient *auth.Client, eventRepos ...*repo.EventRepo) *UserService {
+	var eventRepo *repo.EventRepo
+	if len(eventRepos) > 0 {
+		eventRepo = eventRepos[0]
+	}
 	return &UserService{
 		repo:       usrRepo,
 		authClient: authClient,
 		logger:     logger.NewServiceLogger("user_service"),
+		eventRepo:  eventRepo,
 	}
+}
+
+func (svc *UserService) UpdateAndAppendEvent(ctx context.Context, patch *entities.UserPatchInput, eventType string, payload any) error {
+	if svc.eventRepo == nil {
+		return svc.Update(ctx, patch)
+	}
+	if err := svc.EnsureUserExists(ctx, patch.UserId); err != nil {
+		return err
+	}
+	user, err := svc.repo.Get(ctx, patch.UserId)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return fmt.Errorf("No user for id:%s", patch.UserId)
+	}
+	user.ApplyPatch(patch)
+	_, err = svc.repo.UpdateAndAppendEvent(ctx, user, patch.HasSubscriptionChanges(), svc.eventRepo, eventType, payload, patch.ClientMutationID)
+	return err
 }
 
 func (svc *UserService) Update(ctx context.Context, patch *entities.UserPatchInput) error {

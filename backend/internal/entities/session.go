@@ -32,6 +32,7 @@ const (
 )
 
 type PatchInput struct {
+	ClientMutationID string `json:"clientMutationId,omitempty"`
 	State            *SessionState
 	DailyGoalMinutes *int
 	SessionDuration  *int

@@ -16,6 +16,7 @@ import (
 type EventService struct {
 	userSvc     *UserService
 	sessionRepo *repo.SessionRepo
+	timerSvc    TimerCanceler
 	// each user can have n number of connections, so one channel per connection would be there
 	// userId -> connectionId -> Connection
 	userConnections map[string]map[string]*Connection
@@ -23,11 +24,24 @@ type EventService struct {
 	timerMu         sync.Mutex
 	logger          zerolog.Logger
 	connectionMu    sync.Mutex
+	eventRepo       *repo.EventRepo
 }
 
-func NewEventService(userSvc *UserService, sessRepo *repo.SessionRepo) *EventService {
+// TimerCanceler is implemented by the session service, which owns the
+// in-memory timer ticker. Keeping this as a small interface avoids coupling
+// the event service to the session service implementation.
+type TimerCanceler interface {
+	CancelUserTimer(userId string) bool
+}
+
+func NewEventService(userSvc *UserService, sessRepo *repo.SessionRepo, eventRepos ...*repo.EventRepo) *EventService {
+	var eventRepo *repo.EventRepo
+	if len(eventRepos) > 0 {
+		eventRepo = eventRepos[0]
+	}
 	return &EventService{userSvc: userSvc,
 		sessionRepo:     sessRepo,
+		eventRepo:       eventRepo,
 		userConnections: make(map[string]map[string]*Connection),
 		userTimers:      make(map[string]*time.Timer),
 		logger:          logger.NewServiceLogger("event_service")}
@@ -68,14 +82,7 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 			}
 		}
 		// calculate yesterdayMins and streak
-		totalFocusSeconds := 0
-		totalGoalMinutes := 0
-		totalTimeOnGoal := 0
-		for _, s := range sessions {
-			totalFocusSeconds += s.FocusSeconds
-			totalGoalMinutes += s.DailyGoalMinutes
-			totalTimeOnGoal += min(s.DailyGoalMinutes*60, s.FocusSeconds)
-		}
+		totalFocusSeconds, totalGoalMinutes, totalTimeOnGoal := calculateResetTotals(sessions)
 		// ToDo
 		userPatch.Streak = new(int)
 		*(userPatch.Streak) = user.Streak
@@ -86,6 +93,11 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		}
 		userPatch.YesterdayMins = new(int)
 		*(userPatch.YesterdayMins) = totalFocusSeconds / 60
+		// Stop the in-memory ticker before resetting its database row. Otherwise
+		// the ticker can write progress back after the reset transaction commits.
+		if svc.timerSvc != nil {
+			svc.timerSvc.CancelUserTimer(userId)
+		}
 		err = svc.sessionRepo.ResetProgress(ctx, userId, closedDate)
 		if err != nil {
 			return err
@@ -148,9 +160,13 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 		// Selection is also the current attribution target. Keeping both values
 		// aligned lets existing consumers of active_session_id work unchanged.
 		userPatch.ActiveSessionId = userPatch.SelectedSessionId
-		if err := svc.userSvc.Update(ctx, userPatch); err != nil {
+		if userPatch.ClientMutationID == "" {
+			userPatch.ClientMutationID = uuid.NewString()
+		}
+		if err := svc.userSvc.UpdateAndAppendEvent(ctx, userPatch, string(t), userPatch); err != nil {
 			return err
 		}
+		userData.SelectedSessionId = *userPatch.SelectedSessionId
 	case EventTimerDurationChange:
 		if userPatch.SessionDuration == nil || *userPatch.SessionDuration <= 0 {
 			return fmt.Errorf("sessionDuration must be greater than zero")
@@ -177,8 +193,41 @@ func (svc *EventService) HandleEvent(ctx context.Context, t EventType, userId st
 			break
 		}
 	}
-	svc.ReceiveUserEvent(ctx, userId, &userData, t)
+	svc.ReceiveUserEvent(ctx, userId, &userData, t, userPatch.ClientMutationID)
 	return nil
+}
+
+// calculateResetTotals returns the values recorded when daily progress is
+// reset. General and goal rows are both valid sources now: the ticker writes
+// elapsed time to exactly one of them at a time, so summing them is safe.
+func calculateResetTotals(sessions []*entities.Session) (int, int, int) {
+	totalFocusSeconds := 0
+	totalGoalMinutes := 0
+	totalTimeOnGoal := 0
+	for _, s := range sessions {
+		totalFocusSeconds += s.FocusSeconds
+		totalGoalMinutes += s.DailyGoalMinutes
+		totalTimeOnGoal += min(s.DailyGoalMinutes*60, s.FocusSeconds)
+	}
+	return totalFocusSeconds, totalGoalMinutes, totalTimeOnGoal
+}
+
+func (svc *EventService) SetTimerCanceler(timerSvc TimerCanceler) {
+	svc.timerSvc = timerSvc
+}
+
+func (svc *EventService) Replay(ctx context.Context, userID string, after int64) ([]repo.UserEvent, error) {
+	if svc.eventRepo == nil {
+		return []repo.UserEvent{}, nil
+	}
+	return svc.eventRepo.Replay(ctx, userID, after)
+}
+
+func (svc *EventService) CurrentRevision(ctx context.Context, userID string) (int64, error) {
+	if svc.eventRepo == nil {
+		return 0, nil
+	}
+	return svc.eventRepo.CurrentRevision(ctx, userID)
 }
 
 func (svc *EventService) ReceiveEvent(
@@ -187,9 +236,22 @@ func (svc *EventService) ReceiveEvent(
 	sessionId int64,
 	t EventType,
 	s *entities.Session) error {
+	_, err := svc.receiveEvent(ctx, userId, sessionId, t, s, "")
+	return err
+}
+
+func (svc *EventService) receiveEvent(ctx context.Context, userId string, sessionId int64, t EventType, s *entities.Session, clientMutationID string) (*repo.UserEvent, error) {
 	var err error
 	// Create the message object
 	msg := svc.constructMessage(t, sessionId, s)
+	if svc.eventRepo != nil {
+		e := int64(sessionId)
+		event, appendErr := svc.eventRepo.Append(ctx, userId, string(t), &e, msg.Object, clientMutationID)
+		if appendErr != nil {
+			return nil, appendErr
+		}
+		msg.EventID, msg.Revision = event.EventID.String(), event.Revision
+	}
 	if t == EventStart || t == EventPause || t == EventEdit || t == EventResetSession {
 		patch := entities.UserPatchInput{
 			UserId: userId,
@@ -209,10 +271,14 @@ func (svc *EventService) ReceiveEvent(
 
 	svc.BroadcastToUserConnections(userId, msg)
 	// ToDo: Should we return err here?
-	return err
+	return nil, err
 }
 
-func (svc *EventService) ReceiveUserEvent(ctx context.Context, userId string, userData *UserEventData, t EventType) {
+func (svc *EventService) ReceiveEventWithMutation(ctx context.Context, userId string, sessionId int64, t EventType, s *entities.Session, clientMutationID string) (*repo.UserEvent, error) {
+	return svc.receiveEvent(ctx, userId, sessionId, t, s, clientMutationID)
+}
+
+func (svc *EventService) ReceiveUserEvent(ctx context.Context, userId string, userData *UserEventData, t EventType, clientMutationID ...string) {
 	msg := Message{
 		EventType: t,
 	}
@@ -244,6 +310,23 @@ func (svc *EventService) ReceiveUserEvent(ctx context.Context, userId string, us
 			SessionDuration int `json:"sessionDuration"`
 		}{
 			SessionDuration: userData.SessionDuration,
+		}
+	case EventSelectedSessionChange:
+		msg.Object = struct {
+			SelectedSessionId int64 `json:"selectedSessionId"`
+		}{
+			SelectedSessionId: userData.SelectedSessionId,
+		}
+	}
+	if svc.eventRepo != nil {
+		mutationID := ""
+		if len(clientMutationID) > 0 {
+			mutationID = clientMutationID[0]
+		}
+		if event, err := svc.eventRepo.Append(ctx, userId, string(t), nil, msg.Object, mutationID); err == nil {
+			msg.EventID, msg.Revision = event.EventID.String(), event.Revision
+		} else {
+			svc.logger.Error().Err(err).Msg("Unable to append user event")
 		}
 	}
 	svc.BroadcastToUserConnections(userId, msg)
@@ -417,6 +500,8 @@ type Connection struct {
 type Message struct {
 	EventType EventType
 	Object    any
+	EventID   string
+	Revision  int64
 }
 
 type SessionSchedule struct {
@@ -427,12 +512,13 @@ type SessionSchedule struct {
 }
 
 type UserEventData struct {
-	YesterdayMins    int
-	Streak           int
-	SessionResetTime string
-	LastResetDate    string
-	AutoReset        bool
-	Timezone         string
-	TotalGoalMinutes int
-	SessionDuration  int
+	YesterdayMins     int
+	Streak            int
+	SessionResetTime  string
+	LastResetDate     string
+	AutoReset         bool
+	Timezone          string
+	TotalGoalMinutes  int
+	SessionDuration   int
+	SelectedSessionId int64
 }

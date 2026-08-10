@@ -67,6 +67,51 @@ func (repo *SessionRepo) GetAllForUser(ctx context.Context, userId string) ([]*e
 	return sessions, rows.Err()
 }
 
+// GetAllForUserWithRevision reads the session snapshot and its revision from
+// one repeatable-read transaction. A revision obtained after a standalone
+// session query can describe a newer mutation than the rows just returned.
+func (repo *SessionRepo) GetAllForUserWithRevision(ctx context.Context, userId string) ([]*entities.Session, int64, error) {
+	tx, err := repo.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if err != nil {
+		return nil, 0, err
+	}
+	defer tx.Rollback()
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, user_id, title, daily_goal_minutes, state, focus_seconds, group_id, session_duration,
+			is_completed, target_time_ms, no_goal, created_at, updated_at, is_deleted, time_left
+		FROM sessions WHERE user_id = $1 AND is_deleted = FALSE
+		ORDER BY updated_at DESC, created_at DESC`, userId)
+	if err != nil {
+		return nil, 0, err
+	}
+	sessions, err := scanSessions(rows)
+	rows.Close()
+	if err != nil {
+		return nil, 0, err
+	}
+	var revision int64
+	if err := tx.QueryRowContext(ctx, `SELECT event_revision FROM users WHERE id=$1`, userId).Scan(&revision); err != nil {
+		return nil, 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, 0, err
+	}
+	return sessions, revision, nil
+}
+
+func scanSessions(rows *sql.Rows) ([]*entities.Session, error) {
+	defer rows.Close()
+	sessions := make([]*entities.Session, 0)
+	for rows.Next() {
+		var s entities.Session
+		if err := rows.Scan(&s.Id, &s.UserId, &s.Title, &s.DailyGoalMinutes, &s.State, &s.FocusSeconds, &s.GroupId, &s.SessionDuration, &s.IsCompleted, &s.TargetTimeMs, &s.NoGoal, &s.CreatedAt, &s.UpdatedAt, &s.IsDeleted, &s.TimeLeft); err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, &s)
+	}
+	return sessions, rows.Err()
+}
+
 func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) (*entities.Session, error) {
 	query := `
 		INSERT INTO sessions (user_id, title, daily_goal_minutes, session_duration, time_left, no_goal, group_id, created_at)
@@ -90,6 +135,27 @@ func (repo *SessionRepo) Create(ctx context.Context, session *entities.Session) 
 		return nil, err
 	}
 	return session, nil
+}
+
+func (repo *SessionRepo) CreateAndAppendEvent(ctx context.Context, session *entities.Session, eventRepo *EventRepo, eventType string, payload any, clientMutationID string) (*entities.Session, *UserEvent, error) {
+	tx, err := repo.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer tx.Rollback()
+	err = tx.QueryRowContext(ctx, `INSERT INTO sessions (user_id,title,daily_goal_minutes,session_duration,time_left,no_goal,group_id,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,now()) RETURNING id,created_at,updated_at`, session.UserId, session.Title, session.DailyGoalMinutes, session.SessionDuration, session.TimeLeft, session.NoGoal, session.GroupId).Scan(&session.Id, &session.CreatedAt, &session.UpdatedAt)
+	if err != nil {
+		return nil, nil, err
+	}
+	sessionID := session.Id
+	event, err := eventRepo.AppendTx(ctx, tx, session.UserId, eventType, &sessionID, payload, clientMutationID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, err
+	}
+	return session, event, nil
 }
 
 func (repo *SessionRepo) GetAllActiveSessions(ctx context.Context) ([]*entities.Session, error) {
@@ -211,7 +277,43 @@ func (repo *SessionRepo) Delete(ctx context.Context, sessionId int64, userId str
 	return nil
 }
 
+func (repo *SessionRepo) DeleteAndAppendEvent(ctx context.Context, sessionId int64, userID string, eventRepo *EventRepo, clientMutationID string) (*UserEvent, error) {
+	tx, err := repo.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE sessions SET is_deleted = TRUE WHERE id=$1 AND user_id=$2 AND is_deleted=FALSE`, sessionId, userID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if rows == 0 {
+		return nil, sql.ErrNoRows
+	}
+	event, err := eventRepo.AppendTx(ctx, tx, userID, "delete_session", &sessionId, sessionId, clientMutationID)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
 func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session, touchUpdatedAt bool) error {
+	_, err := updateSession(ctx, repo.db, s, touchUpdatedAt)
+	return err
+}
+
+type sqlExecer interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func updateSession(ctx context.Context, execer sqlExecer, s *entities.Session, touchUpdatedAt bool) (sql.Result, error) {
 	query := `
 		WITH updated AS (
         UPDATE sessions
@@ -238,7 +340,7 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session, touchU
 	  AND (SELECT state FROM updated) = 1
 	`
 
-	res, err := repo.db.ExecContext(
+	res, err := execer.ExecContext(
 		ctx,
 		query,
 		s.DailyGoalMinutes,
@@ -255,20 +357,39 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session, touchU
 		touchUpdatedAt,
 	)
 	if err != nil {
-		repo.logger.Error().Err(err).Int64("session_id", s.Id).Str("user_id", s.UserId).Msg("Failed to update session")
-		return err
+		return nil, err
 	}
 	if touchUpdatedAt {
 		s.UpdatedAt = time.Now().UTC()
 	}
 	numAffected, rowsErr := res.RowsAffected()
 	if rowsErr != nil {
-		repo.logger.Warn().Err(err).Msg("SessionUpdate: could not get rows affected")
-	} else {
-		repo.logger.Info().Msgf("SessionUpdate number of rows impacted: %d", numAffected)
+		return res, rowsErr
 	}
+	_ = numAffected
+	return res, nil
+}
 
-	return err
+// UpdateAndAppendEvent commits the session state update and its revision in
+// one transaction. A failed event insert rolls the session update back.
+func (repo *SessionRepo) UpdateAndAppendEvent(ctx context.Context, s *entities.Session, touchUpdatedAt bool, eventRepo *EventRepo, eventType string, payload any, clientMutationID string) (*UserEvent, error) {
+	tx, err := repo.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	if _, err := updateSession(ctx, tx, s, touchUpdatedAt); err != nil {
+		return nil, err
+	}
+	sessionID := s.Id
+	event, err := eventRepo.AppendTx(ctx, tx, s.UserId, eventType, &sessionID, payload, clientMutationID)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return event, nil
 }
 
 // UpdateTimerProgress prevents an in-flight ticker from overwriting a pause
@@ -280,6 +401,28 @@ func (repo *SessionRepo) UpdateTimerProgress(ctx context.Context, s *entities.Se
 		WHERE id = $3 AND user_id = $4 AND state = 1 AND target_time_ms = $5
 	`, s.FocusSeconds, s.TimeLeft, s.Id, s.UserId, s.TargetTimeMs)
 	return err
+}
+
+// CompleteTimerIfCurrent prevents an old ticker from completing a newer timer
+// generation after pause/resume or reset/start has replaced its deadline.
+func (repo *SessionRepo) CompleteTimerIfCurrent(ctx context.Context, s *entities.Session) (bool, error) {
+	result, err := repo.db.ExecContext(ctx, `
+		UPDATE sessions
+		SET focus_seconds = $1,
+			time_left = $2,
+			is_completed = TRUE,
+			state = 0,
+			target_time_ms = 0
+		WHERE id = $3
+		  AND user_id = $4
+		  AND state = 1
+		  AND target_time_ms = $5
+	`, s.FocusSeconds, s.TimeLeft, s.Id, s.UserId, s.TargetTimeMs)
+	if err != nil {
+		return false, err
+	}
+	count, err := result.RowsAffected()
+	return count == 1, err
 }
 
 func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string, resetDate string) error {
@@ -355,11 +498,13 @@ func (repo *SessionRepo) ResetProgress(ctx context.Context, userId string, reset
 	_, err = tx.ExecContext(
 		ctx,
 		`
-			UPDATE sessions
+		UPDATE sessions
 			SET
 				focus_seconds = 0,
 				is_completed = FALSE,
-				time_left = session_duration
+				time_left = session_duration,
+				state = 0,
+				target_time_ms = 0
 			WHERE user_id = $1
 				AND is_deleted = FALSE
 		`,

@@ -160,11 +160,6 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isActive, onStart, o
             </div>
          </div>
          
-         {/* Goal Progress Text */}
-         <div className="mt-2 text-xs font-medium text-slate-400 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-brand"></span>
-            Daily Goal: {Math.round(goalProgressPercent * 100)}%
-         </div>
       </div>
 
       {/* Controls */}

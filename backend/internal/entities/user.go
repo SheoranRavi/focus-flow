@@ -33,6 +33,7 @@ type User struct {
 }
 
 type UserPatchInput struct {
+	ClientMutationID              string `json:"clientMutationId,omitempty"`
 	ActiveSessionId               *int64
 	SelectedSessionId             *int64
 	SessionDuration               *int

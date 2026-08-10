@@ -86,11 +86,28 @@ const App: React.FC = () => {
   const completedSessionIdsRef = useRef<Set<number> | null>(null);
   const localTimerActionAtRef = useRef(0);
   const localStartTargetRef = useRef<number | null>(null);
+  const skipGoalAttributionRef = useRef(false);
   const localPauseTimeLeftRef = useRef<number | null>(null);
   const localResetAtRef = useRef<number | null>(null);
   const sessionSyncPromiseRef = useRef<Promise<void> | null>(null);
   const sseHandleRef = useRef<ReturnType<typeof api.streamEvents> | null>(null);
   const lastResumeCheckRef = useRef(0);
+  const recordCommittedRevision = useCallback((revision: number) => {
+    if (revision > 0) {
+      dispatch({ type: 'ACK_REVISION', revision });
+    }
+  }, []);
+  useEffect(() => {
+    if (import.meta.env.DEV && user) {
+      console.debug('[timer-debug]', {
+        activeSessionId: state.activeSessionId,
+        generalState: state.sessions.find(session => session.title === 'General')?.state,
+        generalTimeLeft: state.sessions.find(session => session.title === 'General')?.timeLeft,
+        pendingTimerTargetMs,
+        lastAppliedRevision: state.lastAppliedRevision,
+      });
+    }
+  }, [user, state.activeSessionId, state.sessions, state.lastAppliedRevision, pendingTimerTargetMs]);
   const setCompletedSessionBaseline = useCallback((sessions: Session[]) => {
     completedSessionIdsRef.current = new Set(sessions.filter(s => s.isCompleted).map(s => s.id));
   }, []);
@@ -106,14 +123,21 @@ const App: React.FC = () => {
       // General is the single shared timer. Existing rows are retained as goals.
       if (fetchedSessions && !fetchedSessions.some(session => session.title === 'General')) {
         const createdGeneral = await api.createSession(GENERAL_TIMER);
-        fetchedSessions = [createdGeneral, ...fetchedSessions];
+        const combinedSessions = [createdGeneral, ...fetchedSessions] as typeof fetchedSessions;
+        if (combinedSessions) combinedSessions.revision = api.getLastAppliedRevision();
+        fetchedSessions = combinedSessions;
       }
       if (fetchedSessions && fetchedSessions.length > 0) {
         console.log(`fetched sessions: ${JSON.stringify(fetchedSessions)}`);
         setCompletedSessionBaseline(fetchedSessions);
-        dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions});
+        const optimisticTimerId = fetchedSessions.find(session => session.title === 'General')?.id;
+        dispatch({type: 'LOAD_SESSIONS', sessions: fetchedSessions, revision: fetchedSessions.revision, preserveOptimisticIds: optimisticTimerId === undefined ? [] : [
+          ...(localStartTargetRef.current !== null ? [optimisticTimerId] : []),
+          ...(localPauseTimeLeftRef.current !== null || localResetAtRef.current !== null ? [optimisticTimerId] : []),
+        ]});
         const generalTimer = fetchedSessions.find(session => session.title === 'General');
         if (generalTimer?.state === TimerState.RUNNING && generalTimer.targetTimeMs && generalTimer.targetTimeMs > Date.now()) {
+          skipGoalAttributionRef.current = true;
           dispatch({
             type: 'START_SESSION',
             id: generalTimer.id,
@@ -266,7 +290,9 @@ const App: React.FC = () => {
       return;
     }
     const selectedSessionId = goalId ?? timerSession.id;
-    api.sendUserEvent('selected_session_change', { selectedSessionId }).catch(e => console.error(e));
+    api.sendUserEvent('selected_session_change', { selectedSessionId })
+      .then(recordCommittedRevision)
+      .catch(e => console.error(e));
   };
 
   // fire up the notification for session complete
@@ -302,7 +328,9 @@ const App: React.FC = () => {
     if (state.activeSessionId === null && pendingTimerTargetMs === null) return;
     const interval = setInterval(() => {
       setClockNow(Date.now());
-      dispatch({type: 'TICK', now: Date.now(), goalId: user ? null : selectedGoalId});
+      const skipGoalAttribution = skipGoalAttributionRef.current;
+      skipGoalAttributionRef.current = false;
+      dispatch({type: 'TICK', now: Date.now(), goalId: selectedGoalId, skipGoalAttribution});
     }, 1000);
     return () => clearInterval(interval);
   }, [state.activeSessionId, pendingTimerTargetMs, selectedGoalId, user])
@@ -318,9 +346,11 @@ const App: React.FC = () => {
       autoReset: source === "auto",
     });
     if (user){
-      api.sendUserEvent('reset_progress', { manualReset: source === "manual" }).catch(err => {
-        console.error(err);
-      });
+      api.sendUserEvent('reset_progress', { manualReset: source === "manual" })
+        .then(recordCommittedRevision)
+        .catch(err => {
+          console.error(err);
+        });
     }
   }, [user]);
 
@@ -375,43 +405,67 @@ const App: React.FC = () => {
     }
   }, [clockNow, pendingTimerTargetMs]);
 
-  const handleStart = () => {
+  const handleStart = (requestedId?: number) => {
     void requestSessionNotificationPermission();
     localTimerActionAtRef.current = Date.now();
-    const currentTimeLeft = displayTimerSession.timeLeft ?? timerSession.timeLeft ?? 1500;
+    const sessionId = user ? timerSession.id : (requestedId ?? timerSession.id);
+    const session = state.sessions.find(candidate => candidate.id === sessionId) ?? timerSession;
+    const requestedTimeLeft = user
+      ? (displayTimerSession.timeLeft ?? timerSession.timeLeft ?? 1500)
+      : (session.timeLeft ?? session.sessionDuration ?? 1500);
+    // A completed/expired timer may still be rendered with zero seconds until
+    // the authoritative completion snapshot arrives. Starting that value
+    // would create an already-expired target and the next TICK would undo the
+    // optimistic running state immediately.
+    const currentTimeLeft = requestedTimeLeft > 0
+      ? requestedTimeLeft
+      : (session.sessionDuration ?? timerSession.sessionDuration ?? 1500);
     const now = Date.now();
     setClockNow(now);
     const newTargetTimeMs = now + currentTimeLeft * 1000;
     localStartTargetRef.current = newTargetTimeMs;
-    localPauseTimeLeftRef.current = null;
+    skipGoalAttributionRef.current = true;
     setPendingTimerTargetMs(newTargetTimeMs);
-    dispatch({type: 'START_SESSION', id: timerSession.id, targetTimeMs: newTargetTimeMs, timeLeft: currentTimeLeft, updatedAt: new Date().toISOString()});
+    dispatch({type: 'START_SESSION', id: sessionId, targetTimeMs: newTargetTimeMs, timeLeft: currentTimeLeft, updatedAt: new Date().toISOString()});
     if(user)
       api.sendSessionEvent(timerSession.id, 'start', {
         targetTimeMs: newTargetTimeMs,
         timeLeft: currentTimeLeft,
+      }).then((revision) => {
+        recordCommittedRevision(revision);
       }).catch(e => console.error(e));
   };
 
-  const handlePause = () => {
+  const handlePause = (requestedId?: number) => {
     localTimerActionAtRef.current = Date.now();
     setPendingTimerTargetMs(null);
-    const currentTimeLeft = displayTimerSession.timeLeft ?? timerSession.timeLeft ?? 1500;
+    const sessionId = user ? timerSession.id : (requestedId ?? timerSession.id);
+    const session = state.sessions.find(candidate => candidate.id === sessionId) ?? timerSession;
+    const currentTimeLeft = user
+      ? (displayTimerSession.timeLeft ?? timerSession.timeLeft ?? 1500)
+      : (session.timeLeft ?? session.sessionDuration ?? 1500);
     localPauseTimeLeftRef.current = currentTimeLeft;
     localStartTargetRef.current = null;
     // get timeLeft
-    dispatch({type:'PAUSE_SESSION', id:timerSession.id, timeLeft: currentTimeLeft});
+    dispatch({type:'PAUSE_SESSION', id:sessionId, timeLeft: currentTimeLeft});
     if(user)
-      api.sendSessionEvent(timerSession.id, 'pause', {timeLeft: currentTimeLeft}).catch(e => console.error(e));
+      api.sendSessionEvent(timerSession.id, 'pause', {timeLeft: currentTimeLeft}).then((revision) => {
+        recordCommittedRevision(revision);
+      }).catch(e => console.error(e));
   };
 
-  const handleReset = () => {
+  const handleReset = (requestedId?: number) => {
     localTimerActionAtRef.current = Date.now();
     localResetAtRef.current = localTimerActionAtRef.current;
+    localStartTargetRef.current = null;
+    localPauseTimeLeftRef.current = null;
     setPendingTimerTargetMs(null);
-    dispatch({type:'RESET_SESSION', id:timerSession.id});
+    dispatch({type:'RESET_SESSION', id: user ? timerSession.id : (requestedId ?? timerSession.id)});
     if(user)
-      api.sendSessionEvent(timerSession.id, 'reset_session').catch(e => console.error(e));
+      api.sendSessionEvent(timerSession.id, 'reset_session').then((revision) => {
+        recordCommittedRevision(revision);
+        localResetAtRef.current = null;
+      }).catch(e => console.error(e));
   };
 
   const handleSaveSettings = (newResetTime: string, newTimezone: string) => {
@@ -421,7 +475,9 @@ const App: React.FC = () => {
     localStorage.setItem("timezone", newTimezone);
     if (user){
       console.log('saving settings to backend');
-      api.sendUserEvent('auto_reset_time_change', {sessionsResetTime: newResetTime, timezone: newTimezone}).catch(e => console.error(e));
+      api.sendUserEvent('auto_reset_time_change', {sessionsResetTime: newResetTime, timezone: newTimezone})
+        .then(recordCommittedRevision)
+        .catch(e => console.error(e));
     }
   }
 
@@ -429,7 +485,9 @@ const App: React.FC = () => {
     const dailyGoalMinutes = Math.max(0, Number.parseInt(value, 10) || 0);
     dispatch({ type: 'UPDATE_SESSION', id: goal.id, changes: { dailyGoalMinutes } });
     if (user) {
-      api.sendSessionEvent(goal.id, 'edit', { dailyGoalMinutes }).catch(e => console.error(e));
+      api.sendSessionEvent(goal.id, 'edit', { dailyGoalMinutes })
+        .then(recordCommittedRevision)
+        .catch(e => console.error(e));
     }
   };
 
@@ -438,8 +496,13 @@ const App: React.FC = () => {
     dispatch({ type: 'SET_TIMER_DURATION', duration: changes.sessionDuration });
     if (user) {
       api.sendUserEvent('timer_duration_change', { sessionDuration: changes.sessionDuration })
+        .then(recordCommittedRevision)
         .catch(e => console.error(e));
     }
+  };
+
+  const handleGoalUpdate = (id: number, changes: Partial<Session>) => {
+    dispatch({ type: 'UPDATE_SESSION', id, changes });
   };
 
   const handleDeleteGoal = (goal: Session) => {
@@ -501,6 +564,15 @@ const App: React.FC = () => {
         return;
       }
 
+      if (
+        localStartTargetRef.current !== null ||
+        localPauseTimeLeftRef.current !== null ||
+        localResetAtRef.current !== null
+      ) {
+        console.log(`Skipping ${trigger} refresh while a local timer mutation is pending`);
+        return;
+      }
+
       const now = Date.now();
       if (now - lastResumeCheckRef.current < 1000) {
         return;
@@ -554,25 +626,25 @@ const App: React.FC = () => {
       // SSE events can reference the selected goal, but the UI countdown is
       // always the shared General timer.
       const eventDispatch = (action: Parameters<typeof dispatch>[0]) => {
+        if (action.type === 'SELECTED_SESSION_CHANGE') {
+          setSelectedGoalId(action.id === timerSession.id ? null : action.id);
+          dispatch(action);
+          return;
+        }
         if (action.type === 'START_SESSION' || action.type === 'PAUSE_SESSION' || action.type === 'RESET_SESSION' || action.type === 'COMPLETE_SESSION') {
-          // Ignore only this tab's own SSE echo. A different target/timeLeft
-          // means another client changed the shared timer and must be applied.
-          if (action.type === 'START_SESSION' && localStartTargetRef.current === action.targetTimeMs) {
-            localStartTargetRef.current = null;
-            return;
-          }
-          if (action.type === 'PAUSE_SESSION' && localPauseTimeLeftRef.current === action.timeLeft) {
-            localPauseTimeLeftRef.current = null;
-            return;
-          }
-          if (action.type === 'RESET_SESSION' && localResetAtRef.current !== null) {
-            localResetAtRef.current = null;
-            return;
-          }
           if (action.type === 'START_SESSION') {
+            localPauseTimeLeftRef.current = null;
+            localResetAtRef.current = null;
             // Establish the receiving client's display clock at the same
             // moment the remote deadline is accepted.
             setClockNow(Date.now());
+            skipGoalAttributionRef.current = true;
+          } else if (action.type === 'PAUSE_SESSION') {
+            localStartTargetRef.current = null;
+            localResetAtRef.current = null;
+          } else {
+            localStartTargetRef.current = null;
+            localPauseTimeLeftRef.current = null;
           }
           setPendingTimerTargetMs(null);
           dispatch({ ...action, id: timerSession.id } as typeof action);
@@ -580,7 +652,13 @@ const App: React.FC = () => {
         }
         dispatch(action);
       };
-      const handle = api.streamEvents(eventDispatch);
+      const handle = api.streamEvents(eventDispatch, undefined, () => {
+        const optimisticIds: number[] = [];
+        if (localStartTargetRef.current !== null || localPauseTimeLeftRef.current !== null || localResetAtRef.current !== null) {
+          optimisticIds.push(timerSession.id);
+        }
+        return optimisticIds;
+      });
       sseHandleRef.current = handle;
 
       return () => {
@@ -645,14 +723,15 @@ const App: React.FC = () => {
           <div className="lg:col-span-8 flex flex-col gap-6">
             <div className="flex flex-col items-center rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">Shared focus timer</p>
-              <div className="mt-6"><SessionCard session={displayTimerSession} isActive={state.activeSessionId === timerSession.id || pendingTimerTargetMs !== null} onStart={handleStart} onPause={handlePause} onDelete={() => undefined} onUpdate={handleTimerDurationUpdate} onReset={handleReset} /></div>
+              {user && <div className="mt-6"><SessionCard session={displayTimerSession} isActive={state.activeSessionId === timerSession.id || pendingTimerTargetMs !== null} onStart={() => handleStart()} onPause={() => handlePause()} onDelete={() => undefined} onUpdate={handleTimerDurationUpdate} onReset={() => handleReset()} /></div>}
               <p className="mt-4 text-sm text-slate-500">{selectedGoal ? `Tracking time for ${selectedGoal.title}` : 'General focus — select a goal below if you want to track it.'}</p>
             </div>
             <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm" aria-labelledby="goals-heading">
               <div className="flex items-center justify-between"><h2 id="goals-heading" className="text-lg font-bold">Goals</h2><Target className="text-brand" size={20} /></div>
               <div className="mt-4 flex flex-col gap-2">
                 <button onClick={() => handleSelectGoal(null)} className={`rounded-xl border px-4 py-3 text-left ${selectedGoalId === null ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}><span className="font-semibold">General</span></button>
-                {goals.map(goal => <motion.div layout key={goal.id} className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${selectedGoalId === goal.id ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}>
+                {!user && goals.map(goal => <SessionCard key={goal.id} session={goal} isActive={goal.state === TimerState.RUNNING} onStart={() => handleStart(goal.id)} onPause={() => handlePause(goal.id)} onDelete={() => handleDeleteGoal(goal)} onUpdate={handleGoalUpdate} onReset={() => handleReset(goal.id)} />)}
+                {user && goals.map(goal => <motion.div layout key={goal.id} className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${selectedGoalId === goal.id ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}>
                   <button onClick={() => handleSelectGoal(goal.id)} className="min-w-0 flex-1 text-left"><span className="block truncate font-semibold">{goal.title}</span><span className="block truncate text-xs text-slate-500">{selectedGoalId === goal.id ? 'Selected for the shared timer' : 'Select to attribute focus time'}</span></button>
                   <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
                     <label className="flex min-w-0 items-center gap-2 text-xs text-slate-500">Daily goal
@@ -662,7 +741,7 @@ const App: React.FC = () => {
                     <button type="button" aria-label={`Delete ${goal.title}`} onClick={() => handleDeleteGoal(goal)} className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500">×</button>
                   </div>
                 </motion.div>)}
-                {goals.length === 0 && <p className="text-sm text-slate-500">No active goals. Add one when you want to track focused time against it.</p>}
+                {goals.length === 0 && <p className="text-sm text-slate-500">No active tasks</p>}
               </div>
             </section>
           </div>

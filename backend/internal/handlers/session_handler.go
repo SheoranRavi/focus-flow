@@ -39,17 +39,19 @@ func (h *SessionHandler) Create(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	h.setRevision(rw, req, userId)
 	rw.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(rw).Encode(session)
 }
 
 func (h *SessionHandler) GetAll(rw http.ResponseWriter, req *http.Request) {
 	userId := req.Context().Value(middleware.UserIDKey).(string)
-	sessions, err := h.SessionSvc.GetAll(req.Context(), userId)
+	sessions, revision, err := h.SessionSvc.GetAllWithRevision(req.Context(), userId)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	rw.Header().Set("X-State-Revision", strconv.FormatInt(revision, 10))
 	_ = json.NewEncoder(rw).Encode(sessions)
 }
 
@@ -84,8 +86,23 @@ func (h *SessionHandler) Event(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	h.writeRevision(rw, req, userId)
+}
 
-	rw.WriteHeader(http.StatusNoContent)
+func (h *SessionHandler) setRevision(rw http.ResponseWriter, req *http.Request, userID string) {
+	if revision, err := h.EventSvc.CurrentRevision(req.Context(), userID); err == nil {
+		rw.Header().Set("X-State-Revision", strconv.FormatInt(revision, 10))
+	}
+}
+
+func (h *SessionHandler) writeRevision(rw http.ResponseWriter, req *http.Request, userID string) {
+	h.setRevision(rw, req, userID)
+	_ = json.NewEncoder(rw).Encode(map[string]int64{"revision": revisionFromHeader(rw)})
+}
+
+func revisionFromHeader(rw http.ResponseWriter) int64 {
+	value, _ := strconv.ParseInt(rw.Header().Get("X-State-Revision"), 10, 64)
+	return value
 }
 
 func (h *SessionHandler) Delete(rw http.ResponseWriter, req *http.Request) {
@@ -102,6 +119,5 @@ func (h *SessionHandler) Delete(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	rw.WriteHeader(http.StatusNoContent)
+	h.writeRevision(rw, req, userId)
 }

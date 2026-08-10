@@ -66,9 +66,10 @@ func main() {
 	analyticsRepo := repo.NewAnalyticRepo(database)
 	userRepo := repo.NewUserRepo(database)
 	webhookRepo := repo.NewRazorpayWebhookEventRepo(database)
+	eventRepo := repo.NewEventRepo(database)
 
 	// Initialize services
-	userService := service.NewUserService(userRepo, authClient)
+	userService := service.NewUserService(userRepo, authClient, eventRepo)
 	paymentService := service.NewPaymentService(userService, service.PaymentConfig{
 		KeyID:         os.Getenv("RAZORPAY_KEY_ID"),
 		KeySecret:     os.Getenv("RAZORPAY_KEY_SECRET"),
@@ -77,8 +78,9 @@ func main() {
 		WebhookSecret: os.Getenv("RAZORPAY_WEBHOOK_SECRET"),
 		APIBaseURL:    os.Getenv("RAZORPAY_API_BASE_URL"),
 	})
-	eventService := service.NewEventService(userService, sessionRepo)
-	sessionService := service.NewSessionService(sessionRepo, eventService, userService)
+	eventService := service.NewEventService(userService, sessionRepo, eventRepo)
+	sessionService := service.NewSessionService(sessionRepo, eventService, userService, eventRepo)
+	eventService.SetTimerCanceler(sessionService)
 	analyticsService := service.NewAnalyticService(sessionService, analyticsRepo)
 
 	// Schedule events
@@ -104,6 +106,7 @@ func main() {
 		eventService,
 		userService,
 		webhookRepo,
+		eventRepo,
 		authMiddleware,
 		loggingMiddleware,
 	)

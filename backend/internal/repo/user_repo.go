@@ -350,6 +350,11 @@ func (repo *UserRepo) GetAll(ctx context.Context) ([]*entities.User, error) {
 }
 
 func (repo *UserRepo) Update(ctx context.Context, u *entities.User, touchSubscriptionUpdatedAt bool) error {
+	_, err := updateUser(ctx, repo.db, u, touchSubscriptionUpdatedAt)
+	return err
+}
+
+func updateUser(ctx context.Context, execer sqlExecer, u *entities.User, touchSubscriptionUpdatedAt bool) (sql.Result, error) {
 	query := `
 		UPDATE users
 		SET
@@ -377,7 +382,7 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User, touchSubscri
 		WHERE id = $20
 	`
 
-	_, err := repo.db.ExecContext(
+	result, err := execer.ExecContext(
 		ctx,
 		query,
 		u.SessionsResetTime,
@@ -405,9 +410,27 @@ func (repo *UserRepo) Update(ctx context.Context, u *entities.User, touchSubscri
 	)
 
 	if err != nil {
-		repo.logger.Error().Err(err).Str("user_id", u.Id).Msg("Failed to update user")
 	}
-	return err
+	return result, err
+}
+
+func (repo *UserRepo) UpdateAndAppendEvent(ctx context.Context, u *entities.User, touchSubscriptionUpdatedAt bool, eventRepo *EventRepo, eventType string, payload any, clientMutationID string) (*UserEvent, error) {
+	tx, err := repo.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	if _, err := updateUser(ctx, tx, u, touchSubscriptionUpdatedAt); err != nil {
+		return nil, err
+	}
+	event, err := eventRepo.AppendTx(ctx, tx, u.Id, eventType, nil, payload, clientMutationID)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return event, nil
 }
 
 func (repo *UserRepo) EnsureUserExists(ctx context.Context, userId, name, email string) error {

@@ -3,9 +3,31 @@ import React from "react";
 import { Session, BackendUser, BackendAnalyticsEntry } from '../types';
 import { getTodayDateTimeString } from './utils';
 
+let lastAppliedRevision = typeof localStorage === 'undefined' ? 0 : Number(localStorage.getItem('stateRevision') || 0);
+let mutationQueue: Promise<unknown> = Promise.resolve();
+const nextMutationId = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+function recordRevision(revision: number): number {
+  if (revision > lastAppliedRevision) {
+    lastAppliedRevision = revision;
+    if (typeof localStorage !== 'undefined') localStorage.setItem('stateRevision', String(revision));
+  }
+  return revision;
+}
+function observeRevision(response: Response): number {
+  return recordRevision(Number(response.headers.get('X-State-Revision') || 0));
+}
+function queued<T>(operation: () => Promise<T>): Promise<T> {
+  const result = mutationQueue.then(operation, operation);
+  mutationQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 async function getAuthToken(): Promise<string | null> {
+  if (import.meta.env.VITE_E2E_TEST === 'true') {
+    return 'e2e-token';
+  }
   const { auth } = await import('../firebase');
   const user = auth.currentUser;
   if (!user) return null;
@@ -69,6 +91,10 @@ export interface StreamEventsHandle {
   cleanup: () => void;
   hasActiveConnection: () => boolean;
 }
+
+export type SessionSnapshot = Session[] & { revision: number };
+
+type OptimisticSessionIds = () => number[];
 
 export interface RazorpayCreateSubscriptionResponse {
   subscription_id: string;
@@ -135,14 +161,21 @@ function mapFrontendToBackend(session: Partial<Session>): Partial<BackendSession
 
 export const api = {
   // Get all sessions for the authenticated user
-  async getSessions(): Promise<Session[] | null> {
+  async getSessions(): Promise<SessionSnapshot | null> {
     const response = await fetchWithAuth('/sessions/');
+    const revision = observeRevision(response);
     const data: BackendSession[] = await response.json();
     console.log(`fetched sessions response: ${JSON.stringify(data)}`);
     if (!data){
       return data;
     }
-    return data.map(mapBackendToFrontend);
+    const sessions = data.map(mapBackendToFrontend) as SessionSnapshot;
+    sessions.revision = revision;
+    return sessions;
+  },
+
+  getLastAppliedRevision(): number {
+    return lastAppliedRevision;
   },
 
   // Create a new session
@@ -192,13 +225,18 @@ export const api = {
 
   streamEvents(
     dispatch: React.Dispatch<AppAction>,
-    onOpen?: () => void | Promise<void>
+    onOpen?: () => void | Promise<void>,
+    getOptimisticSessionIds?: OptimisticSessionIds,
   ): StreamEventsHandle {
     let eventSrc: EventSource | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let reconnectDelay = 1000; // Start with 1 second
     const maxReconnectDelay = 30000; // Max 30 seconds
     let isClosed = false;
+    // SSE callbacks can be invoked concurrently while replay/refetch is
+    // pending. Serialize them so a lower revision can never apply after a
+    // higher revision has already been reconciled.
+    let eventProcessingQueue: Promise<void> = Promise.resolve();
 
     const hasActiveConnection = () => {
       if (isClosed || !eventSrc) {
@@ -208,12 +246,45 @@ export const api = {
       return eventSrc.readyState === EventSource.OPEN;
     };
 
+    const dispatchOrdered = async (event: MessageEvent, action: AppAction) => {
+      const revision = Number(event.lastEventId || 0);
+      if (!revision) { dispatch(action); return; }
+      if (revision <= lastAppliedRevision) return;
+      if (revision > lastAppliedRevision + 1) {
+        try {
+          const replayResponse = await fetchWithAuth(`/events/replay?after_revision=${lastAppliedRevision}`);
+          const replay: Array<{revision:number}> = await replayResponse.json();
+          const newest = replay.reduce((max, missed) => Math.max(max, missed.revision), lastAppliedRevision);
+          const sessionsResponse = await fetchWithAuth('/sessions/');
+          const sessions: BackendSession[] = await sessionsResponse.json();
+          dispatch({
+            type: 'LOAD_SESSIONS',
+            sessions: sessions.map(mapBackendToFrontend),
+            preserveOptimisticIds: getOptimisticSessionIds?.() ?? [],
+            revision: Math.max(newest, Number(sessionsResponse.headers.get('X-State-Revision') || 0)),
+          });
+          lastAppliedRevision = Math.max(newest, Number(sessionsResponse.headers.get('X-State-Revision') || 0));
+          if (typeof localStorage !== 'undefined') localStorage.setItem('stateRevision', String(lastAppliedRevision));
+          if (lastAppliedRevision < revision - 1) return;
+        } catch { return; }
+      }
+      lastAppliedRevision = revision;
+      localStorage.setItem('stateRevision', String(revision));
+      dispatch({...action, revision} as AppAction);
+    };
+
+    const enqueueOrdered = (event: MessageEvent, action: AppAction) => {
+      eventProcessingQueue = eventProcessingQueue
+        .then(() => dispatchOrdered(event, action))
+        .catch((error) => console.error('Failed to apply ordered SSE event:', error));
+    };
+
     const connect = async () => {
       if (isClosed) return;
 
       try {
         const idToken = await getAuthToken();
-        eventSrc = new EventSource(`${API_URL}/events?token=${idToken}`);
+        eventSrc = new EventSource(`${API_URL}/events?token=${idToken}&after_revision=${lastAppliedRevision}`);
 
         // Reset delay on successful connection
         eventSrc.onopen = () => {
@@ -231,7 +302,7 @@ export const api = {
           try {
             const session: BackendSession = JSON.parse(e.data);
             console.log(`adding new session: ${JSON.stringify(session)}`);
-            dispatch({type: 'ADD_SESSION', session: mapBackendToFrontend(session)});
+            enqueueOrdered(e, {type: 'ADD_SESSION', session: mapBackendToFrontend(session)});
           } catch (error) {
             console.error('Error handling new_session event:', error);
           }
@@ -241,7 +312,7 @@ export const api = {
         eventSrc.addEventListener("delete_session", (e) => {
           try {
             const sessionId = parseInt(e.data, 10);
-            dispatch({type: 'DELETE_SESSION', id: sessionId});
+            enqueueOrdered(e, {type: 'DELETE_SESSION', id: sessionId});
           } catch (error) {
             console.error('Error handling delete_session event:', error);
           }
@@ -253,7 +324,7 @@ export const api = {
             const data = JSON.parse(e.data);
             const sessionId = data.id;
             const timeLeft = data.timeLeft;
-            dispatch({type: 'PAUSE_SESSION', id: sessionId, timeLeft: timeLeft});
+            enqueueOrdered(e, {type: 'PAUSE_SESSION', id: sessionId, timeLeft: timeLeft});
           } catch (error) {
             console.error('Error handling pause event:', error);
           }
@@ -263,7 +334,7 @@ export const api = {
         eventSrc.addEventListener("reset_session", (e) => {
           try {
             const sessionId = parseInt(e.data, 10);
-            dispatch({type: 'RESET_SESSION', id: sessionId});
+            enqueueOrdered(e, {type: 'RESET_SESSION', id: sessionId});
           } catch (error) {
             console.error('Error handling reset_session event:', error);
           }
@@ -272,18 +343,26 @@ export const api = {
         // Handle "start" event
         eventSrc.addEventListener("start", (e) => {
           try {
-            const session: BackendSession = JSON.parse(e.data);
-            const frontEndSession = mapBackendToFrontend(session);
+            // Start events intentionally use the compact lifecycle payload
+            // emitted by the backend, not a full BackendSession. In
+            // particular, it has no `title`, so mapping it as a full session
+            // drops `timeLeft` and causes an incorrect timer reconciliation.
+            const data: {
+              id: number;
+              targetTimeMs: number;
+              timeLeft: number;
+              updatedAt?: string;
+            } = JSON.parse(e.data);
             // A start event may be emitted for a goal attribution row. Its
             // countdown still belongs to General, so retain the raw backend
             // deadline even though goal rows omit timer fields in the UI.
-            const targetTime = session.targetTimeMs > 0 ? session.targetTimeMs : Date.now();
-            dispatch({
+            const targetTime = data.targetTimeMs > 0 ? data.targetTimeMs : Date.now();
+            enqueueOrdered(e, {
               type: 'START_SESSION',
-              id: frontEndSession.id,
+              id: data.id,
               targetTimeMs: targetTime,
-              timeLeft: frontEndSession.timeLeft ?? 1500,
-              updatedAt: frontEndSession.updatedAt ?? new Date().toISOString(),
+              timeLeft: data.timeLeft,
+              updatedAt: data.updatedAt ?? new Date().toISOString(),
             });
           } catch (error) {
             console.error('Error handling start event:', error);
@@ -294,7 +373,7 @@ export const api = {
         eventSrc.addEventListener("edit", (e) => {
           try {
             const session: BackendSession = JSON.parse(e.data);
-            dispatch({type: 'UPDATE_SESSION', id: session.id, changes: mapBackendToFrontend(session)});
+            enqueueOrdered(e, {type: 'UPDATE_SESSION', id: session.id, changes: mapBackendToFrontend(session)});
           } catch (error) {
             console.error('Error handling edit event:', error);
           }
@@ -309,9 +388,20 @@ export const api = {
             if (typeof data.sessionDuration !== 'number' || data.sessionDuration <= 0) {
               return;
             }
-            dispatch({type: 'SET_TIMER_DURATION', duration: data.sessionDuration});
+            enqueueOrdered(e, {type: 'SET_TIMER_DURATION', duration: data.sessionDuration});
           } catch (error) {
             console.error('Error handling timer_duration_change event:', error);
+          }
+        });
+
+        eventSrc.addEventListener("selected_session_change", (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            const selectedSessionId = Number(data.selectedSessionId);
+            if (!Number.isFinite(selectedSessionId)) return;
+            enqueueOrdered(e, {type: 'SELECTED_SESSION_CHANGE', id: selectedSessionId});
+          } catch (error) {
+            console.error('Error handling selected_session_change event:', error);
           }
         });
 
@@ -321,7 +411,7 @@ export const api = {
             const data = JSON.parse(e.data);
             const sessionId = data.sessionId;
             const focusSeconds = data.focusSeconds;
-            dispatch({type: 'COMPLETE_SESSION', id: sessionId, focusSeconds: focusSeconds});
+            enqueueOrdered(e, {type: 'COMPLETE_SESSION', id: sessionId, focusSeconds: focusSeconds});
           } catch (error) {
             console.error('Error handling session_complete event:', error);
           }
@@ -334,7 +424,9 @@ export const api = {
             // Backend sends timestamp, convert to time string (HH:MM format)
             const resetTime = data.resetTime;
             const timezone = data.timezone;
-            dispatch({type: 'SET_RESET_TIME', time: resetTime});
+            enqueueOrdered(e, {type: 'SET_RESET_TIME', time: resetTime});
+            // Both fields belong to this one revision; the ordered gate is
+            // evaluated once for the event, then the companion field follows.
             dispatch({type: 'SET_TIMEZONE', timezone: timezone});
             console.log(`Set the resetTime: ${resetTime}, timezone: ${timezone}`);
           } catch (error) {
@@ -351,7 +443,7 @@ export const api = {
             const resetDate = normalizeLastResetDate(data.lastResetDate);
             const autoReset = Boolean(data.autoReset);
             console.log(`From API yesterdayMins: ${yesterdayMins}, streak: ${streak}`);
-            dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate, autoReset});
+            enqueueOrdered(e, {type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate, autoReset});
           } catch (error) {
             console.error('Error handling reset_progress event:', error);
           }
@@ -401,12 +493,20 @@ export const api = {
     id: number,
     eventType: string,
     payload: Partial<Session> = {}
-  ): Promise<void> {
-    await fetchWithAuth(`/sessions/event?type=${eventType}&id=${id}`, {
+  ): Promise<number> {
+    return queued(async () => {
+      const response = await fetchWithAuth(`/sessions/event?type=${eventType}&id=${id}`, {
       method: 'POST',
       body: JSON.stringify({
         ...mapFrontendToBackend(payload),
+        clientMutationId: nextMutationId(),
       }),
+      });
+      const body = await response.json().catch(() => null);
+      return recordRevision(Math.max(
+        Number(response.headers.get('X-State-Revision') || 0),
+        Number(body?.revision || 0),
+      ));
     });
   },
 
@@ -414,12 +514,20 @@ export const api = {
   async sendUserEvent(
     eventType: string,
     payload: UserEventPayload = {}
-  ): Promise<void> {
-    await fetchWithAuth(`/users/event?type=${eventType}`, {
+  ): Promise<number> {
+    return queued(async () => {
+      const response = await fetchWithAuth(`/users/event?type=${eventType}`, {
       method: 'POST',
       body: JSON.stringify({
         ...payload,
+        clientMutationId: nextMutationId(),
       }),
+      });
+      const body = await response.json().catch(() => null);
+      return recordRevision(Math.max(
+        Number(response.headers.get('X-State-Revision') || 0),
+        Number(body?.revision || 0),
+      ));
     });
   },
 

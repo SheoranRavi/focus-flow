@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/sheoranravi/focus-flow/backend/internal/entities"
 	"github.com/sheoranravi/focus-flow/backend/internal/logger"
@@ -20,15 +21,22 @@ type SessionService struct {
 	userTimers map[string]*TickerChan // store the timer corresponding to a user
 	timerMu    sync.Mutex
 	logger     zerolog.Logger
+	eventRepo  *repo.EventRepo
 }
 
-func NewSessionService(repo *repo.SessionRepo, eventSvc *EventService, userSvc *UserService) *SessionService {
+func NewSessionService(sessionRepo *repo.SessionRepo, eventSvc *EventService, userSvc *UserService, eventRepos ...*repo.EventRepo) *SessionService {
+	var eventRepo *repo.EventRepo
+	if len(eventRepos) > 0 {
+		eventRepo = eventRepos[0]
+	}
 	return &SessionService{
-		repo:       repo,
+		repo:       sessionRepo,
 		eventSvc:   eventSvc,
 		userSvc:    userSvc,
 		userTimers: make(map[string]*TickerChan),
-		logger:     logger.NewServiceLogger("session")}
+		logger:     logger.NewServiceLogger("session"),
+		eventRepo:  eventRepo,
+	}
 }
 
 func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entities.Session, error) {
@@ -43,6 +51,11 @@ func (svc *SessionService) GetAll(ctx context.Context, userId string) ([]*entiti
 		return nil, err
 	}
 	return sessions, err
+}
+
+func (svc *SessionService) GetAllWithRevision(ctx context.Context, userId string) ([]*entities.Session, int64, error) {
+	_ = svc.userSvc.EnsureUserExists(ctx, userId)
+	return svc.repo.GetAllForUserWithRevision(ctx, userId)
 }
 
 func (svc *SessionService) GetAllActiveSessions(ctx context.Context) ([]*entities.Session, error) {
@@ -68,10 +81,16 @@ func (svc *SessionService) Add(ctx context.Context, sessionInput CreateInput) (*
 		svc.logger.Error().Msg(newSessionErr.Error())
 		return nil, newSessionErr
 	}
-	session, err := svc.repo.Create(ctx, session)
+	mutationID := uuid.NewString()
+	var err error
+	if svc.eventRepo != nil {
+		session, _, err = svc.repo.CreateAndAppendEvent(ctx, session, svc.eventRepo, string(EventNewSession), session, mutationID)
+	} else {
+		session, err = svc.repo.Create(ctx, session)
+	}
 	if err == nil {
 		svc.logger.Info().Int64("session_id", session.Id).Str("user_id", session.UserId).Msg("Created Session")
-		err = svc.processEvent(ctx, sessionInput.UserId, session.Id, EventNewSession, session)
+		err = svc.processEvent(ctx, sessionInput.UserId, session.Id, EventNewSession, session, mutationID)
 	} else {
 		svc.logger.Error().Msg(err.Error())
 	}
@@ -79,9 +98,15 @@ func (svc *SessionService) Add(ctx context.Context, sessionInput CreateInput) (*
 }
 
 func (svc *SessionService) Delete(ctx context.Context, sessionId int64, userId string) error {
-	err := svc.repo.Delete(ctx, sessionId, userId)
+	mutationID := uuid.NewString()
+	var err error
+	if svc.eventRepo != nil {
+		_, err = svc.repo.DeleteAndAppendEvent(ctx, sessionId, userId, svc.eventRepo, mutationID)
+	} else {
+		err = svc.repo.Delete(ctx, sessionId, userId)
+	}
 	if err == nil {
-		err = svc.processEvent(ctx, userId, sessionId, EventDeleteSession, nil)
+		err = svc.processEvent(ctx, userId, sessionId, EventDeleteSession, nil, mutationID)
 	}
 	return err
 }
@@ -178,7 +203,16 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	if applyPatch {
 		session.ApplyPatch(patchInput)
 		touchUpdatedAt := t == EventStart
-		err = svc.repo.Update(ctx, session, touchUpdatedAt)
+		mutationID := patchInput.ClientMutationID
+		if mutationID == "" {
+			mutationID = uuid.NewString()
+		}
+		patchInput.ClientMutationID = mutationID
+		if svc.eventRepo != nil {
+			_, err = svc.repo.UpdateAndAppendEvent(ctx, session, touchUpdatedAt, svc.eventRepo, string(t), session, mutationID)
+		} else {
+			err = svc.repo.Update(ctx, session, touchUpdatedAt)
+		}
 		if err == nil && t == EventEdit && patchInput.DailyGoalMinutes != nil {
 			user, userErr := svc.userSvc.GetUserDetails(ctx, userId)
 			if userErr != nil {
@@ -190,7 +224,7 @@ func (svc *SessionService) HandleEvent(ctx context.Context, patchInput *entities
 	}
 
 	if err == nil {
-		err = svc.processEvent(ctx, userId, sessionId, t, session)
+		err = svc.processEvent(ctx, userId, sessionId, t, session, patchInput.ClientMutationID)
 	}
 	return err
 }
@@ -285,7 +319,13 @@ func (svc *SessionService) ScheduleEvent(ctx context.Context, session *entities.
 }
 
 func (svc *SessionService) CancelEvent(session *entities.Session) bool {
-	key := session.UserId
+	return svc.CancelUserTimer(session.UserId)
+}
+
+// CancelUserTimer stops and removes the single in-memory timer for a user.
+// Auto-reset uses this directly because it does not operate on one session.
+func (svc *SessionService) CancelUserTimer(userId string) bool {
+	key := userId
 	svc.timerMu.Lock()
 	t, ok := svc.userTimers[key]
 	delete(svc.userTimers, key)
@@ -304,6 +344,7 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 	initTimeLeft := session.TimeLeft
 	initFocusSeconds := session.FocusSeconds
 	targetTimeMs := session.TargetTimeMs
+	lastAttributedTotal := 0
 
 	ctx := context.Background()
 	for {
@@ -317,11 +358,14 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 				// Round up partial seconds so the timer does not complete early.
 				timeLeft = int((remaining + time.Second - 1) / time.Second)
 			}
-			focusSeconds := initFocusSeconds + initTimeLeft - timeLeft
-			attributedSeconds := (initTimeLeft - timeLeft) - (session.FocusSeconds - initFocusSeconds)
-			if attributedSeconds < 0 {
-				attributedSeconds = 0
-			}
+			elapsedSeconds := initTimeLeft - timeLeft
+			focusSeconds := initFocusSeconds + elapsedSeconds
+			attributedTotal, attributedSeconds := attributionDelta(
+				elapsedSeconds,
+				session.FocusSeconds-initFocusSeconds,
+				lastAttributedTotal,
+			)
+			lastAttributedTotal = attributedTotal
 			maxFocusSeconds := initFocusSeconds + initTimeLeft
 			if focusSeconds > maxFocusSeconds {
 				focusSeconds = maxFocusSeconds
@@ -331,15 +375,27 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 			}
 
 			session.TimeLeft = timeLeft
-			session.FocusSeconds = focusSeconds
-			if user, userErr := svc.userSvc.GetUserDetails(ctx, session.UserId); userErr == nil && user != nil && user.ActiveSessionId != nil {
-				if err := svc.repo.IncrementFocusSeconds(ctx, *user.ActiveSessionId, session.UserId, attributedSeconds); err != nil {
+			user, userErr := svc.userSvc.GetUserDetails(ctx, session.UserId)
+			activeSessionId := int64(0)
+			if userErr == nil && user != nil && user.ActiveSessionId != nil {
+				activeSessionId = *user.ActiveSessionId
+			}
+			// General is the timer row, but it is also a valid attribution target.
+			// Only write its focus seconds when General is selected. If another
+			// goal is selected, persist the elapsed seconds only on that goal row;
+			// otherwise General and the goal would both receive the same time.
+			if activeSessionId == 0 || activeSessionId == session.Id {
+				session.FocusSeconds = focusSeconds
+				attributedSeconds = 0
+			} else {
+				session.FocusSeconds = initFocusSeconds
+				if err := svc.repo.IncrementFocusSeconds(ctx, activeSessionId, session.UserId, attributedSeconds); err != nil {
 					svc.logger.Error().Err(err).Msg("Unable to attribute focus time to active goal")
 				}
 			}
 			if timeLeft == 0 {
 				t.Ticker.Stop()
-				svc.handleCompletion(ctx, session)
+				svc.handleCompletion(ctx, t, session)
 				return
 			}
 			if err := svc.repo.UpdateTimerProgress(ctx, session); err != nil {
@@ -353,7 +409,23 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 	}
 }
 
-func (svc *SessionService) handleCompletion(ctx context.Context, session *entities.Session) {
+// attributionDelta returns the cumulative time that is not already represented
+// by the timer row and the new amount to add since the previous tick. The
+// ticker must persist only the delta; adding the cumulative value on every tick
+// causes focus time to grow quadratically.
+func attributionDelta(elapsedSeconds, timerRowDelta, previousAttributedTotal int) (int, int) {
+	attributedTotal := elapsedSeconds - timerRowDelta
+	if attributedTotal < 0 {
+		attributedTotal = 0
+	}
+	delta := attributedTotal - previousAttributedTotal
+	if delta < 0 {
+		delta = 0
+	}
+	return attributedTotal, delta
+}
+
+func (svc *SessionService) handleCompletion(ctx context.Context, ticker *TickerChan, session *entities.Session) {
 	// set session to completed and time left to session duration
 	session.TimeLeft = session.SessionDuration
 	session.IsCompleted = true
@@ -364,13 +436,23 @@ func (svc *SessionService) handleCompletion(ctx context.Context, session *entiti
 		TargetTimeMs: session.TargetTimeMs,
 		FocusSeconds: session.FocusSeconds,
 	}
+	completed, err := svc.repo.CompleteTimerIfCurrent(ctx, session)
+	if err != nil {
+		svc.logger.Error().Err(err).Msg("Unable to persist timer completion")
+		return
+	}
+	if !completed {
+		// This ticker lost ownership of the timer to a newer lifecycle action.
+		return
+	}
 	// broadcast the session completion to clients
 	svc.logger.Info().Msgf("Session %d is complete, updating DB and clients.", session.Id)
-	svc.repo.Update(ctx, session, false)
 	svc.eventSvc.SendCompletion(sessionSched)
 	// remove this ticker from map
 	svc.timerMu.Lock()
-	delete(svc.userTimers, session.UserId)
+	if current, ok := svc.userTimers[session.UserId]; ok && current == ticker {
+		delete(svc.userTimers, session.UserId)
+	}
 	svc.timerMu.Unlock()
 }
 
@@ -379,7 +461,8 @@ func (svc *SessionService) processEvent(ctx context.Context,
 	userId string,
 	sessionId int64,
 	t EventType,
-	s *entities.Session) error {
+	s *entities.Session,
+	clientMutationID ...string) error {
 	if !t.IsValid() {
 		return errors.New("event type not valid")
 	}
@@ -395,7 +478,12 @@ func (svc *SessionService) processEvent(ctx context.Context,
 		svc.CancelEvent(s)
 	}
 	// send out the event to all connections
-	return svc.eventSvc.ReceiveEvent(ctx, userId, sessionId, t, s)
+	mutationID := ""
+	if len(clientMutationID) > 0 {
+		mutationID = clientMutationID[0]
+	}
+	_, err := svc.eventSvc.ReceiveEventWithMutation(ctx, userId, sessionId, t, s, mutationID)
+	return err
 }
 
 type TickerChan struct {

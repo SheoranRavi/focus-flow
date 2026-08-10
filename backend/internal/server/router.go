@@ -18,6 +18,7 @@ func NewRouter(
 	eventSvc *service.EventService,
 	userSvc *service.UserService,
 	webhookRepo *repo.RazorpayWebhookEventRepo,
+	eventRepo *repo.EventRepo,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
 ) http.Handler {
@@ -35,7 +36,7 @@ func NewRouter(
 		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
+		ExposedHeaders:   []string{"Link", "X-State-Revision"},
 		AllowCredentials: false,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
@@ -79,6 +80,7 @@ func NewRouter(
 	r.Route("/events", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Get("/", sseHandler.Handle)
+		r.Get("/replay", sseHandler.Replay)
 	})
 
 	userHandler := handlers.NewUserHandler(userSvc, eventSvc)
