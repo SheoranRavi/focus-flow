@@ -276,9 +276,9 @@ func (repo *SessionRepo) Update(ctx context.Context, s *entities.Session, touchU
 func (repo *SessionRepo) UpdateTimerProgress(ctx context.Context, s *entities.Session) error {
 	_, err := repo.db.ExecContext(ctx, `
 		UPDATE sessions
-		SET focus_seconds = $1, time_left = $2
-		WHERE id = $3 AND user_id = $4 AND state = 1 AND target_time_ms = $5
-	`, s.FocusSeconds, s.TimeLeft, s.Id, s.UserId, s.TargetTimeMs)
+		SET time_left = $1
+		WHERE id = $2 AND user_id = $3 AND state = 1 AND target_time_ms = $4
+	`, s.TimeLeft, s.Id, s.UserId, s.TargetTimeMs)
 	return err
 }
 
@@ -415,7 +415,7 @@ func (repo *SessionRepo) IncrementFocusSeconds(ctx context.Context, sessionId in
 	_, err := repo.db.ExecContext(ctx, `
 		UPDATE sessions
 		SET focus_seconds = focus_seconds + $1
-		WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE AND title <> 'General'
+		WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE
 	`, seconds, sessionId, userId)
 	return err
 }
