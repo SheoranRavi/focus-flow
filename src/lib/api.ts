@@ -70,6 +70,10 @@ export interface StreamEventsHandle {
   hasActiveConnection: () => boolean;
 }
 
+interface StreamEventHandlers {
+  onSelectedSessionChange?: () => void | Promise<void>;
+}
+
 export interface RazorpayCreateSubscriptionResponse {
   subscription_id: string;
   plan_id: string;
@@ -192,7 +196,8 @@ export const api = {
 
   streamEvents(
     dispatch: React.Dispatch<AppAction>,
-    onOpen?: () => void | Promise<void>
+    onOpen?: () => void | Promise<void>,
+    handlers?: StreamEventHandlers
   ): StreamEventsHandle {
     let eventSrc: EventSource | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -354,6 +359,20 @@ export const api = {
             dispatch({type: 'RESET_DAILY_PROGRESS', yesterdayMins: yesterdayMins, streak: streak, fromApi: true, resetDate, autoReset});
           } catch (error) {
             console.error('Error handling reset_progress event:', error);
+          }
+        });
+
+        // Handle "selected_session_change" event
+        eventSrc.addEventListener("selected_session_change", () => {
+          try {
+            if (!handlers?.onSelectedSessionChange) {
+              return;
+            }
+            Promise.resolve(handlers.onSelectedSessionChange()).catch((error) => {
+              console.error('Failed to handle selected_session_change event:', error);
+            });
+          } catch (error) {
+            console.error('Error handling selected_session_change event:', error);
           }
         });
 
