@@ -23,6 +23,7 @@ const DEFAULT_SESSIONS: Session[] = [
 ];
 const GENERAL_TIMER_ID = 0;
 const GENERAL_TIMER: Session = { id: GENERAL_TIMER_ID, title: 'General', sessionDuration: 25 * 60, timeLeft: 25 * 60, isCompleted: false, dailyGoalMinutes: 0, focusSeconds: 0, state: TimerState.PAUSED, noGoal: true };
+const GOAL_SELECTION_ORDER_STORAGE_KEY = 'goalSelectionOrder';
 
 function buildLocalStorageState(): AppState {
   const storedSessions = localStorage.getItem('sessions');
@@ -60,6 +61,24 @@ function buildBlankAuthenticatedState(): AppState {
   };
 }
 
+function loadGoalSelectionOrder(): Record<number, number> {
+  const storedOrder = localStorage.getItem(GOAL_SELECTION_ORDER_STORAGE_KEY);
+  if (!storedOrder) return {};
+
+  try {
+    const parsed = JSON.parse(storedOrder) as Record<string, number>;
+    return Object.entries(parsed).reduce<Record<number, number>>((acc, [key, value]) => {
+      const parsedKey = Number.parseInt(key, 10);
+      if (Number.isFinite(parsedKey) && Number.isFinite(value)) {
+        acc[parsedKey] = value;
+      }
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+}
+
 
 // --- Main App Component ---
 const App: React.FC = () => {
@@ -71,6 +90,7 @@ const App: React.FC = () => {
   const [sseKey, setSseKey] = useState(0);
   const [resetStateReady, setResetStateReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
+  const [goalSelectionOrder, setGoalSelectionOrder] = useState<Record<number, number>>(() => loadGoalSelectionOrder());
 
   const [state, dispatch] = useReducer(appReducer, undefined, () => (
     user ? buildBlankAuthenticatedState() : buildLocalStorageState()
@@ -246,10 +266,89 @@ const App: React.FC = () => {
     const parsedSelection = Number.parseInt(storedSelection, 10);
     return Number.isFinite(parsedSelection) ? parsedSelection : null;
   });
-  const goals = state.sessions
-    .filter(session => session.title !== 'General' && !session.noGoal)
-    .sort((a, b) => (a.id === selectedGoalId ? -1 : b.id === selectedGoalId ? 1 : 0));
+  const goals = useMemo(() => {
+    const goalSessions = state.sessions.filter(session => session.title !== 'General' && !session.noGoal);
+    const baseOrder = new Map(goalSessions.map((session, index) => [session.id, index]));
+
+    return [...goalSessions].sort((a, b) => {
+      const aOrder = goalSelectionOrder[a.id];
+      const bOrder = goalSelectionOrder[b.id];
+      const aHasOrder = Number.isFinite(aOrder);
+      const bHasOrder = Number.isFinite(bOrder);
+
+      if (aHasOrder && bHasOrder && aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+
+      if (aHasOrder !== bHasOrder) {
+        return aHasOrder ? -1 : 1;
+      }
+
+      return (baseOrder.get(a.id) ?? 0) - (baseOrder.get(b.id) ?? 0);
+    });
+  }, [goalSelectionOrder, state.sessions]);
+  const goalIdsSignature = useMemo(
+    () => state.sessions
+      .filter(session => session.title !== 'General' && !session.noGoal)
+      .map(session => session.id)
+      .join(','),
+    [state.sessions]
+  );
   const selectedGoal = goals.find(goal => goal.id === selectedGoalId);
+
+  useEffect(() => {
+    if (selectedGoalId === null) {
+      return;
+    }
+
+    setGoalSelectionOrder((prev) => {
+      const goalIds = state.sessions
+        .filter(session => session.title !== 'General' && !session.noGoal)
+        .map(session => session.id);
+
+      if (!goalIds.includes(selectedGoalId)) {
+        return prev;
+      }
+
+      const orderedGoalIds = [...goalIds].sort((a, b) => {
+        const aOrder = prev[a];
+        const bOrder = prev[b];
+        const aHasOrder = Number.isFinite(aOrder);
+        const bHasOrder = Number.isFinite(bOrder);
+
+        if (aHasOrder && bHasOrder && aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+
+        if (aHasOrder !== bHasOrder) {
+          return aHasOrder ? -1 : 1;
+        }
+
+        return goalIds.indexOf(a) - goalIds.indexOf(b);
+      });
+
+      const nextOrder: Record<number, number> = { [selectedGoalId]: 0 };
+      let nextIndex = 1;
+      for (const goalId of orderedGoalIds) {
+        if (goalId === selectedGoalId) {
+          continue;
+        }
+        nextOrder[goalId] = nextIndex++;
+      }
+
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(nextOrder);
+      const isSameOrder =
+        prevKeys.length === nextKeys.length &&
+        nextKeys.every((key) => prev[Number(key)] === nextOrder[Number(key)]);
+
+      return isSameOrder ? prev : nextOrder;
+    });
+  }, [goalIdsSignature, selectedGoalId]);
+
+  useEffect(() => {
+    localStorage.setItem(GOAL_SELECTION_ORDER_STORAGE_KEY, JSON.stringify(goalSelectionOrder));
+  }, [goalSelectionOrder]);
 
   // The backend persists General by its real session ID. The UI represents
   // that choice as null so it remains distinct from a selected goal.
@@ -302,7 +401,7 @@ const App: React.FC = () => {
     if (state.activeSessionId === null && pendingTimerTargetMs === null) return;
     const interval = setInterval(() => {
       setClockNow(Date.now());
-      dispatch({type: 'TICK', now: Date.now(), goalId: user ? null : selectedGoalId});
+      dispatch({type: 'TICK', now: Date.now(), goalId: selectedGoalId});
     }, 1000);
     return () => clearInterval(interval);
   }, [state.activeSessionId, pendingTimerTargetMs, selectedGoalId, user])
@@ -580,7 +679,9 @@ const App: React.FC = () => {
         }
         dispatch(action);
       };
-      const handle = api.streamEvents(eventDispatch);
+      const handle = api.streamEvents(eventDispatch, undefined, {
+        onSelectedSessionChange: syncUserFromApi,
+      });
       sseHandleRef.current = handle;
 
       return () => {
@@ -590,7 +691,7 @@ const App: React.FC = () => {
         handle.cleanup();
       };
     }
-  }, [user, syncStateFromApi, sseKey, timerSession.id])
+  }, [user, syncStateFromApi, sseKey, timerSession.id, syncUserFromApi])
 
   // Derived State for UI
   const activeSessionTitle = selectedGoal?.title || "General";
@@ -652,7 +753,7 @@ const App: React.FC = () => {
               <div className="flex items-center justify-between"><h2 id="goals-heading" className="text-lg font-bold">Goals</h2><Target className="text-brand" size={20} /></div>
               <div className="mt-4 flex flex-col gap-2">
                 <button onClick={() => handleSelectGoal(null)} className={`rounded-xl border px-4 py-3 text-left ${selectedGoalId === null ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}><span className="font-semibold">General</span></button>
-                {goals.map(goal => <motion.div layout key={goal.id} className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${selectedGoalId === goal.id ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}>
+                {goals.map(goal => <motion.div layout key={goal.id} className={`cursor-pointer flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${selectedGoalId === goal.id ? 'border-brand bg-brand-soft' : 'border-slate-200'}`}>
                   <button onClick={() => handleSelectGoal(goal.id)} className="min-w-0 flex-1 text-left"><span className="block truncate font-semibold">{goal.title}</span><span className="block truncate text-xs text-slate-500">{selectedGoalId === goal.id ? 'Selected for the shared timer' : 'Select to attribute focus time'}</span></button>
                   <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
                     <label className="flex min-w-0 items-center gap-2 text-xs text-slate-500">Daily goal
