@@ -301,8 +301,6 @@ func (svc *SessionService) CancelEvent(session *entities.Session) bool {
 
 func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session) {
 	var timeLeft int
-	initTimeLeft := session.TimeLeft
-	initFocusSeconds := session.FocusSeconds
 	targetTimeMs := session.TargetTimeMs
 
 	ctx := context.Background()
@@ -317,22 +315,17 @@ func (svc *SessionService) tickHandler(t *TickerChan, session *entities.Session)
 				// Round up partial seconds so the timer does not complete early.
 				timeLeft = int((remaining + time.Second - 1) / time.Second)
 			}
-			focusSeconds := initFocusSeconds + initTimeLeft - timeLeft
-			attributedSeconds := (initTimeLeft - timeLeft) - (session.FocusSeconds - initFocusSeconds)
+			// num seconds increase from previous tick
+			attributedSeconds := 1
 			if attributedSeconds < 0 {
 				attributedSeconds = 0
 			}
-			maxFocusSeconds := initFocusSeconds + initTimeLeft
-			if focusSeconds > maxFocusSeconds {
-				focusSeconds = maxFocusSeconds
-			}
-			if focusSeconds < 0 {
-				focusSeconds = 0
-			}
 
 			session.TimeLeft = timeLeft
-			session.FocusSeconds = focusSeconds
 			if user, userErr := svc.userSvc.GetUserDetails(ctx, session.UserId); userErr == nil && user != nil && user.ActiveSessionId != nil {
+				if *user.ActiveSessionId == session.Id {
+					session.FocusSeconds += attributedSeconds
+				}
 				if err := svc.repo.IncrementFocusSeconds(ctx, *user.ActiveSessionId, session.UserId, attributedSeconds); err != nil {
 					svc.logger.Error().Err(err).Msg("Unable to attribute focus time to active goal")
 				}
