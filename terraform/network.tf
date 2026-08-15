@@ -76,9 +76,9 @@ resource "oci_core_subnet" "public" {
   compartment_id             = var.compartment_ocid
   vcn_id                     = oci_core_vcn.focus_flow.id
   display_name               = "focus-flow-public-subnet"
-  cidr_block                  = var.public_subnet_cidr
-  route_table_id              = oci_core_route_table.public.id
-  security_list_ids           = [oci_core_security_list.public.id]
+  cidr_block                 = var.public_subnet_cidr
+  route_table_id             = oci_core_route_table.public.id
+  security_list_ids          = [oci_core_security_list.public.id]
   prohibit_public_ip_on_vnic = false
-  dns_label                   = "public"
+  dns_label                  = "public"
 }

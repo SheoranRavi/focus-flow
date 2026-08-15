@@ -62,11 +62,11 @@ variable "instance_name" {
 variable "ocpus" {
   description = "Number of OCPUs for the Ampere A1 Flex VM."
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "memory_in_gbs" {
   description = "RAM in GB for the Ampere A1 Flex VM."
   type        = number
-  default     = 12
+  default     = 6
 }
