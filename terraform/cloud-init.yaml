@@ -1,0 +1,36 @@
+#cloud-config
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - jq
+  - unzip
+  - htop
+  - ufw
+
+runcmd:
+  # Install Docker from Ubuntu's repositories.
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose-v2
+  - systemctl enable --now docker
+
+  # Allow the ubuntu user to run Docker without sudo.
+  - usermod -aG docker ubuntu
+
+  # Application directory.
+  - mkdir -p /opt/focus-flow
+  - chown ubuntu:ubuntu /opt/focus-flow
+
+  # Basic host firewall. OCI security rules remain the primary network boundary.
+  - ufw --force default deny incoming
+  - ufw --force default allow outgoing
+  - ufw allow from ${admin_cidr} to any port 22 proto tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+final_message: "Focus Flow VM bootstrap complete."
