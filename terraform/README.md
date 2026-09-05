@@ -7,8 +7,8 @@ Terraform creates:
 - Internet gateway
 - Route table
 - Custom security list
-- Ampere A1 Flex VM (2 OCPU / 12 GB)
-- Ubuntu 24.04 ARM64
+- VM.Standard.E2.1.Micro VM
+- Ubuntu 24.04 x86_64
 - Cloud-init bootstrap with Docker, Docker Compose, Git, and UFW
 
 ## Before `terraform apply`

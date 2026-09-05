@@ -11,12 +11,7 @@ resource "oci_core_instance" "focus_flow" {
   availability_domain = local.selected_availability_domain
   display_name        = var.instance_name
 
-  shape = "VM.Standard.A1.Flex"
-
-  shape_config {
-    ocpus         = var.ocpus
-    memory_in_gbs = var.memory_in_gbs
-  }
+  shape = "VM.Standard.E2.1.Micro"
 
   create_vnic_details {
     subnet_id                 = oci_core_subnet.public.id

@@ -2,7 +2,7 @@ tenancy_ocid     = "ocid1.tenancy.oc1..REPLACE_ME"
 compartment_ocid = "ocid1.compartment.oc1..REPLACE_ME"
 region           = "REPLACE_WITH_YOUR_REGION"
 
-# Get this from Oracle's Ubuntu 24.04 ARM64 image list for your region.
+# Get this from Oracle's Ubuntu 24.04 x86_64 image list for your region.
 ubuntu_image_ocid = "ocid1.image.oc1..REPLACE_ME"
 
 # Your public SSH key, e.g. the contents of ~/.ssh/id_ed25519.pub

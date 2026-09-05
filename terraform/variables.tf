@@ -26,7 +26,7 @@ variable "availability_domain" {
 }
 
 variable "ubuntu_image_ocid" {
-  description = "Region-specific OCID for the Ubuntu 24.04 ARM64 image."
+  description = "Region-specific OCID for the Ubuntu 24.04 x86_64 image."
   type        = string
 }
 
@@ -57,16 +57,4 @@ variable "instance_name" {
   description = "Display name for the Focus Flow VM."
   type        = string
   default     = "focus-flow-vm"
-}
-
-variable "ocpus" {
-  description = "Number of OCPUs for the Ampere A1 Flex VM."
-  type        = number
-  default     = 1
-}
-
-variable "memory_in_gbs" {
-  description = "RAM in GB for the Ampere A1 Flex VM."
-  type        = number
-  default     = 6
 }
