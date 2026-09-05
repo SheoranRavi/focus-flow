@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/focus-api
+  IMAGE_NAME: sheoranravi/task-quota/focus-api
 
 jobs:
   build:
@@ -35,5 +35,5 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/${{ github.repository }}/focus-api:latest
-            ghcr.io/${{ github.repository }}/focus-api:${{ github.sha }}
+            ghcr.io/sheoranravi/task-quota/focus-api:latest
+            ghcr.io/sheoranravi/task-quota/focus-api:${{ github.sha }}

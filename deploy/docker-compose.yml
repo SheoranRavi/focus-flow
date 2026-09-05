@@ -1,7 +1,7 @@
 services:
 
   api:
-    image: ghcr.io/YOUR_GITHUB_USERNAME/focus-api:latest
+    image: ghcr.io/sheoranravi/task-quota/focus-api:latest
     container_name: focus-flow-api
     restart: unless-stopped
 
