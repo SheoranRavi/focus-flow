@@ -1,4 +1,4 @@
-name: Build and Push API
+name: Build and Deploy API
 
 on:
   push:
@@ -35,5 +35,46 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/sheoranravi/task-quota/focus-api:latest
-            ghcr.io/sheoranravi/task-quota/focus-api:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync Docker Compose file
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          scp \
+            -i ~/.ssh/deploy_key \
+            deploy/docker-compose.yml \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/focus-flow/docker-compose.yml"
+
+      - name: Deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          ssh \
+            -i ~/.ssh/deploy_key \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd /opt/focus-flow && \
+             docker pull ghcr.io/${{ env.IMAGE_NAME }}:${IMAGE_TAG} && \
+             IMAGE_TAG=${IMAGE_TAG} docker compose up -d api"
