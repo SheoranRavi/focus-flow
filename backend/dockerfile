@@ -2,21 +2,25 @@
 FROM golang:1.25.1-alpine AS builder
 
 WORKDIR /app
+
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o ./bin/focus-api ./cmd/api
 
-# Run stage
-FROM alpine:latest
+RUN CGO_ENABLED=0 \
+    go build -o /app/focus-api ./cmd/api
+
+
+# Runtime stage
+FROM alpine:3.22
 
 RUN apk add --no-cache tzdata
 
 WORKDIR /app
-COPY --from=builder /app/bin/focus-api .
 
-# Fly expects your app to listen on 0.0.0.0
+COPY --from=builder /app/focus-api .
+
 ENV PORT=8080
 
 EXPOSE 8080

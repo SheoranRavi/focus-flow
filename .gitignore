@@ -58,4 +58,16 @@ bin/
 
 # Editor/IDE
 # .idea/
-# .vscode/
+.vscode/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+.terraform.lock.hcl
+
+# Local Terraform variables may contain credentials/OCIDs.
+terraform.tfvars
+*.auto.tfvars
